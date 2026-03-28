@@ -10,47 +10,7 @@ module.exports = (client, _config, utils) => {
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      // Se for o /recrutar, mostrar modal
-      if (interaction.commandName === 'recrutar') {
-        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-        const modal = new ModalBuilder()
-          .setCustomId('modal_recrutamento')
-          .setTitle('Formulário de Recrutamento');
-        const nomeInput = new TextInputBuilder()
-          .setCustomId('nome')
-          .setLabel('Nome')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        const idadeInput = new TextInputBuilder()
-          .setCustomId('idade')
-          .setLabel('Idade')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        const idFiveMInput = new TextInputBuilder()
-          .setCustomId('id_fivem')
-          .setLabel('ID FiveM')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        const telefoneInput = new TextInputBuilder()
-          .setCustomId('telefone')
-          .setLabel('Telefone')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        const recrutadorInput = new TextInputBuilder()
-          .setCustomId('recrutador')
-          .setLabel('Recrutador')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(nomeInput),
-          new ActionRowBuilder().addComponents(idadeInput),
-          new ActionRowBuilder().addComponents(idFiveMInput),
-          new ActionRowBuilder().addComponents(telefoneInput),
-          new ActionRowBuilder().addComponents(recrutadorInput)
-        );
-        await interaction.showModal(modal);
-        return;
-      }
+      // ...comando /recrutar removido, agora feito via botão fixo...
       // Outros comandos
       try {
         await command.execute(interaction);
@@ -68,8 +28,8 @@ module.exports = (client, _config, utils) => {
       const telefone = interaction.fields.getTextInputValue('telefone');
       const recrutador = interaction.fields.getTextInputValue('recrutador');
       const user = interaction.user;
-      const canalAnalise = interaction.guild.channels.cache.get(config.canais.analise);
-      if (!canalAnalise) return interaction.reply({ content: 'Canal de análise não encontrado.', flags: 64 });
+      const canalRecrutamento = interaction.guild.channels.cache.get(config.canais.recrutamento);
+      if (!canalRecrutamento) return interaction.reply({ content: 'Canal de recrutamento não encontrado.', flags: 64 });
       const embed = {
         color: 0x3498db,
         title: '📋 Nova Solicitação de Recrutamento',
@@ -83,41 +43,84 @@ module.exports = (client, _config, utils) => {
         ]
       };
       await interaction.reply({ content: 'Sua solicitação foi enviada para análise! Aguarde as próximas instruções.', flags: 64 });
-      // O resto do fluxo roda em background para evitar timeout
-      (async () => {
-        await canalAnalise.send({ embeds: [embed], components: recrutamentoButtons });
-        try {
-          const guildMember = await interaction.guild.members.fetch(user.id);
-          console.log('DEBUG - ID do cargo PROVAR MANTO:', config.cargos.provarManto, typeof config.cargos.provarManto);
-          await guildMember.roles.add(config.cargos.provarManto);
-          // Avisar no canal provar-manto
-          const canalProvarManto = interaction.guild.channels.cache.get(config.canais.provarManto);
-          if (canalProvarManto) {
-            await canalProvarManto.send({
-              content: `👔 <@${user.id}>, você tem 10 minutos para enviar o manto (imagem) aqui neste canal! Após esse prazo, o cargo será removido automaticamente.`
-            });
-          }
-          // Agendar remoção do cargo e aviso em validar-setagem
-          setTimeout(async () => {
-            try {
-              await guildMember.roles.remove(config.cargos.provarManto);
-              const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
-              if (canalValidarSetagem) {
-                await canalValidarSetagem.send({
-                  content: `✅ <@${user.id}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`
-                });
-              }
-            } catch (err) {
-              console.error('Erro ao remover cargo PROVAR MANTO ou avisar:', err);
-            }
-          }, 10 * 60 * 1000); // 10 minutos
-        } catch (err) {
-          console.error('Erro ao atribuir cargo PROVAR MANTO:', err);
+      // Enviar embed com botões para aprovar/recusar no canal validar-setagem
+      const canalValidarSetagem = interaction.guild.channels.cache.get('1442240838699712623');
+      if (canalValidarSetagem) {
+        await canalValidarSetagem.send({ embeds: [embed], components: recrutamentoButtons });
+      } else {
+        console.error('Canal de validação de setagem não encontrado!');
+      }
+      // Canal de solicitação de recrutamento removido: não enviar embed informativo
+      try {
+        const guildMember = await interaction.guild.members.fetch(user.id);
+        console.log('DEBUG - ID do cargo PROVAR MANTO:', config.cargos.provarManto, typeof config.cargos.provarManto);
+        await guildMember.roles.add(config.cargos.provarManto);
+        // Avisar no canal provar-manto
+        const canalProvarManto = interaction.guild.channels.cache.get(config.canais.provarManto);
+        if (canalProvarManto) {
+          const avisoMsg = await canalProvarManto.send({
+            content: `<@${user.id}>, você tem 10 minutos para enviar o manto (imagem) aqui neste canal! Após esse prazo, o cargo será removido automaticamente.`
+          });
+          // Deletar a mensagem de aviso após 1 minuto
+          setTimeout(() => {
+            avisoMsg.delete().catch(() => {});
+          }, 60 * 3000);
         }
-      })();
+        // Agendar remoção do cargo e aviso em validar-setagem
+        setTimeout(async () => {
+          try {
+            await guildMember.roles.remove(config.cargos.provarManto);
+            // Não enviar mensagem de finalização de tempo de PROVAR MANTO
+          } catch (err) {
+            console.error('Erro ao remover cargo PROVAR MANTO ou avisar:', err);
+          }
+        }, 10 * 60 * 1000); // 10 minutos
+      } catch (err) {
+        console.error('Erro ao atribuir cargo PROVAR MANTO:', err);
+      }
     }
 
-    // Handler para botões de aprovação/reprovação
+    // Handler para botão de abrir recrutamento
+    if (interaction.isButton() && interaction.customId === 'abrir_recrutamento') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const modal = new ModalBuilder()
+        .setCustomId('modal_recrutamento')
+        .setTitle('Formulário de Recrutamento');
+      const nomeInput = new TextInputBuilder()
+        .setCustomId('nome')
+        .setLabel('Nome')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      const idadeInput = new TextInputBuilder()
+        .setCustomId('idade')
+        .setLabel('Idade')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      const idFiveMInput = new TextInputBuilder()
+        .setCustomId('id_fivem')
+        .setLabel('ID FiveM')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      const telefoneInput = new TextInputBuilder()
+        .setCustomId('telefone')
+        .setLabel('Telefone')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      const recrutadorInput = new TextInputBuilder()
+        .setCustomId('recrutador')
+        .setLabel('Recrutador')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(nomeInput),
+        new ActionRowBuilder().addComponents(idadeInput),
+        new ActionRowBuilder().addComponents(idFiveMInput),
+        new ActionRowBuilder().addComponents(telefoneInput),
+        new ActionRowBuilder().addComponents(recrutadorInput)
+      );
+      await interaction.showModal(modal);
+      return;
+    }
     if (interaction.isButton()) {
       if (interaction.customId === 'aprovar_recrutamento') {
         // Extrair dados do candidato do embed
@@ -132,20 +135,43 @@ module.exports = (client, _config, utils) => {
         try {
           const guildMember = await interaction.guild.members.fetch(candidatoId);
           await guildMember.roles.add(config.cargos.socio);
+          // Remover cargos de provar-manto e visitante
+          if (config.cargos.provarManto) {
+            await guildMember.roles.remove(config.cargos.provarManto).catch(() => {});
+          }
+          // Remover cargo de visitante ao aprovar
+          if (config.cargos.visitante) {
+            await guildMember.roles.remove(config.cargos.visitante).catch(() => {});
+          }
           // Alterar nick para o padrão
           const novoNick = utils.formatarNick(nome, id_fivem);
           await guildMember.setNickname(novoNick);
         } catch (err) {
           await interaction.update({
-            content: `⚠️ Não foi possível atribuir o cargo de sócio ou alterar o nick de <@${candidatoId}>. Verifique se o usuário está no servidor e se o bot tem permissão.`,
+            content: `⚠️ Não foi possível atribuir/remover cargos ou alterar o nick de <@${candidatoId}>. Verifique se o usuário está no servidor e se o bot tem permissão.`,
             embeds: interaction.message.embeds,
             components: []
           });
           return;
         }
+        // Montar embed de aprovação com borda verde e campo de status
+        const embedAprovado = {
+          title: embed.title || 'Recrutamento',
+          description: embed.description || '',
+          fields: [
+            ...embed.fields,
+            {
+              name: 'Status',
+              value: `✅ Aprovado por <@${interaction.user.id}>`,
+              inline: false
+            }
+          ],
+          color: 0x57F287 // verde
+        };
+        // Canal de solicitação de recrutamento removido: não enviar embed de aprovação
         await interaction.update({
-          content: '✅ Recrutamento aprovado! Por favor, envie o manto (imagem) deste candidato como resposta nesta conversa. O processo só será concluído após o envio da imagem.',
-          embeds: interaction.message.embeds,
+          content: null,
+          embeds: [embedAprovado],
           components: []
         });
         // Coletar próxima mensagem com imagem
@@ -156,12 +182,58 @@ module.exports = (client, _config, utils) => {
             const mantoMsg = collected.first();
             // Confirmação visual
             await channel.send({ content: `🧥 Manto recebido para <@${candidatoId}>! Processo concluído.`, reply: { messageReference: mantoMsg.id } });
+            // Enviar validação de setagem para o canal privado após envio do manto
+            const canalValidarSetagem = interaction.guild.channels.cache.get('1442240838699712623');
+            if (canalValidarSetagem) {
+              await canalValidarSetagem.send({
+                content: `✅ <@${candidatoId}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`
+              });
+            } else {
+              console.error('Canal de validação de setagem não encontrado!');
+            }
           })
           .catch(() => {
-            channel.send('⏰ Tempo esgotado! O manto não foi enviado. Recomece o processo se necessário.');
+            // Mensagens removidas conforme solicitado: não avisar timeout nem canal privado
           });
       } else if (interaction.customId === 'reprovar_recrutamento') {
-        await interaction.update({ content: '❌ Recrutamento reprovado.', embeds: interaction.message.embeds, components: [] });
+        // Copiar o embed original e mudar a cor para vermelho, garantindo todos os campos obrigatórios
+        const embedOriginal = interaction.message.embeds[0];
+        // Copiar os campos e adicionar o status de reprovação
+        const fields = Array.isArray(embedOriginal.fields) ? [...embedOriginal.fields] : [];
+        // Adicionar campo de status de reprovação
+        fields.push({
+          name: 'Status',
+          value: `❌ Reprovado por <@${interaction.user.id}>`,
+          inline: false
+        });
+        const embedReprovado = {
+          title: embedOriginal.title || 'Recrutamento',
+          description: embedOriginal.description || '',
+          fields,
+          color: 0xED4245
+        };
+        // Remover cargos de provar-manto e visitante ao reprovar
+        const idFieldReprovado = embedOriginal.fields.find(f => f.name.startsWith('ID | Discord'));
+        const candidatoIdReprovado = idFieldReprovado ? idFieldReprovado.value.split(' ')[0] : null;
+        if (candidatoIdReprovado) {
+          try {
+            const guildMember = await interaction.guild.members.fetch(candidatoIdReprovado);
+            if (config.cargos.provarManto) {
+              await guildMember.roles.remove(config.cargos.provarManto).catch(() => {});
+            }
+            if (config.cargos.visitante) {
+              await guildMember.roles.remove(config.cargos.visitante).catch(() => {});
+            }
+            if (config.cargos.reprovadoRecrutamento) {
+              await guildMember.roles.add(config.cargos.reprovadoRecrutamento).catch(() => {});
+            }
+          } catch {}
+        }
+        await interaction.update({
+          content: null,
+          embeds: [embedReprovado],
+          components: []
+        });
       }
     }
   });
