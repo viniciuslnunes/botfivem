@@ -4,7 +4,9 @@
   "description": "Bot Discord para servidor FiveM Torcidas",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",

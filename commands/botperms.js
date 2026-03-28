@@ -37,6 +37,6 @@ module.exports = {
                 msg += `• Bot pode dar/remover cargo: ${botHighestRole.position > userHighestRole.position ? '✅' : '❌'}\n`;
             }
         }
-        await interaction.reply({ content: msg, ephemeral: true });
+        await interaction.reply({ content: msg, flags: 64 });
     }
 };
