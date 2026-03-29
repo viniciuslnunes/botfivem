@@ -149,8 +149,9 @@ module.exports = (client, _config, utils) => {
           // Registrar aprovação no banco
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
         } catch (err) {
+          console.error('Erro ao registrar aprovação no banco:', err);
           await interaction.update({
-            content: `⚠️ Não foi possível atribuir/remover cargos, alterar o nick ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor, se o bot tem permissão e se o banco está acessível.`,
+            content: `⚠️ Não foi possível atribuir/remover cargos, alterar o nick ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor, se o bot tem permissão e se o banco está acessível.\n\nErro técnico: ${err.message}`,
             embeds: interaction.message.embeds,
             components: []
           });
