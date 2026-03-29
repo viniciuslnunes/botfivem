@@ -6,6 +6,118 @@ const config = require('../config/index.js');
 
 module.exports = (client, _config, utils) => {
   client.on('interactionCreate', async interaction => {
+    // Handler para botão de abrir modal de bloqueio de ID
+    if (interaction.isButton() && interaction.customId === 'abrir_bloquearid') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const modal = new ModalBuilder()
+        .setCustomId('modal_bloquearid')
+        .setTitle('Bloquear novo ID - Não Recrutar');
+      const idInput = new TextInputBuilder()
+        .setCustomId('id')
+        .setLabel('ID FiveM para bloquear')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(8);
+      const motivoInput = new TextInputBuilder()
+        .setCustomId('motivo')
+        .setLabel('Motivo do bloqueio')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMinLength(3)
+        .setMaxLength(100);
+      const provaInput = new TextInputBuilder()
+        .setCustomId('prova')
+        .setLabel('Prova (opcional, link ou info)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(100);
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(idInput),
+        new ActionRowBuilder().addComponents(motivoInput),
+        new ActionRowBuilder().addComponents(provaInput)
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+    // Handler para botão de abrir modal de validação de ID
+    if (interaction.isButton() && interaction.customId === 'abrir_validarid') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const modal = new ModalBuilder()
+        .setCustomId('modal_validarid')
+        .setTitle('Validar ID - Não Recrutar');
+      const idInput = new TextInputBuilder()
+        .setCustomId('id_fivem')
+        .setLabel('ID FiveM para validar')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(8);
+      modal.addComponents(new ActionRowBuilder().addComponents(idInput));
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // Handler para submissão do modal de validação de ID
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_validarid') {
+      const id_fivem = interaction.fields.getTextInputValue('id_fivem');
+      // Buscar IDs bloqueados no canal de histórico-nao-recrutar
+      const canalHistorico = interaction.guild.channels.cache.get('1487943943680163890');
+      let bloqueado = null;
+      if (canalHistorico && canalHistorico.isTextBased()) {
+        try {
+          const msgs = await canalHistorico.messages.fetch({ limit: 100 });
+          msgs.forEach(msg => {
+            if (msg.embeds && msg.embeds.length > 0) {
+              const embed = msg.embeds[0];
+              const idField = embed.fields?.find(f => f.name === 'ID');
+              if (idField && idField.value === id_fivem) {
+                bloqueado = embed;
+              }
+            }
+          });
+        } catch (err) {
+          console.error('Erro ao buscar histórico de não recrutar:', err);
+        }
+      }
+      if (bloqueado) {
+        await interaction.reply({
+          content: `❌ O ID FiveM **${id_fivem}** está bloqueado para recrutamento!`,
+          embeds: [bloqueado],
+          flags: 64
+        });
+      } else {
+        await interaction.reply({
+          content: `✅ O ID FiveM **${id_fivem}** está **liberado** para recrutamento!`,
+          flags: 64
+        });
+      }
+      return;
+    }
+// Handler para submissão do modal de bloqueio de ID
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_bloquearid') {
+      const id = interaction.fields.getTextInputValue('id');
+      const motivo = interaction.fields.getTextInputValue('motivo');
+      const prova = interaction.fields.getTextInputValue('prova');
+      const canalHistorico = interaction.guild.channels.cache.get('1487943943680163890');
+      if (!canalHistorico || !canalHistorico.isTextBased()) {
+        return interaction.reply({ content: 'Canal de histórico não encontrado.', flags: 64 });
+      }
+      const embed = {
+        color: 0xED4245,
+        title: 'ID Bloqueado para Recrutamento',
+        fields: [
+          { name: 'ID', value: id, inline: false },
+          { name: 'Motivo', value: motivo, inline: false },
+          { name: 'Prova', value: prova || 'Não informado', inline: false },
+          { name: 'Autor', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'Data', value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: false }
+        ]
+      };
+      await canalHistorico.send({ embeds: [embed] });
+      await interaction.reply({ content: `ID ${id} bloqueado com sucesso!`, flags: 64 });
+      return;
+    }
     // Comando slash
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
@@ -167,9 +279,7 @@ module.exports = (client, _config, utils) => {
     }
     if (interaction.isButton()) {
       if (interaction.customId === 'aprovar_recrutamento') {
-        // Deferir a atualização da interação imediatamente para evitar expiração
-        await interaction.deferUpdate();
-        // Extrair dados do candidato do embed
+        // Extrair dados do candidato do embed ANTES da busca no histórico
         const embed = interaction.message.embeds[0];
         const idField = embed.fields.find(f => f.name.startsWith('ID | Discord'));
         const candidatoId = idField ? idField.value.split(' ')[0] : null;
@@ -177,6 +287,35 @@ module.exports = (client, _config, utils) => {
         const idFiveMField = embed.fields.find(f => f.name === 'ID FiveM');
         const nome = nomeField ? nomeField.value : '';
         const id_fivem = idFiveMField ? idFiveMField.value : '';
+        // Buscar IDs bloqueados no canal de histórico-nao-recrutar
+        const canalHistorico = interaction.guild.channels.cache.get('1487943943680163890');
+        let bloqueado = null;
+        if (canalHistorico && canalHistorico.isTextBased()) {
+          try {
+            const msgs = await canalHistorico.messages.fetch({ limit: 100 });
+            msgs.forEach(msg => {
+              if (msg.embeds && msg.embeds.length > 0) {
+                const embedHist = msg.embeds[0];
+                const idFieldHist = embedHist.fields?.find(f => f.name === 'ID');
+                if (idFieldHist && idFieldHist.value === id_fivem) {
+                  bloqueado = embedHist;
+                }
+              }
+            });
+          } catch (err) {
+            console.error('Erro ao buscar histórico de não recrutar:', err);
+          }
+        }
+        if (bloqueado) {
+          await interaction.deferUpdate();
+          await interaction.channel.send({
+            content: `❌ O ID FiveM **${id_fivem}** está bloqueado para recrutamento!`,
+            embeds: [bloqueado]
+          });
+          return;
+        }
+        // Deferir a atualização da interação imediatamente para evitar expiração
+        await interaction.deferUpdate();
         // Dar cargo de sócio, alterar nick e registrar aprovação no banco
         const db = require('../utils/db');
         try {
