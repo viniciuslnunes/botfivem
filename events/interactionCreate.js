@@ -131,7 +131,8 @@ module.exports = (client, _config, utils) => {
         const idFiveMField = embed.fields.find(f => f.name === 'ID FiveM');
         const nome = nomeField ? nomeField.value : '';
         const id_fivem = idFiveMField ? idFiveMField.value : '';
-        // Dar cargo de sócio e alterar nick
+        // Dar cargo de sócio, alterar nick e registrar aprovação no banco
+        const db = require('../utils/db');
         try {
           const guildMember = await interaction.guild.members.fetch(candidatoId);
           await guildMember.roles.add(config.cargos.socio);
@@ -139,16 +140,17 @@ module.exports = (client, _config, utils) => {
           if (config.cargos.provarManto) {
             await guildMember.roles.remove(config.cargos.provarManto).catch(() => {});
           }
-          // Remover cargo de visitante ao aprovar
           if (config.cargos.visitante) {
             await guildMember.roles.remove(config.cargos.visitante).catch(() => {});
           }
           // Alterar nick para o padrão
           const novoNick = utils.formatarNick(nome, id_fivem);
           await guildMember.setNickname(novoNick);
+          // Registrar aprovação no banco
+          await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
         } catch (err) {
           await interaction.update({
-            content: `⚠️ Não foi possível atribuir/remover cargos ou alterar o nick de <@${candidatoId}>. Verifique se o usuário está no servidor e se o bot tem permissão.`,
+            content: `⚠️ Não foi possível atribuir/remover cargos, alterar o nick ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor, se o bot tem permissão e se o banco está acessível.`,
             embeds: interaction.message.embeds,
             components: []
           });
