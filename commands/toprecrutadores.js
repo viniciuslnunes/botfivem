@@ -15,7 +15,7 @@ module.exports = {
       return interaction.reply('Nenhuma aprovação registrada ainda.');
     }
     // Monta ranking
-    let desc = '🏆 **Top Recrutadores**\n\n';
+    let desc = '';
     for (let i = 0; i < rows.length; i++) {
       const { aprovador_id, total } = rows[i];
       desc += `${i + 1}. <@${aprovador_id}> — **${total} aprovações**\n`;

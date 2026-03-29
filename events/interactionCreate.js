@@ -28,6 +28,36 @@ module.exports = (client, _config, utils) => {
       const telefone = interaction.fields.getTextInputValue('telefone');
       const recrutador = interaction.fields.getTextInputValue('recrutador');
       const user = interaction.user;
+      // Validação: ID FiveM deve conter apenas números
+      if (!/^[0-9]+$/.test(id_fivem)) {
+        return interaction.reply({
+          embeds: [{
+            color: 0xED4245, // vermelho
+            description: '⚠️ **Erro:** O campo **ID FiveM** deve conter apenas números.\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
+          }],
+          flags: 64
+        });
+      }
+      // Validação: Idade deve conter apenas números e até 2 dígitos
+      if (!/^[0-9]{1,2}$/.test(idade)) {
+        return interaction.reply({
+          embeds: [{
+            color: 0xED4245,
+            description: '⚠️ **Erro:** O campo **Idade** deve conter apenas números e ter no máximo 2 dígitos.\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
+          }],
+          flags: 64
+        });
+      }
+      // Validação: Telefone deve conter apenas números, com 10 ou 11 dígitos
+      if (!/^\d{10,11}$/.test(telefone)) {
+        return interaction.reply({
+          embeds: [{
+            color: 0xED4245,
+            description: '⚠️ **Erro:** O campo **Telefone** deve conter apenas números, com 10 ou 11 dígitos.\nExemplo: 11912345678\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
+          }],
+          flags: 64
+        });
+      }
       const canalRecrutamento = interaction.guild.channels.cache.get(config.canais.recrutamento);
       if (!canalRecrutamento) return interaction.reply({ content: 'Canal de recrutamento não encontrado.', flags: 64 });
       const embed = {
@@ -61,10 +91,10 @@ module.exports = (client, _config, utils) => {
           const avisoMsg = await canalProvarManto.send({
             content: `<@${user.id}>, você tem 10 minutos para enviar o manto (imagem) aqui neste canal! Após esse prazo, o cargo será removido automaticamente.`
           });
-          // Deletar a mensagem de aviso após 1 minuto
+          // Deletar a mensagem de aviso após 5 minutos
           setTimeout(() => {
             avisoMsg.delete().catch(() => {});
-          }, 60 * 3000);
+          }, 5 * 60 * 1000); // 5 minutos
         }
         // Agendar remoção do cargo e aviso em validar-setagem
         setTimeout(async () => {
@@ -90,27 +120,41 @@ module.exports = (client, _config, utils) => {
         .setCustomId('nome')
         .setLabel('Nome')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setRequired(true)
+        .setMinLength(2)
+        .setMaxLength(16); // Limite para garantir nick válido
+
       const idadeInput = new TextInputBuilder()
         .setCustomId('idade')
-        .setLabel('Idade')
+        .setLabel('Idade (apenas números)')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(2); // Máximo 2 dígitos
+
       const idFiveMInput = new TextInputBuilder()
         .setCustomId('id_fivem')
-        .setLabel('ID FiveM')
+        .setLabel('ID FiveM (apenas números)')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(6); // Limite de 6 dígitos para garantir nick válido
+
       const telefoneInput = new TextInputBuilder()
         .setCustomId('telefone')
-        .setLabel('Telefone')
+        .setLabel('Telefone (apenas números, ex: 11912345678)')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setRequired(true)
+        .setMinLength(10)
+        .setMaxLength(11); // 10 ou 11 dígitos numéricos
+
       const recrutadorInput = new TextInputBuilder()
         .setCustomId('recrutador')
         .setLabel('Recrutador')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setRequired(true)
+        .setMinLength(2)
+        .setMaxLength(32);
       modal.addComponents(
         new ActionRowBuilder().addComponents(nomeInput),
         new ActionRowBuilder().addComponents(idadeInput),
@@ -123,6 +167,8 @@ module.exports = (client, _config, utils) => {
     }
     if (interaction.isButton()) {
       if (interaction.customId === 'aprovar_recrutamento') {
+        // Deferir a atualização da interação imediatamente para evitar expiração
+        await interaction.deferUpdate();
         // Extrair dados do candidato do embed
         const embed = interaction.message.embeds[0];
         const idField = embed.fields.find(f => f.name.startsWith('ID | Discord'));
@@ -150,10 +196,9 @@ module.exports = (client, _config, utils) => {
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
         } catch (err) {
           console.error('Erro ao registrar aprovação no banco:', err);
-          await interaction.update({
-            content: `⚠️ Não foi possível atribuir/remover cargos, alterar o nick ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor, se o bot tem permissão e se o banco está acessível.\n\nErro técnico: ${err.message}`,
-            embeds: interaction.message.embeds,
-            components: []
+          // Como a interação já foi deferida, apenas envie mensagem de erro no canal
+          await interaction.channel.send({
+            content: `⚠️ Não foi possível atribuir/remover cargos, alterar o nick ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor, se o bot tem permissão e se o banco está acessível.\n\nErro técnico: ${err.message}`
           });
           return;
         }
@@ -171,8 +216,8 @@ module.exports = (client, _config, utils) => {
           ],
           color: 0x57F287 // verde
         };
-        // Canal de solicitação de recrutamento removido: não enviar embed de aprovação
-        await interaction.update({
+        // Atualizar a mensagem manualmente, pois interaction.update já foi deferido
+        await interaction.message.edit({
           content: null,
           embeds: [embedAprovado],
           components: []
