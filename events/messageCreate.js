@@ -60,5 +60,25 @@ module.exports = (client) => {
         ]
       });
     }
+    // Botão para validar ID no canal 📝・validar-id
+    if (message.channelId === '1487943479710580756' && !message.author.bot) {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('abrir_validarid')
+          .setLabel('Validar ID')
+          .setStyle(ButtonStyle.Primary)
+      );
+      message.reply({ content: 'Clique para validar um ID:', components: [row] });
+    }
+    // Botão para abrir formulário de bloqueio no canal ❌・nao-recrutar
+    if (message.channelId === '1487943419203551313' && !message.author.bot) {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('abrir_bloquearid')
+          .setLabel('Bloquear novo ID')
+          .setStyle(ButtonStyle.Danger)
+      );
+      message.reply({ content: 'Clique para bloquear um novo ID:', components: [row] });
+    }
   });
 };
