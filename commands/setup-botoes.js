@@ -35,6 +35,25 @@ module.exports = {
       );
       await canalBloquear.send({ embeds: [embed], components: [row] });
     }
+    // Canal de advertência
+    const canalAdvertencia = interaction.guild.channels.cache.get('1488653988168601710');
+    if (canalAdvertencia) {
+      const embed = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle('ADVERTÊNCIAS - GAVIÕES DA FIEL - FIVEM')
+        .setDescription('Use os botões abaixo para registrar ou remover uma advertência de um membro.');
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('abrir_registrar_advertencia')
+          .setLabel('⛔ REGISTRAR ADVERTÊNCIA')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId('abrir_remover_advertencia')
+          .setLabel('✅ REMOVER ADVERTÊNCIA')
+          .setStyle(ButtonStyle.Success)
+      );
+      await canalAdvertencia.send({ embeds: [embed], components: [row] });
+    }
     await interaction.reply({ content: 'Mensagens fixas enviadas!', flags: 64 });
   }
 };

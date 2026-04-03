@@ -58,6 +58,68 @@ module.exports = (client, _config, utils) => {
       return;
     }
 
+    // Handler para botão de abrir select de membro para registrar advertência
+    if (interaction.isButton() && interaction.customId === 'abrir_registrar_advertencia') {
+      const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+      const row = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId('select_membro_adv_registrar')
+          .setPlaceholder('Selecione o membro para advertir')
+      );
+      await interaction.reply({ content: '**⛔ Registrar Advertência** — Selecione o membro:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para botão de abrir select de membro para remover advertência
+    if (interaction.isButton() && interaction.customId === 'abrir_remover_advertencia') {
+      const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+      const row = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId('select_membro_adv_remover')
+          .setPlaceholder('Selecione o membro para remover advertência')
+      );
+      await interaction.reply({ content: '**✅ Remover Advertência** — Selecione o membro:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para select de membro → abre modal (registrar)
+    if (interaction.isUserSelectMenu() && interaction.customId === 'select_membro_adv_registrar') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const membroId = interaction.values[0];
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_registrar_advertencia:${membroId}`)
+        .setTitle('Registrar Advertência');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('motivo').setLabel('Motivo da advertência').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('prova').setLabel('Prova (opcional, link ou descrição)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+        )
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // Handler para select de membro → abre modal (remover)
+    if (interaction.isUserSelectMenu() && interaction.customId === 'select_membro_adv_remover') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const membroId = interaction.values[0];
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_remover_advertencia:${membroId}`)
+        .setTitle('Remover Advertência');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('motivo').setLabel('Motivo da remoção').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('prova').setLabel('Prova (opcional, link ou descrição)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+        )
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
     // Handler para submissão do modal de validação de ID
     if (interaction.isModalSubmit() && interaction.customId === 'modal_validarid') {
       const id_fivem = interaction.fields.getTextInputValue('id_fivem');
@@ -118,6 +180,120 @@ module.exports = (client, _config, utils) => {
       await interaction.reply({ content: `ID ${id} bloqueado com sucesso!`, flags: 64 });
       return;
     }
+
+    // Handler para submissão do modal de registrar advertência
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_registrar_advertencia:')) {
+      const membroId = interaction.customId.split(':')[1];
+      const motivo   = interaction.fields.getTextInputValue('motivo');
+      const prova    = interaction.fields.getTextInputValue('prova') || null;
+
+      let membro;
+      try {
+        membro = await interaction.guild.members.fetch(membroId);
+      } catch {
+        return interaction.reply({ content: `❌ Membro não encontrado no servidor.`, flags: 64 });
+      }
+
+      const CANAL_HISTORICO = '1488654031709671574';
+      const CARGOS_ADV = [
+        '1341153479602864188', // ADV¹
+        '1341149153992114229', // ADV²
+        '1340321522547429458', // ADV³
+      ];
+
+      // Verificar quantas advertências o membro já tem
+      const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
+      // advAtual = -1 (nenhuma), 0 (1ª), 1 (2ª), 2 (3ª)
+      const proximaAdv = advAtual + 1; // índice do próximo cargo
+
+      if (proximaAdv >= CARGOS_ADV.length) {
+        return interaction.reply({ content: `⚠️ ${membro} já possui a **3ª advertência** (máximo atingido).`, flags: 64 });
+      }
+
+      // Remover cargo de advertência anterior se houver
+      if (advAtual >= 0) {
+        await membro.roles.remove(CARGOS_ADV[advAtual]).catch(() => {});
+      }
+      // Adicionar novo cargo de advertência
+      await membro.roles.add(CARGOS_ADV[proximaAdv]);
+
+      const numAdv = proximaAdv + 1;
+      const embed = {
+        color: 0xED4245,
+        title: `⛔ Advertência ${numAdv}ª registrada`,
+        fields: [
+          { name: 'Membro', value: `<@${membro.id}>`, inline: true },
+          { name: 'Advertência', value: `${numAdv}ª`, inline: true },
+          { name: 'Motivo', value: motivo, inline: false },
+          { name: 'Prova', value: prova || 'Não informada', inline: false },
+          { name: 'Registrado por', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'Data', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+        ]
+      };
+
+      const canalHistoricoAdv = interaction.guild.channels.cache.get(CANAL_HISTORICO);
+      if (canalHistoricoAdv) await canalHistoricoAdv.send({ embeds: [embed] });
+
+      await interaction.reply({ content: `✅ **${numAdv}ª advertência** registrada para ${membro}.`, flags: 64 });
+      return;
+    }
+
+    // Handler para submissão do modal de remover advertência
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_remover_advertencia:')) {
+      const membroId = interaction.customId.split(':')[1];
+      const motivo   = interaction.fields.getTextInputValue('motivo');
+      const prova    = interaction.fields.getTextInputValue('prova') || null;
+
+      let membro;
+      try {
+        membro = await interaction.guild.members.fetch(membroId);
+      } catch {
+        return interaction.reply({ content: `❌ Membro não encontrado no servidor.`, flags: 64 });
+      }
+
+      const CANAL_HISTORICO = '1488654031709671574';
+      const CARGOS_ADV = [
+        '1341153479602864188', // ADV¹
+        '1341149153992114229', // ADV²
+        '1340321522547429458', // ADV³
+      ];
+
+      // Encontrar cargo de advertência atual
+      const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
+
+      if (advAtual === -1) {
+        return interaction.reply({ content: `⚠️ ${membro} não possui nenhuma advertência registrada.`, flags: 64 });
+      }
+
+      // Remover cargo atual
+      await membro.roles.remove(CARGOS_ADV[advAtual]);
+
+      // Dar cargo anterior se existir
+      if (advAtual > 0) {
+        await membro.roles.add(CARGOS_ADV[advAtual - 1]);
+      }
+
+      const numAdv = advAtual + 1;
+      const embed = {
+        color: 0x57F287,
+        title: `✅ Advertência ${numAdv}ª removida`,
+        fields: [
+          { name: 'Membro', value: `<@${membro.id}>`, inline: true },
+          { name: 'Advertência removida', value: `${numAdv}ª`, inline: true },
+          { name: 'Motivo', value: motivo, inline: false },
+          { name: 'Prova', value: prova || 'Não informada', inline: false },
+          { name: 'Removido por', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'Data', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+        ]
+      };
+
+      const canalHistoricoAdv = interaction.guild.channels.cache.get(CANAL_HISTORICO);
+      if (canalHistoricoAdv) await canalHistoricoAdv.send({ embeds: [embed] });
+
+      await interaction.reply({ content: `✅ **${numAdv}ª advertência** removida de ${membro}.`, flags: 64 });
+      return;
+    }
+
     // Comando slash
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
@@ -422,6 +598,44 @@ module.exports = (client, _config, utils) => {
           components: []
         });
       }
+    }
+
+    // Handler para submissão do modal de criação de evento
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_evento') {
+      const titulo = interaction.fields.getTextInputValue('titulo');
+      const horario = interaction.fields.getTextInputValue('horario');
+
+      const EMOJI_CONFIRMAR_ID = '1489501021108441240';
+      const EMOJI_RECUSAR      = '❌';
+
+      // Buscar emoji customizado :GAVIO:
+      let emojiGavio;
+      try {
+        emojiGavio = await interaction.guild.emojis.fetch(EMOJI_CONFIRMAR_ID);
+      } catch (e) { console.error('[evento] Emoji GAVIO não encontrado:', e.message); }
+
+      const { EmbedBuilder } = require('discord.js');
+      const emojiConfirmarStr = emojiGavio ? `<:${emojiGavio.name}:${EMOJI_CONFIRMAR_ID}>` : '✅';
+      const instrucoes = `${emojiConfirmarStr} para **confirmar** presença   ❌ para **recusar**`;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xF1C40F)
+        .setTitle(`📅 ${titulo}`)
+        .setDescription(instrucoes)
+        .addFields(
+          { name: '🕐 Horário', value: horario, inline: false },
+          { name: `${emojiConfirmarStr} Confirmados (0)`, value: '*Nenhum confirmado ainda*', inline: false }
+        )
+        .setFooter({ text: 'evento' });
+
+      await interaction.reply({ content: '✅ Evento criado!', flags: 64 });
+      const eventMsg = await interaction.channel.send({ embeds: [embed] });
+
+      if (emojiGavio) {
+        try { await eventMsg.react(emojiGavio); } catch (e) { console.error('[evento] Erro ao reagir confirmar:', e.message); }
+      }
+      try { await eventMsg.react('❌'); } catch (e) { console.error('[evento] Erro ao reagir recusar:', e.message); }
+      return;
     }
   });
 };
