@@ -5,7 +5,7 @@ module.exports = [
     new ButtonBuilder()
       .setCustomId('aprovar_recrutamento')
       .setLabel('Aprovar')
-      .setStyle(ButtonStyle.Success),
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('reprovar_recrutamento')
       .setLabel('Reprovar')

@@ -38,7 +38,7 @@ module.exports = {
 
     await interaction.editReply({
       embeds: [{
-        color: 0x3498db,
+        color: 0x000000,
         title: '🦅・[R.S.J] RUA SÃO JORGE - ELENCO',
         description: desc,
         footer: { text: `Total: ${membros.size} membros` },

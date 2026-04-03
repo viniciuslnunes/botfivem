@@ -13,7 +13,7 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
     const embed = new EmbedBuilder()
-      .setColor(0x3498db)
+      .setColor(0x000000)
       .setTitle('RECRUTAMENTO - GAVIÕES DA FIEL - FIVEM')
       .setDescription('Clique no botão abaixo para solicitar seu recrutamento!')
       .setThumbnail('attachment://gavioesdafielfivem_logo.png');

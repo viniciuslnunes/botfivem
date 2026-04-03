@@ -22,7 +22,7 @@ module.exports = {
     }
     await interaction.reply({
       embeds: [{
-        color: 0xF1C40F,
+        color: 0x000000,
         title: '🏆 Top Recrutadores',
         description: desc
       }],

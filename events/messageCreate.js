@@ -10,7 +10,7 @@ module.exports = (client) => {
       message.channel.send({
         embeds: [
           {
-            color: 0x3498db,
+            color: 0x000000,
             title: '🌐 REDES SOCIAIS',
             description: 'Acesse todas as nossas redes sociais aqui:\n\n[Clique aqui](https://linktr.ee/gavioesdafielfivem)',
             thumbnail: {
@@ -28,7 +28,7 @@ module.exports = (client) => {
     }
     if (message.content === '!parceiros') {
       const embed = {
-        color: 0x23272A,
+        color: 0x000000,
         title: '🤝 PARCEIROS DOS GAVIÕES DA FIEL - FIVEM',
         description: 'A FIEL é gigante, e só cresce porque temos ao nosso lado parceiros que apoiam a nossa paixão pelo Corinthians.\nClique nos botões abaixo e conheça cada um deles!',
         image: {

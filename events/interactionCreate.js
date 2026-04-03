@@ -219,7 +219,7 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({ content: 'Canal de histórico não encontrado.', flags: 64 });
       }
       const embed = {
-        color: 0xED4245,
+        color: 0x000000,
         title: 'ID Bloqueado para Recrutamento',
         fields: [
           { name: 'ID', value: id, inline: false },
@@ -272,7 +272,7 @@ module.exports = (client, _config, utils) => {
 
       const numAdv = proximaAdv + 1;
       const embed = {
-        color: 0xED4245,
+        color: 0x000000,
         title: `⛔ Advertência ${numAdv}ª registrada`,
         fields: [
           { name: 'Membro', value: `<@${membro.id}>`, inline: true },
@@ -328,7 +328,7 @@ module.exports = (client, _config, utils) => {
 
       const numAdv = advAtual + 1;
       const embed = {
-        color: 0x57F287,
+        color: 0x000000,
         title: `✅ Advertência ${numAdv}ª removida`,
         fields: [
           { name: 'Membro', value: `<@${membro.id}>`, inline: true },
@@ -373,7 +373,7 @@ module.exports = (client, _config, utils) => {
       if (!/^[0-9]+$/.test(id_fivem)) {
         return interaction.reply({
           embeds: [{
-            color: 0xED4245, // vermelho
+            color: 0x000000, // vermelho
             description: '⚠️ **Erro:** O campo **ID FiveM** deve conter apenas números.\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
           }],
           flags: 64
@@ -383,7 +383,7 @@ module.exports = (client, _config, utils) => {
       if (!/^[0-9]{1,2}$/.test(idade)) {
         return interaction.reply({
           embeds: [{
-            color: 0xED4245,
+            color: 0x000000,
             description: '⚠️ **Erro:** O campo **Idade** deve conter apenas números e ter no máximo 2 dígitos.\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
           }],
           flags: 64
@@ -393,7 +393,7 @@ module.exports = (client, _config, utils) => {
       if (!/^\d{10,11}$/.test(telefone)) {
         return interaction.reply({
           embeds: [{
-            color: 0xED4245,
+            color: 0x000000,
             description: '⚠️ **Erro:** O campo **Telefone** deve conter apenas números, com 10 ou 11 dígitos.\nExemplo: 11912345678\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
           }],
           flags: 64
@@ -402,7 +402,7 @@ module.exports = (client, _config, utils) => {
       const canalRecrutamento = interaction.guild.channels.cache.get(config.canais.recrutamento);
       if (!canalRecrutamento) return interaction.reply({ content: 'Canal de recrutamento não encontrado.', flags: 64 });
       const embed = {
-        color: 0x3498db,
+        color: 0x000000,
         title: '📋 Nova Solicitação de Recrutamento',
         fields: [
           { name: 'Nome', value: nome, inline: false },
@@ -557,16 +557,15 @@ module.exports = (client, _config, utils) => {
           if (config.cargos.visitante) {
             await guildMember.roles.remove(config.cargos.visitante).catch(() => {});
           }
-          // Alterar nick para o padrão
+          // Alterar nick para o padrão (ignora se sem permissão)
           const novoNick = utils.formatarNick(nome, id_fivem);
-          await guildMember.setNickname(novoNick);
+          await guildMember.setNickname(novoNick).catch(() => {});
           // Registrar aprovação no banco
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
         } catch (err) {
           console.error('Erro ao registrar aprovação no banco:', err);
-          // Como a interação já foi deferida, apenas envie mensagem de erro no canal
           await interaction.channel.send({
-            content: `⚠️ Não foi possível atribuir/remover cargos, alterar o nick ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor, se o bot tem permissão e se o banco está acessível.\n\nErro técnico: ${err.message}`
+            content: `⚠️ Não foi possível atribuir/remover cargos ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor e se o bot tem permissão.\n\nErro técnico: ${err.message}`
           });
           return;
         }
@@ -582,7 +581,7 @@ module.exports = (client, _config, utils) => {
               inline: false
             }
           ],
-          color: 0x57F287 // verde
+          color: 0x000000
         };
         // Atualizar a mensagem manualmente, pois interaction.update já foi deferido
         await interaction.message.edit({
@@ -626,7 +625,7 @@ module.exports = (client, _config, utils) => {
           title: embedOriginal.title || 'Recrutamento',
           description: embedOriginal.description || '',
           fields,
-          color: 0xED4245
+          color: 0x000000
         };
         // Remover cargos de provar-manto e visitante ao reprovar
         const idFieldReprovado = embedOriginal.fields.find(f => f.name.startsWith('ID | Discord'));
@@ -672,7 +671,7 @@ module.exports = (client, _config, utils) => {
       const instrucoes = `${emojiConfirmarStr} para **confirmar** presença   ❌ para **recusar**`;
 
       const embed = new EmbedBuilder()
-        .setColor(0xF1C40F)
+        .setColor(0x000000)
         .setTitle(`📅 ${titulo}`)
         .setDescription(instrucoes)
         .addFields(
