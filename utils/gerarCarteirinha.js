@@ -1,5 +1,11 @@
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage, registerFont } = require('canvas');
 const path = require('path');
+
+const fontsDir = path.join(__dirname, '../fonts');
+registerFont(path.join(fontsDir, 'LiberationSans-Regular.ttf'),   { family: 'LiberationSans' });
+registerFont(path.join(fontsDir, 'LiberationSans-Bold.ttf'),       { family: 'LiberationSans', weight: 'bold' });
+registerFont(path.join(fontsDir, 'LiberationSans-Italic.ttf'),     { family: 'LiberationSans', style: 'italic' });
+registerFont(path.join(fontsDir, 'LiberationSans-BoldItalic.ttf'), { family: 'LiberationSans', weight: 'bold', style: 'italic' });
 
 const W = 800;
 const H = 490;
@@ -75,16 +81,16 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
   // 5. Cabeçalho (zona branca)
   ctx.textAlign = 'center';
   ctx.fillStyle = '#000000';
-  ctx.font = 'bold 44px Arial';
+  ctx.font = 'bold 44px LiberationSans';
   ctx.fillText('GAVIÕES DA FIEL TORCIDA', W / 2, 48);
 
-  ctx.font = '14px Arial';
+  ctx.font = '14px LiberationSans';
   const subtitulo = 'FORÇA INDEPENDENTE EM PROL DO GRANDE CORINTHIANS';
   const subW = ctx.measureText(subtitulo).width;
   ctx.fillText(subtitulo, W / 2, 66);
   ctx.fillRect((W - subW) / 2, 70, subW, 1.5);
 
-  ctx.font = '14px Arial';
+  ctx.font = '14px LiberationSans';
   ctx.textAlign = 'right';
   ctx.fillText('Fundado em 01/07/1969', photoX - 10, 92);
 
@@ -92,15 +98,15 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
   const dadosX = logoX + S + 14; // 266
   ctx.textAlign = 'left';
   ctx.fillStyle = '#1a1a1a';
-  ctx.font = 'bold 23px Arial';
+  ctx.font = 'bold 23px LiberationSans';
   ctx.fillText('Sócio nº:', dadosX, 162);
-  ctx.font = '23px Arial';
+  ctx.font = '23px LiberationSans';
   ctx.fillText(String(numeroSocio).padStart(4, '0'), dadosX + 130, 162);
 
-  ctx.font = 'bold 23px Arial';
+  ctx.font = 'bold 23px LiberationSans';
   ctx.fillStyle = '#1a1a1a';
   ctx.fillText('Validade:', dadosX, 218);
-  ctx.font = '23px Arial';
+  ctx.font = '23px LiberationSans';
   ctx.fillText(validade, dadosX + 130, 218);
 
   // 7. Assinatura e rodapé — sobre bloco preto
@@ -110,7 +116,7 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
 
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.font = 'italic 22px Arial';
+  ctx.font = 'italic 22px LiberationSans';
   ctx.fillText('Mano Beiço', assCX, 385);
 
   ctx.strokeStyle = '#FFFFFF';
@@ -121,14 +127,14 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
   ctx.stroke();
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 15px Arial';
+  ctx.font = 'bold 15px LiberationSans';
   ctx.fillText('Presidente', assCX, 420);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 27px Arial';
+  ctx.font = 'bold 27px LiberationSans';
   ctx.fillText('Nome:', 30, 466);
-  ctx.font = '25px Arial';
+  ctx.font = '25px LiberationSans';
   const nomeDisplay = nome.length > 30 ? nome.substring(0, 30) + '...' : nome;
   ctx.fillText(nomeDisplay, 30 + 106, 466);
 
@@ -144,7 +150,7 @@ function desenharPlaceholderFoto(ctx, x, y, w, h) {
   ctx.fillStyle = '#f0f0f0';
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = '#aaaaaa';
-  ctx.font = 'bold 22px Arial';
+  ctx.font = 'bold 22px LiberationSans';
   ctx.textAlign = 'center';
   ctx.fillText('FOTO', x + w / 2, y + h / 2 + 8);
 }
