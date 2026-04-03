@@ -54,6 +54,21 @@ module.exports = {
       );
       await canalAdvertencia.send({ embeds: [embed], components: [row] });
     }
+    // Canal de solicitação de carteirinha
+    const canalCarteirinha = interaction.guild.channels.cache.get('1489527029568245891');
+    if (canalCarteirinha) {
+      const embed = new EmbedBuilder()
+        .setColor(0xCC0000)
+        .setTitle('🪪 CARTEIRINHA DE SÓCIO — GAVIÕES DA FIEL FIVEM')
+        .setDescription('Clique no botão abaixo para emitir ou consultar sua carteirinha de sócio.');
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('solicitar_carteirinha')
+          .setLabel('🪪 SOLICITAR CARTEIRINHA')
+          .setStyle(ButtonStyle.Danger)
+      );
+      await canalCarteirinha.send({ embeds: [embed], components: [row] });
+    }
     await interaction.reply({ content: 'Mensagens fixas enviadas!', flags: 64 });
   }
 };
