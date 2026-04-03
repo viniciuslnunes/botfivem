@@ -11,7 +11,7 @@ module.exports = (client) => {
         embeds: [
           {
             color: 0x000000,
-            title: '🌐 REDES SOCIAIS',
+            title: '🌐 REDES SOCIAIS DOS GAVIÕES DA FIEL - FIVEM',
             description: 'Acesse todas as nossas redes sociais aqui:\n\n[Clique aqui](https://linktr.ee/gavioesdafielfivem)',
             thumbnail: {
               url: 'attachment://gavioesdafielfivem_logo.png'

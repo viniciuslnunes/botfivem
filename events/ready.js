@@ -49,7 +49,7 @@ module.exports = (client) => {
           );
           const embed = new EmbedBuilder()
             .setColor(0x000000)
-            .setTitle('🎫 Ticket Gaviões da Fiel')
+            .setTitle('🎫 TICKET - GAVIÕES DA FIEL - FIVEM')
             .setDescription('Clique no botão abaixo para abrir um ticket e falar com a nossa equipe de suporte.')
             .setImage('attachment://FAIXA_19.jpg');
           await canalTicket.send({

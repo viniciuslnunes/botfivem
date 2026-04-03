@@ -10,6 +10,7 @@ const { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH, CATEGORIAS } =
 
 module.exports = (client, _config, utils) => {
   client.on('interactionCreate', async interaction => {
+    try {
     // Handler para botão de abrir ticket → mostra select de categoria
     if (interaction.isButton() && interaction.customId === 'abrir_ticket') {
       const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
@@ -518,14 +519,18 @@ module.exports = (client, _config, utils) => {
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      // ...comando /recrutar removido, agora feito via botão fixo...
-      // Outros comandos
       try {
         await command.execute(interaction);
       } catch (err) {
+        if (err.code === 10062 || err.code === 40060) return;
         console.error(err);
-        await interaction.reply({ content: 'ERRO AO EXECUTAR COMANDO.', flags: 64 });
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: 'ERRO AO EXECUTAR COMANDO.', flags: 64 }).catch(() => {});
+        } else {
+          await interaction.reply({ content: 'ERRO AO EXECUTAR COMANDO.', flags: 64 }).catch(() => {});
+        }
       }
+      return;
     }
 
     // Handler para submissão do modal
@@ -855,6 +860,11 @@ module.exports = (client, _config, utils) => {
       }
       try { await eventMsg.react('❌'); } catch (e) { console.error('[evento] Erro ao reagir recusar:', e.message); }
       return;
+    }
+    } catch (err) {
+      // Ignora interações expiradas (10062) ou já respondidas (40060)
+      if (err.code === 10062 || err.code === 40060) return;
+      console.error('[interactionCreate] Erro não tratado:', err);
     }
   });
 };
