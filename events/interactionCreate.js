@@ -682,7 +682,7 @@ module.exports = (client, _config, utils) => {
       if (interaction.customId === 'aprovar_recrutamento') {
         // Extrair dados do candidato do embed ANTES da busca no histórico
         const embed = interaction.message.embeds[0];
-        const idField = embed.fields.find(f => f.name.startsWith('ID | Discord'));
+        const idField = embed.fields.find(f => f.name.startsWith('ID | DISCORD'));
         const candidatoId = idField ? idField.value.split(' ')[0] : null;
         const nomeField = embed.fields.find(f => f.name === 'Nome');
         const idFiveMField = embed.fields.find(f => f.name === 'ID FiveM');
@@ -800,7 +800,7 @@ module.exports = (client, _config, utils) => {
           color: 0x000000
         };
         // Remover cargos de provar-manto e visitante ao reprovar
-        const idFieldReprovado = embedOriginal.fields.find(f => f.name.startsWith('ID | Discord'));
+        const idFieldReprovado = embedOriginal.fields.find(f => f.name.startsWith('ID | DISCORD'));
         const candidatoIdReprovado = idFieldReprovado ? idFieldReprovado.value.split(' ')[0] : null;
         if (candidatoIdReprovado) {
           try {
