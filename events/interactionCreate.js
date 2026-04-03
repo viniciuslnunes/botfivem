@@ -6,9 +6,78 @@ const config = require('../config/index.js');
 const db = require('../utils/db');
 const { gerarCarteirinha } = require('../utils/gerarCarteirinha');
 const { atualizarMural } = require('../utils/muralAssociados');
+const { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH } = require('../utils/ticket');
 
 module.exports = (client, _config, utils) => {
   client.on('interactionCreate', async interaction => {
+    // Handler para botão de abrir ticket
+    if (interaction.isButton() && interaction.customId === 'abrir_ticket') {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+
+      // Verificar se usuário já tem ticket aberto
+      const jaAberto = interaction.guild.channels.cache.find(
+        c => c.name === `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)}`
+      );
+      if (jaAberto) {
+        return interaction.reply({ content: `Você já tem um ticket aberto: ${jaAberto}`, flags: 64 });
+      }
+
+      await interaction.deferReply({ flags: 64 });
+
+      const canal = await criarCanalTicket(interaction.guild, interaction.user);
+
+      const embed = new EmbedBuilder()
+        .setColor(0x000000)
+        .setTitle('🎫 Ticket Criado')
+        .setDescription(`Olá ${interaction.user}, este é o seu ticket. Nossa equipe da Gaviões da Fiel vai te atender em breve. Por favor, descreva seu problema ou dúvida.`)
+        .setThumbnail('attachment://gavioesdafielfivem_logo.png')
+        .setFooter({ text: new Date().toLocaleString('pt-BR') });
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('fechar_ticket')
+          .setLabel('Fechar Ticket')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await canal.send({
+        content: `${interaction.user}`,
+        embeds: [embed],
+        components: [row],
+        files: [{ attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }]
+      });
+
+      await interaction.editReply({ content: `✅ Ticket criado: ${canal}` });
+      return;
+    }
+
+    // Handler para botão de fechar ticket
+    if (interaction.isButton() && interaction.customId === 'fechar_ticket') {
+      const canal = interaction.channel;
+      if (!canal.name.startsWith('ticket-')) return;
+
+      await interaction.deferReply({ flags: 64 });
+      await interaction.editReply({ content: '⏳ Gerando transcript e fechando ticket...' });
+
+      try {
+        const html = await gerarTranscript(canal);
+        const buffer = Buffer.from(html, 'utf-8');
+
+        const canalLogs = await interaction.client.channels.fetch(CANAL_LOGS);
+        if (canalLogs) {
+          await canalLogs.send({
+            content: `✅ Ticket fechado: **${canal.name}** — fechado por ${interaction.user}`,
+            files: [{ attachment: buffer, name: `transcript-${canal.id}.html` }]
+          });
+        }
+      } catch (err) {
+        console.error('[ticket] Erro ao gerar transcript:', err);
+      }
+
+      await canal.delete().catch(() => {});
+      return;
+    }
+
     // Handler para botão de solicitar carteirinha
     if (interaction.isButton() && interaction.customId === 'solicitar_carteirinha') {
       await interaction.deferReply({ flags: 64 });

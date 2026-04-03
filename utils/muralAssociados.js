@@ -4,6 +4,9 @@ const path = require('path');
 const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
 const LOGO_FILE = { attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' };
 
+const CAPA_PATH = path.join(__dirname, '../img/capa.png');
+const CAPA_FILE = { attachment: CAPA_PATH, name: 'capa.png' };
+
 const CANAL_MURAL = '1489521960533626930';
 const CONFIG_KEY = 'mural_associados_message_id';
 
@@ -40,6 +43,7 @@ function construirEmbed(rows) {
     title: '📋 MURAL DE ASSOCIADOS — GAVIÕES DA FIEL FIVEM',
     description: descricao,
     thumbnail: { url: 'attachment://gavioesdafielfivem_logo.png' },
+    image: { url: 'attachment://capa.png' },
     footer: { text: `Total: ${rows.length} sócio${rows.length !== 1 ? 's' : ''}` },
     timestamp: new Date().toISOString()
   };
@@ -58,14 +62,14 @@ async function atualizarMural(client) {
   if (messageId) {
     try {
       const msg = await canal.messages.fetch(messageId);
-      await msg.edit({ embeds: [embed], files: [LOGO_FILE], allowedMentions: { users: [] } });
+      await msg.edit({ embeds: [embed], files: [LOGO_FILE, CAPA_FILE], allowedMentions: { users: [] } });
       return;
     } catch {
       // Mensagem não existe mais — envia nova abaixo
     }
   }
 
-  const nova = await canal.send({ embeds: [embed], files: [LOGO_FILE], allowedMentions: { users: [] } });
+  const nova = await canal.send({ embeds: [embed], files: [LOGO_FILE, CAPA_FILE], allowedMentions: { users: [] } });
   await setMuralMessageId(nova.id);
 }
 

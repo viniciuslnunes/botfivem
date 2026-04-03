@@ -76,9 +76,30 @@ module.exports = {
         new ButtonBuilder()
           .setCustomId('solicitar_carteirinha')
           .setLabel('🪪 SOLICITAR CARTEIRINHA')
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Secondary)
       );
       await canalCarteirinha.send({ embeds: [embed], components: [row] });
+    }
+
+    // Canal de tickets
+    const canalTicket = interaction.guild.channels.cache.get('1442247874808385797');
+    if (canalTicket && !await jaTemBotao(canalTicket, client)) {
+      const embed = new EmbedBuilder()
+        .setColor(0x000000)
+        .setTitle('🎫 Ticket Gaviões da Fiel')
+        .setDescription('Clique no botão abaixo para abrir um ticket e falar com a nossa equipe de suporte.')
+        .setImage('attachment://FAIXA_19.jpg');
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('abrir_ticket')
+          .setLabel('🎫 Abrir Ticket')
+          .setStyle(ButtonStyle.Primary)
+      );
+      await canalTicket.send({
+        embeds: [embed],
+        components: [row],
+        files: [{ attachment: './img/FAIXA_19.jpg', name: 'FAIXA_19.jpg' }]
+      });
     }
 
     await interaction.reply({ content: '✅ Mensagens fixas verificadas/enviadas!', flags: 64 });
