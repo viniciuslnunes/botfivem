@@ -6,37 +6,62 @@ const config = require('../config/index.js');
 const db = require('../utils/db');
 const { gerarCarteirinha } = require('../utils/gerarCarteirinha');
 const { atualizarMural } = require('../utils/muralAssociados');
-const { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH } = require('../utils/ticket');
+const { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH, CATEGORIAS } = require('../utils/ticket');
 
 module.exports = (client, _config, utils) => {
   client.on('interactionCreate', async interaction => {
-    // Handler para botão de abrir ticket
+    // Handler para botão de abrir ticket → mostra select de categoria
     if (interaction.isButton() && interaction.customId === 'abrir_ticket') {
-      const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+      const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 
       // Verificar se usuário já tem ticket aberto
       const jaAberto = interaction.guild.channels.cache.find(
         c => c.name === `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)}`
       );
       if (jaAberto) {
-        return interaction.reply({ content: `Você já tem um ticket aberto: ${jaAberto}`, flags: 64 });
+        return interaction.reply({ content: `VOCÊ JÁ TEM UM TICKET ABERTO: ${jaAberto}`, flags: 64 });
       }
 
-      await interaction.deferReply({ flags: 64 });
+      const select = new StringSelectMenuBuilder()
+        .setCustomId('select_categoria_ticket')
+        .setPlaceholder('SELECIONE A CATEGORIA DO SEU TICKET')
+        .addOptions([
+          { label: '🤝 PARCERIA',            value: 'parceria',         description: 'Propostas de parceria com a torcida' },
+          { label: '🚨 DENÚNCIA',            value: 'denuncia',          description: 'Denúncias gerais' },
+          { label: '🔒 DENUNCIAR DIRETOR',   value: 'denuncia_diretor',  description: 'Privado — diretores não visualizam' },
+          { label: '📋 RECRUTAMENTO',        value: 'recrutamento',      description: 'Dúvidas sobre recrutamento' },
+        ]);
 
-      const canal = await criarCanalTicket(interaction.guild, interaction.user);
+      const row = new ActionRowBuilder().addComponents(select);
+      await interaction.reply({ content: '**🎫 ABRIR TICKET** — SELECIONE A CATEGORIA:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para select de categoria → cria canal do ticket
+    if (interaction.isStringSelectMenu() && interaction.customId === 'select_categoria_ticket') {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+      const categoria = interaction.values[0];
+      const info = CATEGORIAS[categoria];
+
+      await interaction.deferUpdate();
+
+      const canal = await criarCanalTicket(interaction.guild, interaction.user, categoria);
+
+      const avisoPrivado = categoria === 'denuncia_diretor'
+        ? '\n> 🔒 ESTE TICKET É **PRIVADO** — MEMBROS COM CARGO DIRETOR NÃO TÊM ACESSO.'
+        : '';
 
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('🎫 Ticket Criado')
-        .setDescription(`Olá ${interaction.user}, este é o seu ticket. Nossa equipe da Gaviões da Fiel vai te atender em breve. Por favor, descreva seu problema ou dúvida.`)
+        .setColor(info.cor)
+        .setTitle(`${info.emoji} TICKET CRIADO — ${info.label}`)
+        .setDescription(`OLÁ ${interaction.user}, ESTE É O SEU TICKET. NOSSA EQUIPE DA GAVIÕES DA FIEL VAI TE ATENDER EM BREVE. POR FAVOR, DESCREVA SEU PROBLEMA OU DÚVIDA.${avisoPrivado}`)
         .setThumbnail('attachment://gavioesdafielfivem_logo.png')
         .setFooter({ text: new Date().toLocaleString('pt-BR') });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('fechar_ticket')
-          .setLabel('Fechar Ticket')
+          .setLabel('FECHAR TICKET')
           .setStyle(ButtonStyle.Danger)
       );
 
@@ -47,7 +72,7 @@ module.exports = (client, _config, utils) => {
         files: [{ attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }]
       });
 
-      await interaction.editReply({ content: `✅ Ticket criado: ${canal}` });
+      await interaction.editReply({ content: `🦅 TICKET CRIADO: ${canal}`, components: [] });
       return;
     }
 
@@ -57,7 +82,7 @@ module.exports = (client, _config, utils) => {
       if (!canal.name.startsWith('ticket-')) return;
 
       await interaction.deferReply({ flags: 64 });
-      await interaction.editReply({ content: '⏳ Gerando transcript e fechando ticket...' });
+      await interaction.editReply({ content: '⏳ GERANDO TRANSCRIPT E FECHANDO TICKET...' });
 
       try {
         const html = await gerarTranscript(canal);
@@ -66,7 +91,7 @@ module.exports = (client, _config, utils) => {
         const canalLogs = await interaction.client.channels.fetch(CANAL_LOGS);
         if (canalLogs) {
           await canalLogs.send({
-            content: `✅ Ticket fechado: **${canal.name}** — fechado por ${interaction.user}`,
+            content: `🦅 TICKET FECHADO: **${canal.name}** — FECHADO POR ${interaction.user}`,
             files: [{ attachment: buffer, name: `transcript-${canal.id}.html` }]
           });
         }
@@ -114,11 +139,11 @@ module.exports = (client, _config, utils) => {
         buffer = await gerarCarteirinha({ nome, numeroSocio: row.numero_socio, validade: validadeFormatada, avatarUrl });
       } catch (err) {
         console.error('[solicitar_carteirinha] Erro ao gerar imagem:', err);
-        return interaction.editReply({ content: '❌ Erro ao gerar a carteirinha. Tente novamente.' });
+        return interaction.editReply({ content: '❌ ERRO AO GERAR A CARTEIRINHA. TENTE NOVAMENTE.' });
       }
 
       await interaction.editReply({
-        content: `🏆 Sua carteirinha de sócio nº **${String(row.numero_socio).padStart(4, '0')}**!`,
+        content: `🏆 SUA CARTEIRINHA DE SÓCIO Nº **${String(row.numero_socio).padStart(4, '0')}**!`,
         files: [{ attachment: buffer, name: 'carteirinha.png' }]
       });
 
@@ -133,24 +158,24 @@ module.exports = (client, _config, utils) => {
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
         .setCustomId('modal_bloquearid')
-        .setTitle('Bloquear novo ID - Não Recrutar');
+        .setTitle('BLOQUEAR NOVO ID — NÃO RECRUTAR');
       const idInput = new TextInputBuilder()
         .setCustomId('id')
-        .setLabel('ID FiveM para bloquear')
+        .setLabel('ID FIVEM PARA BLOQUEAR')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMinLength(1)
         .setMaxLength(8);
       const motivoInput = new TextInputBuilder()
         .setCustomId('motivo')
-        .setLabel('Motivo do bloqueio')
+        .setLabel('MOTIVO DO BLOQUEIO')
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
         .setMinLength(3)
         .setMaxLength(100);
       const provaInput = new TextInputBuilder()
         .setCustomId('prova')
-        .setLabel('Prova (opcional, link ou info)')
+        .setLabel('PROVA (OPCIONAL, LINK OU INFO)')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
         .setMaxLength(100);
@@ -167,10 +192,10 @@ module.exports = (client, _config, utils) => {
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       const modal = new ModalBuilder()
         .setCustomId('modal_validarid')
-        .setTitle('Validar ID - Não Recrutar');
+        .setTitle('VALIDAR ID — NÃO RECRUTAR');
       const idInput = new TextInputBuilder()
         .setCustomId('id_fivem')
-        .setLabel('ID FiveM para validar')
+        .setLabel('ID FIVEM PARA VALIDAR')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMinLength(1)
@@ -186,9 +211,9 @@ module.exports = (client, _config, utils) => {
       const row = new ActionRowBuilder().addComponents(
         new UserSelectMenuBuilder()
           .setCustomId('select_membro_adv_registrar')
-          .setPlaceholder('Selecione o membro para advertir')
+          .setPlaceholder('SELECIONE O MEMBRO PARA ADVERTIR')
       );
-      await interaction.reply({ content: '**⛔ Registrar Advertência** — Selecione o membro:', components: [row], flags: 64 });
+      await interaction.reply({ content: '**⛔ REGISTRAR ADVERTÊNCIA** — SELECIONE O MEMBRO:', components: [row], flags: 64 });
       return;
     }
 
@@ -198,25 +223,48 @@ module.exports = (client, _config, utils) => {
       const row = new ActionRowBuilder().addComponents(
         new UserSelectMenuBuilder()
           .setCustomId('select_membro_adv_remover')
-          .setPlaceholder('Selecione o membro para remover advertência')
+          .setPlaceholder('SELECIONE O MEMBRO PARA REMOVER ADVERTÊNCIA')
       );
-      await interaction.reply({ content: '**✅ Remover Advertência** — Selecione o membro:', components: [row], flags: 64 });
+      await interaction.reply({ content: '**🦅 REMOVER ADVERTÊNCIA** — SELECIONE O MEMBRO:', components: [row], flags: 64 });
       return;
     }
 
-    // Handler para select de membro → abre modal (registrar)
+    // Handler para select de membro → mostra select de prazo (registrar)
     if (interaction.isUserSelectMenu() && interaction.customId === 'select_membro_adv_registrar') {
-      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
       const membroId = interaction.values[0];
+      const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`select_prazo_adv:${membroId}`)
+          .setPlaceholder('SELECIONE O PRAZO DE PAGAMENTO')
+          .addOptions([
+            { label: '⚙️ TESTE (1 SEGUNDO)', value: 'test' },
+            { label: '1 DIA', value: '1' },
+            { label: '2 DIAS', value: '2' },
+            { label: '3 DIAS', value: '3' },
+          ])
+      );
+      await interaction.reply({ content: '**⛔ REGISTRAR ADVERTÊNCIA** — SELECIONE O PRAZO DE PAGAMENTO:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para select de prazo → abre modal (registrar)
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('select_prazo_adv:')) {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const membroId = interaction.customId.split(':')[1];
+      const prazo = interaction.values[0];
       const modal = new ModalBuilder()
-        .setCustomId(`modal_registrar_advertencia:${membroId}`)
-        .setTitle('Registrar Advertência');
+        .setCustomId(`modal_registrar_advertencia:${membroId}:${prazo}`)
+        .setTitle('REGISTRAR ADVERTÊNCIA');
       modal.addComponents(
         new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('motivo').setLabel('Motivo da advertência').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
+          new TextInputBuilder().setCustomId('motivo').setLabel('MOTIVO DA ADVERTÊNCIA').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
         ),
         new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('prova').setLabel('Prova (opcional, link ou descrição)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+          new TextInputBuilder().setCustomId('punicao').setLabel('PUNIÇÃO APLICADA').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('prova').setLabel('PROVA (OPCIONAL, LINK OU DESCRIÇÃO)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
         )
       );
       await interaction.showModal(modal);
@@ -229,13 +277,13 @@ module.exports = (client, _config, utils) => {
       const membroId = interaction.values[0];
       const modal = new ModalBuilder()
         .setCustomId(`modal_remover_advertencia:${membroId}`)
-        .setTitle('Remover Advertência');
+        .setTitle('REMOVER ADVERTÊNCIA');
       modal.addComponents(
         new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('motivo').setLabel('Motivo da remoção').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
+          new TextInputBuilder().setCustomId('motivo').setLabel('MOTIVO DA REMOÇÃO').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
         ),
         new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('prova').setLabel('Prova (opcional, link ou descrição)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+          new TextInputBuilder().setCustomId('prova').setLabel('PROVA (OPCIONAL, LINK OU DESCRIÇÃO)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
         )
       );
       await interaction.showModal(modal);
@@ -272,7 +320,7 @@ module.exports = (client, _config, utils) => {
         });
       } else {
         await interaction.reply({
-          content: `✅ O ID FiveM **${id_fivem}** está **liberado** para recrutamento!`,
+          content: `🦅 O ID FiveM **${id_fivem}** está **liberado** para recrutamento!`,
           flags: 64
         });
       }
@@ -305,18 +353,27 @@ module.exports = (client, _config, utils) => {
 
     // Handler para submissão do modal de registrar advertência
     if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_registrar_advertencia:')) {
-      const membroId = interaction.customId.split(':')[1];
+      const parts  = interaction.customId.split(':');
+      const membroId = parts[1];
+      const prazoRaw = parts[2]; // 'test', '1', '2' ou '3'
+      const isTeste  = prazoRaw === 'test';
+      const prazoNum = isTeste ? 0 : parseInt(prazoRaw);
+      const prazoMs  = isTeste ? 1000 : prazoNum * 24 * 60 * 60 * 1000;
+      const prazoLabel = isTeste ? '⚙️ TESTE (1 SEGUNDO)' : prazoNum === 1 ? '1 DIA' : `${prazoNum} DIAS`;
       const motivo   = interaction.fields.getTextInputValue('motivo');
+      const punicao  = interaction.fields.getTextInputValue('punicao');
       const prova    = interaction.fields.getTextInputValue('prova') || null;
 
       let membro;
       try {
         membro = await interaction.guild.members.fetch(membroId);
       } catch {
-        return interaction.reply({ content: `❌ Membro não encontrado no servidor.`, flags: 64 });
+        return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
       }
 
-      const CANAL_HISTORICO = '1488654031709671574';
+      const CANAL_HISTORICO    = '1488654031709671574';
+      const CANAL_PENDENTES    = '1489558741996146771';
+      const CARGO_SOCIO        = '1330990668654444604';
       const CARGOS_ADV = [
         '1341153479602864188', // ADV¹
         '1341149153992114229', // ADV²
@@ -329,7 +386,7 @@ module.exports = (client, _config, utils) => {
       const proximaAdv = advAtual + 1; // índice do próximo cargo
 
       if (proximaAdv >= CARGOS_ADV.length) {
-        return interaction.reply({ content: `⚠️ ${membro} já possui a **3ª advertência** (máximo atingido).`, flags: 64 });
+        return interaction.reply({ content: `⚠️ ${membro} JÁ POSSUI A **3ª ADVERTÊNCIA** (MÁXIMO ATINGIDO).`, flags: 64 });
       }
 
       // Remover cargo de advertência anterior se houver
@@ -340,23 +397,64 @@ module.exports = (client, _config, utils) => {
       await membro.roles.add(CARGOS_ADV[proximaAdv]);
 
       const numAdv = proximaAdv + 1;
+      const expiraEm = Math.floor(Date.now() / 1000) + prazoNum * 86400;
+
       const embed = {
         color: 0x000000,
-        title: `⛔ Advertência ${numAdv}ª registrada`,
+        title: `⛔ ADVERTÊNCIA ${numAdv}ª REGISTRADA`,
         fields: [
-          { name: 'Membro', value: `<@${membro.id}>`, inline: true },
-          { name: 'Advertência', value: `${numAdv}ª`, inline: true },
-          { name: 'Motivo', value: motivo, inline: false },
-          { name: 'Prova', value: prova || 'Não informada', inline: false },
-          { name: 'Registrado por', value: `<@${interaction.user.id}>`, inline: false },
-          { name: 'Data', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
-        ]
+          { name: 'MEMBRO', value: `<@${membro.id}>`, inline: true },
+          { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
+          { name: 'MOTIVO', value: motivo, inline: false },
+          { name: 'PUNIÇÃO', value: punicao, inline: false },
+          { name: 'PRAZO DE PAGAMENTO', value: `${prazoLabel} — <t:${expiraEm}:F>`, inline: false },
+          { name: 'PROVA', value: prova || 'NÃO INFORMADA', inline: false },
+          { name: 'REGISTRADO POR', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'DATA', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+        ],
+        footer: { text: '⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA AUTOMÁTICA DO CARGO DE SÓCIO.' }
       };
 
       const canalHistoricoAdv = interaction.guild.channels.cache.get(CANAL_HISTORICO);
       if (canalHistoricoAdv) await canalHistoricoAdv.send({ embeds: [embed] });
 
-      await interaction.reply({ content: `✅ **${numAdv}ª advertência** registrada para ${membro}.`, flags: 64 });
+      await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA** REGISTRADA PARA ${membro}. PRAZO: **${prazoLabel}** (<t:${expiraEm}:F>).
+> ⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DOS CARGOS NO SERVIDOR.`, flags: 64 });
+
+      // Agendar verificação de vencimento
+      const guild = interaction.guild;
+      setTimeout(async () => {
+        try {
+          const membroAtual = await guild.members.fetch(membroId).catch(() => null);
+          if (!membroAtual) return;
+          // Se ainda tem o cargo de advertência, o pagamento não foi feito
+          if (!membroAtual.roles.cache.has(CARGOS_ADV[proximaAdv])) return;
+          // Remover cargo de sócio
+          await membroAtual.roles.remove(CARGO_SOCIO).catch(() => {});
+          // Postar no canal de advertências pendentes
+          const canalPendentes = await guild.channels.fetch(CANAL_PENDENTES).catch(() => null);
+          if (canalPendentes) {
+            await canalPendentes.send({
+              embeds: [{
+                color: 0x000000,
+                title: '❌ ADVERTÊNCIA NÃO PAGA — CARGO REMOVIDO',
+                fields: [
+                  { name: 'MEMBRO', value: `<@${membroId}>`, inline: true },
+                  { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
+                  { name: 'MOTIVO', value: motivo, inline: false },
+                  { name: 'PUNIÇÃO', value: punicao, inline: false },
+                  { name: 'PRAZO', value: `${prazoLabel} (VENCIDO)`, inline: false },
+                  { name: 'AÇÃO', value: 'CARGO DE SÓCIO REMOVIDO AUTOMATICAMENTE', inline: false },
+                  { name: 'DATA DE VENCIMENTO', value: `<t:${expiraEm}:F>`, inline: false }
+                ]
+              }]
+            });
+          }
+        } catch (err) {
+          console.error('[adv] Erro ao processar vencimento:', err);
+        }
+      }, prazoMs);
+
       return;
     }
 
@@ -370,7 +468,7 @@ module.exports = (client, _config, utils) => {
       try {
         membro = await interaction.guild.members.fetch(membroId);
       } catch {
-        return interaction.reply({ content: `❌ Membro não encontrado no servidor.`, flags: 64 });
+        return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
       }
 
       const CANAL_HISTORICO = '1488654031709671574';
@@ -384,7 +482,7 @@ module.exports = (client, _config, utils) => {
       const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
 
       if (advAtual === -1) {
-        return interaction.reply({ content: `⚠️ ${membro} não possui nenhuma advertência registrada.`, flags: 64 });
+        return interaction.reply({ content: `⚠️ ${membro} NÃO POSSUI NENHUMA ADVERTÊNCIA REGISTRADA.`, flags: 64 });
       }
 
       // Remover cargo atual
@@ -398,21 +496,21 @@ module.exports = (client, _config, utils) => {
       const numAdv = advAtual + 1;
       const embed = {
         color: 0x000000,
-        title: `✅ Advertência ${numAdv}ª removida`,
+        title: `🦅 ADVERTÊNCIA ${numAdv}ª REMOVIDA`,
         fields: [
-          { name: 'Membro', value: `<@${membro.id}>`, inline: true },
-          { name: 'Advertência removida', value: `${numAdv}ª`, inline: true },
-          { name: 'Motivo', value: motivo, inline: false },
-          { name: 'Prova', value: prova || 'Não informada', inline: false },
-          { name: 'Removido por', value: `<@${interaction.user.id}>`, inline: false },
-          { name: 'Data', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+          { name: 'MEMBRO', value: `<@${membro.id}>`, inline: true },
+          { name: 'ADVERTÊNCIA REMOVIDA', value: `${numAdv}ª`, inline: true },
+          { name: 'MOTIVO', value: motivo, inline: false },
+          { name: 'PROVA', value: prova || 'NÃO INFORMADA', inline: false },
+          { name: 'REMOVIDO POR', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'DATA', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
         ]
       };
 
       const canalHistoricoAdv = interaction.guild.channels.cache.get(CANAL_HISTORICO);
       if (canalHistoricoAdv) await canalHistoricoAdv.send({ embeds: [embed] });
 
-      await interaction.reply({ content: `✅ **${numAdv}ª advertência** removida de ${membro}.`, flags: 64 });
+      await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA** REMOVIDA DE ${membro}.`, flags: 64 });
       return;
     }
 
@@ -426,7 +524,7 @@ module.exports = (client, _config, utils) => {
         await command.execute(interaction);
       } catch (err) {
         console.error(err);
-        await interaction.reply({ content: 'Erro ao executar comando.', flags: 64 });
+        await interaction.reply({ content: 'ERRO AO EXECUTAR COMANDO.', flags: 64 });
       }
     }
 
@@ -443,7 +541,7 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({
           embeds: [{
             color: 0x000000, // vermelho
-            description: '⚠️ **Erro:** O campo **ID FiveM** deve conter apenas números.\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
+            description: '⚠️ **ERRO:** O CAMPO **ID FIVEM** DEVE CONTER APENAS NÚMEROS.\n\nPOR FAVOR, REFAÇA O FORMULÁRIO DE RECRUTAMENTO PREENCHENDO CORRETAMENTE.'
           }],
           flags: 64
         });
@@ -453,7 +551,7 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({
           embeds: [{
             color: 0x000000,
-            description: '⚠️ **Erro:** O campo **Idade** deve conter apenas números e ter no máximo 2 dígitos.\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
+            description: '⚠️ **ERRO:** O CAMPO **IDADE** DEVE CONTER APENAS NÚMEROS E TER NO MÁXIMO 2 DÍGITOS.\n\nPOR FAVOR, REFAÇA O FORMULÁRIO DE RECRUTAMENTO PREENCHENDO CORRETAMENTE.'
           }],
           flags: 64
         });
@@ -463,26 +561,26 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({
           embeds: [{
             color: 0x000000,
-            description: '⚠️ **Erro:** O campo **Telefone** deve conter apenas números, com 10 ou 11 dígitos.\nExemplo: 11912345678\n\nPor favor, refaça o formulário de recrutamento preenchendo corretamente.'
+            description: '⚠️ **ERRO:** O CAMPO **TELEFONE** DEVE CONTER APENAS NÚMEROS, COM 10 OU 11 DÍGITOS.\nEXEMPLO: 11912345678\n\nPOR FAVOR, REFAÇA O FORMULÁRIO DE RECRUTAMENTO PREENCHENDO CORRETAMENTE.'
           }],
           flags: 64
         });
       }
       const canalRecrutamento = interaction.guild.channels.cache.get(config.canais.recrutamento);
-      if (!canalRecrutamento) return interaction.reply({ content: 'Canal de recrutamento não encontrado.', flags: 64 });
+      if (!canalRecrutamento) return interaction.reply({ content: 'CANAL DE RECRUTAMENTO NÃO ENCONTRADO.', flags: 64 });
       const embed = {
         color: 0x000000,
-        title: '📋 Nova Solicitação de Recrutamento',
+        title: '📋 NOVA SOLICITAÇÃO DE RECRUTAMENTO',
         fields: [
-          { name: 'Nome', value: nome, inline: false },
-          { name: 'Idade', value: idade, inline: false },
-          { name: 'ID FiveM', value: id_fivem, inline: false },
-          { name: 'Telefone', value: telefone, inline: false },
-          { name: 'Recrutador', value: recrutador, inline: false },
-          { name: 'ID | Discord', value: `${user.id} | <@${user.id}>`, inline: false }
+          { name: 'NOME', value: nome, inline: false },
+          { name: 'IDADE', value: idade, inline: false },
+          { name: 'ID FIVEM', value: id_fivem, inline: false },
+          { name: 'TELEFONE', value: telefone, inline: false },
+          { name: 'RECRUTADOR', value: recrutador, inline: false },
+          { name: 'ID | DISCORD', value: `${user.id} | <@${user.id}>`, inline: false }
         ]
       };
-      await interaction.reply({ content: 'Sua solicitação foi enviada para análise! Aguarde as próximas instruções.', flags: 64 });
+      await interaction.reply({ content: 'SUA SOLICITAÇÃO FOI ENVIADA PARA ANÁLISE! AGUARDE AS PRÓXIMAS INSTRUÇÕES.', flags: 64 });
       // Enviar embed com botões para aprovar/recusar no canal validar-setagem
       const canalValidarSetagem = interaction.guild.channels.cache.get('1442240838699712623');
       if (canalValidarSetagem) {
@@ -634,7 +732,7 @@ module.exports = (client, _config, utils) => {
         } catch (err) {
           console.error('Erro ao registrar aprovação no banco:', err);
           await interaction.channel.send({
-            content: `⚠️ Não foi possível atribuir/remover cargos ou registrar aprovação de <@${candidatoId}>. Verifique se o usuário está no servidor e se o bot tem permissão.\n\nErro técnico: ${err.message}`
+            content: `⚠️ NÃO FOI POSSÍVEL ATRIBUIR/REMOVER CARGOS OU REGISTRAR APROVAÇÃO DE <@${candidatoId}>. VERIFIQUE SE O USUÁRIO ESTÁ NO SERVIDOR E SE O BOT TEM PERMISSÃO.\n\nERRO TÉCNICO: ${err.message}`
           });
           return;
         }
@@ -645,8 +743,8 @@ module.exports = (client, _config, utils) => {
           fields: [
             ...embed.fields,
             {
-              name: 'Status',
-              value: `✅ Aprovado por <@${interaction.user.id}>`,
+              name: 'STATUS',
+              value: `🦅 APROVADO POR <@${interaction.user.id}>`,
               inline: false
             }
           ],
@@ -670,7 +768,7 @@ module.exports = (client, _config, utils) => {
             const canalValidarSetagem = interaction.guild.channels.cache.get('1442240838699712623');
             if (canalValidarSetagem) {
               await canalValidarSetagem.send({
-                content: `✅ <@${candidatoId}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`
+                content: `🦅 <@${candidatoId}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`
               });
             } else {
               console.error('Canal de validação de setagem não encontrado!');
@@ -736,7 +834,7 @@ module.exports = (client, _config, utils) => {
       } catch (e) { console.error('[evento] Emoji GAVIO não encontrado:', e.message); }
 
       const { EmbedBuilder } = require('discord.js');
-      const emojiConfirmarStr = emojiGavio ? `<:${emojiGavio.name}:${EMOJI_CONFIRMAR_ID}>` : '✅';
+      const emojiConfirmarStr = emojiGavio ? `<:${emojiGavio.name}:${EMOJI_CONFIRMAR_ID}>` : '🦅';
       const instrucoes = `${emojiConfirmarStr} para **confirmar** presença   ❌ para **recusar**`;
 
       const embed = new EmbedBuilder()
@@ -749,7 +847,7 @@ module.exports = (client, _config, utils) => {
         )
         .setFooter({ text: 'evento' });
 
-      await interaction.reply({ content: '✅ Evento criado!', flags: 64 });
+      await interaction.reply({ content: '🦅 Evento criado!', flags: 64 });
       const eventMsg = await interaction.channel.send({ embeds: [embed] });
 
       if (emojiGavio) {

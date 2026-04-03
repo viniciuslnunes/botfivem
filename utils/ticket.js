@@ -4,6 +4,14 @@ const path = require('path');
 const CATEGORIA_TICKETS = '1442240177228746772';
 const CANAL_LOGS = '1442240418744897637';
 const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
+const CARGO_DIRETOR = '1198743169081295019';
+
+const CATEGORIAS = {
+  parceria:          { label: '🤝 PARCERIA',           emoji: '🤝', cor: 0x000000 },
+  denuncia:          { label: '🚨 DENUNCIAR MEMBRO',   emoji: '🚨', cor: 0x000000 },
+  denuncia_diretor:  { label: '🚨 DENUNCIAR DIRETOR',  emoji: '🔒', cor: 0x000000 },
+  recrutamento:      { label: '📋 RECRUTAMENTO',       emoji: '📋', cor: 0x000000 },
+};
 
 // Gera nome do canal a partir do username
 function nomeCanalTicket(user) {
@@ -14,17 +22,23 @@ function nomeCanalTicket(user) {
   return `ticket-${base}`;
 }
 
-// Cria o canal privado do ticket
-async function criarCanalTicket(guild, user) {
-  const categoria = guild.channels.cache.get(CATEGORIA_TICKETS);
+// Cria o canal privado do ticket com categoria
+async function criarCanalTicket(guild, user, categoria = 'geral') {
+  const permOverwrites = [
+    { id: guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+    { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+    { id: guild.members.me.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] },
+  ];
+
+  // Denunciar Diretor: bloqueia explicitamente o cargo diretor
+  if (categoria === 'denuncia_diretor') {
+    permOverwrites.push({ id: CARGO_DIRETOR, deny: [PermissionFlagsBits.ViewChannel] });
+  }
+
   const canal = await guild.channels.create({
     name: nomeCanalTicket(user),
     parent: CATEGORIA_TICKETS,
-    permissionOverwrites: [
-      { id: guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-      { id: guild.members.me.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] },
-    ],
+    permissionOverwrites: permOverwrites,
   });
   return canal;
 }
@@ -187,4 +201,4 @@ async function gerarTranscript(canal) {
 </html>`;
 }
 
-module.exports = { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH };
+module.exports = { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH, CATEGORIAS };

@@ -16,7 +16,7 @@ module.exports = (client) => {
             new ButtonBuilder()
               .setCustomId('abrir_recrutamento')
               .setLabel('SOLICITAR RECRUTAMENTO')
-              .setStyle(ButtonStyle.Primary)
+              .setStyle(ButtonStyle.Secondary)
           );
           const embed = new EmbedBuilder()
             .setColor(0x000000)
@@ -44,8 +44,8 @@ module.exports = (client) => {
           const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setCustomId('abrir_ticket')
-              .setLabel('🎫 Abrir Ticket')
-              .setStyle(ButtonStyle.Primary)
+              .setLabel('🎫 ABRIR TICKET')
+              .setStyle(ButtonStyle.Secondary)
           );
           const embed = new EmbedBuilder()
             .setColor(0x000000)

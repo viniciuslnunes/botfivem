@@ -24,7 +24,7 @@ module.exports = {
         new ButtonBuilder()
           .setCustomId('abrir_validarid')
           .setLabel('VALIDAR ID')
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Secondary)
       );
       await canalValidar.send({ embeds: [embed], components: [row] });
     }
@@ -59,7 +59,7 @@ module.exports = {
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId('abrir_remover_advertencia')
-          .setLabel('✅ REMOVER ADVERTÊNCIA')
+          .setLabel('🦅 REMOVER ADVERTÊNCIA')
           .setStyle(ButtonStyle.Secondary)
       );
       await canalAdvertencia.send({ embeds: [embed], components: [row] });
@@ -92,8 +92,8 @@ module.exports = {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('abrir_ticket')
-          .setLabel('🎫 Abrir Ticket')
-          .setStyle(ButtonStyle.Primary)
+          .setLabel('🎫 ABRIR TICKET')
+          .setStyle(ButtonStyle.Secondary)
       );
       await canalTicket.send({
         embeds: [embed],
@@ -102,6 +102,6 @@ module.exports = {
       });
     }
 
-    await interaction.reply({ content: '✅ Mensagens fixas verificadas/enviadas!', flags: 64 });
+    await interaction.reply({ content: '🦅 Mensagens fixas verificadas/enviadas!', flags: 64 });
   }
 };

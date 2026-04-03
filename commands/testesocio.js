@@ -18,7 +18,7 @@ module.exports = {
     try {
       console.log('DEBUG - ID do cargo SÓCIO:', config.cargos.socio, typeof config.cargos.socio);
       await member.roles.add(config.cargos.socio);
-      await interaction.reply({ content: `✅ Cargo de sócio atribuído para <@${user.id}>!`, flags: 64 });
+      await interaction.reply({ content: `🦅 Cargo de sócio atribuído para <@${user.id}>!`, flags: 64 });
     } catch (err) {
       await interaction.reply({ content: `❌ Erro ao atribuir cargo: ${err.message}`, flags: 64 });
     }

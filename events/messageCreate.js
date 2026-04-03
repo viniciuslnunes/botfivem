@@ -66,7 +66,7 @@ module.exports = (client) => {
         new ButtonBuilder()
           .setCustomId('abrir_validarid')
           .setLabel('Validar ID')
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Secondary)
       );
       message.reply({ content: 'Clique para validar um ID:', components: [row] });
     }

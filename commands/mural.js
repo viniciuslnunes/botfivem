@@ -10,7 +10,7 @@ module.exports = {
 
     try {
       await atualizarMural(interaction.client);
-      await interaction.editReply({ content: '✅ Mural de associados atualizado!' });
+      await interaction.editReply({ content: '🦅 Mural de associados atualizado!' });
     } catch (err) {
       console.error('[mural] Erro ao atualizar mural:', err);
       await interaction.editReply({ content: '❌ Erro ao atualizar o mural. Tente novamente.' });

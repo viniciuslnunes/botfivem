@@ -10,7 +10,7 @@ module.exports = {
       new ButtonBuilder()
         .setCustomId('abrir_recrutamento')
         .setLabel('SOLICITAR RECRUTAMENTO')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Secondary)
     );
     const embed = new EmbedBuilder()
       .setColor(0x000000)

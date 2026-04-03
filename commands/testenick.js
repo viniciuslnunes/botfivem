@@ -22,7 +22,7 @@ module.exports = {
     if (!member) return interaction.reply({ content: 'Usuário não encontrado.', flags: 64 });
     try {
       await member.setNickname(nick);
-      await interaction.reply({ content: `✅ Nick alterado para <@${user.id}>: ${nick}`, flags: 64 });
+      await interaction.reply({ content: `🦅 Nick alterado para <@${user.id}>: ${nick}`, flags: 64 });
     } catch (err) {
       await interaction.reply({ content: `❌ Erro ao alterar nick: ${err.message}`, flags: 64 });
     }

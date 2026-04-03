@@ -20,9 +20,9 @@ module.exports = {
 
         let msg = `**Diagnóstico do Bot:**\n`;
         msg += `• Cargo mais alto: ${botHighestRole} (ID: ${botHighestRole.id})\n`;
-        msg += `• Gerenciar cargos: ${canManageRoles ? '✅' : '❌'}\n`;
-        msg += `• Gerenciar apelidos: ${canManageNicknames ? '✅' : '❌'}\n`;
-        msg += `• Administrador: ${isAdmin ? '✅' : '❌'}\n`;
+        msg += `• Gerenciar cargos: ${canManageRoles ? '🦅' : '❌'}\n`;
+        msg += `• Gerenciar apelidos: ${canManageNicknames ? '🦅' : '❌'}\n`;
+        msg += `• Administrador: ${isAdmin ? '🦅' : '❌'}\n`;
 
         const user = interaction.options.getUser('usuario');
         if (user) {
@@ -33,8 +33,8 @@ module.exports = {
                 const userHighestRole = member.roles.highest;
                 msg += `\n**Usuário alvo:**\n`;
                 msg += `• Cargo mais alto: ${userHighestRole} (ID: ${userHighestRole.id})\n`;
-                msg += `• Bot pode alterar nick: ${botHighestRole.position > userHighestRole.position ? '✅' : '❌'}\n`;
-                msg += `• Bot pode dar/remover cargo: ${botHighestRole.position > userHighestRole.position ? '✅' : '❌'}\n`;
+                msg += `• Bot pode alterar nick: ${botHighestRole.position > userHighestRole.position ? '🦅' : '❌'}\n`;
+                msg += `• Bot pode dar/remover cargo: ${botHighestRole.position > userHighestRole.position ? '🦅' : '❌'}\n`;
             }
         }
         await interaction.reply({ content: msg, flags: 64 });
