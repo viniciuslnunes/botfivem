@@ -7,6 +7,7 @@ const db = require('../utils/db');
 const { gerarCarteirinha } = require('../utils/gerarCarteirinha');
 const { atualizarMural } = require('../utils/muralAssociados');
 const { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH, CATEGORIAS } = require('../utils/ticket');
+const { atualizarTopRecrutadores } = require('../utils/topRecrutadores');
 
 module.exports = (client, _config, utils) => {
   client.on('interactionCreate', async interaction => {
@@ -515,6 +516,241 @@ module.exports = (client, _config, utils) => {
       return;
     }
 
+    // ── ADVERTÊNCIAS DE RECRUTADORES ────────────────────────────────────────
+
+    // Handler para botão de abrir select de membro para registrar advertência de recrutador
+    if (interaction.isButton() && interaction.customId === 'abrir_registrar_adv_rec') {
+      const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+      const row = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId('select_membro_adv_rec_registrar')
+          .setPlaceholder('SELECIONE O RECRUTADOR PARA ADVERTIR')
+      );
+      await interaction.reply({ content: '**⛔ REGISTRAR ADVERTÊNCIA DE RECRUTADOR** — SELECIONE O MEMBRO:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para botão de abrir select de membro para remover advertência de recrutador
+    if (interaction.isButton() && interaction.customId === 'abrir_remover_adv_rec') {
+      const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+      const row = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId('select_membro_adv_rec_remover')
+          .setPlaceholder('SELECIONE O RECRUTADOR PARA REMOVER ADVERTÊNCIA')
+      );
+      await interaction.reply({ content: '**🦅 REMOVER ADVERTÊNCIA DE RECRUTADOR** — SELECIONE O MEMBRO:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para select de membro → mostra select de prazo (registrar recrutador)
+    if (interaction.isUserSelectMenu() && interaction.customId === 'select_membro_adv_rec_registrar') {
+      const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+      const membroId = interaction.values[0];
+      const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`select_prazo_adv_rec:${membroId}`)
+          .setPlaceholder('SELECIONE O PRAZO DE PAGAMENTO')
+          .addOptions([
+            { label: '⚙️ TESTE (1 SEGUNDO)', value: 'test' },
+            { label: '1 DIA', value: '1' },
+            { label: '2 DIAS', value: '2' },
+            { label: '3 DIAS', value: '3' },
+          ])
+      );
+      await interaction.reply({ content: '**⛔ REGISTRAR ADVERTÊNCIA DE RECRUTADOR** — SELECIONE O PRAZO DE PAGAMENTO:', components: [row], flags: 64 });
+      return;
+    }
+
+    // Handler para select de prazo → abre modal (registrar recrutador)
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('select_prazo_adv_rec:')) {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const membroId = interaction.customId.split(':')[1];
+      const prazo = interaction.values[0];
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_registrar_adv_rec:${membroId}:${prazo}`)
+        .setTitle('REGISTRAR ADVERTÊNCIA — RECRUTADOR');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('motivo').setLabel('MOTIVO DA ADVERTÊNCIA').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('punicao').setLabel('PUNIÇÃO APLICADA').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('prova').setLabel('PROVA (OPCIONAL, LINK OU DESCRIÇÃO)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+        )
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // Handler para select de membro → abre modal (remover recrutador)
+    if (interaction.isUserSelectMenu() && interaction.customId === 'select_membro_adv_rec_remover') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const membroId = interaction.values[0];
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_remover_adv_rec:${membroId}`)
+        .setTitle('REMOVER ADVERTÊNCIA — RECRUTADOR');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('motivo').setLabel('MOTIVO DA REMOÇÃO').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(300)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('prova').setLabel('PROVA (OPCIONAL, LINK OU DESCRIÇÃO)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(200)
+        )
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // Handler para submissão do modal de registrar advertência de recrutador
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_registrar_adv_rec:')) {
+      const parts    = interaction.customId.split(':');
+      const membroId = parts[1];
+      const prazoRaw = parts[2];
+      const isTeste  = prazoRaw === 'test';
+      const prazoNum = isTeste ? 0 : parseInt(prazoRaw);
+      const prazoMs  = isTeste ? 1000 : prazoNum * 24 * 60 * 60 * 1000;
+      const prazoLabel = isTeste ? '⚙️ TESTE (1 SEGUNDO)' : prazoNum === 1 ? '1 DIA' : `${prazoNum} DIAS`;
+      const motivo   = interaction.fields.getTextInputValue('motivo');
+      const punicao  = interaction.fields.getTextInputValue('punicao');
+      const prova    = interaction.fields.getTextInputValue('prova') || null;
+
+      let membro;
+      try {
+        membro = await interaction.guild.members.fetch(membroId);
+      } catch {
+        return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
+      }
+
+      const CANAL_HISTORICO_REC = '1447408212293714080';
+      const CARGO_RECRUTADOR_REC = '1198743169030951010';
+      const CARGOS_ADV = [
+        '1341153479602864188', // ADV¹
+        '1341149153992114229', // ADV²
+        '1340321522547429458', // ADV³
+      ];
+
+      const advAtual  = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
+      const proximaAdv = advAtual + 1;
+
+      if (proximaAdv >= CARGOS_ADV.length) {
+        return interaction.reply({ content: `⚠️ ${membro} JÁ POSSUI A **3ª ADVERTÊNCIA** (MÁXIMO ATINGIDO).`, flags: 64 });
+      }
+
+      if (advAtual >= 0) await membro.roles.remove(CARGOS_ADV[advAtual]).catch(() => {});
+      await membro.roles.add(CARGOS_ADV[proximaAdv]);
+
+      const numAdv   = proximaAdv + 1;
+      const expiraEm = Math.floor(Date.now() / 1000) + prazoNum * 86400;
+
+      const embedRec = {
+        color: 0x000000,
+        title: `⛔ ADV. RECRUTAMENTO ${numAdv}ª REGISTRADA`,
+        fields: [
+          { name: 'RECRUTADOR', value: `<@${membro.id}>`, inline: true },
+          { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
+          { name: 'MOTIVO', value: motivo, inline: false },
+          { name: 'PUNIÇÃO', value: punicao, inline: false },
+          { name: 'PRAZO DE PAGAMENTO', value: `${prazoLabel} — <t:${expiraEm}:F>`, inline: false },
+          { name: 'PROVA', value: prova || 'NÃO INFORMADA', inline: false },
+          { name: 'REGISTRADO POR', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'DATA', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+        ],
+        footer: { text: '⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DO CARGO DE RECRUTADOR.' }
+      };
+
+      const canalHistRec = interaction.guild.channels.cache.get(CANAL_HISTORICO_REC);
+      if (canalHistRec) await canalHistRec.send({ embeds: [embedRec] });
+
+      await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA DE RECRUTAMENTO** REGISTRADA PARA ${membro}. PRAZO: **${prazoLabel}** (<t:${expiraEm}:F>).
+> ⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DO CARGO DE RECRUTADOR.`, flags: 64 });
+
+      const guild = interaction.guild;
+      setTimeout(async () => {
+        try {
+          const membroAtual = await guild.members.fetch(membroId).catch(() => null);
+          if (!membroAtual) return;
+          if (!membroAtual.roles.cache.has(CARGOS_ADV[proximaAdv])) return;
+          await membroAtual.roles.remove(CARGO_RECRUTADOR_REC).catch(() => {});
+          const canalHist = await guild.channels.fetch(CANAL_HISTORICO_REC).catch(() => null);
+          if (canalHist) {
+            await canalHist.send({
+              embeds: [{
+                color: 0x000000,
+                title: '❌ ADV. RECRUTAMENTO NÃO PAGA — CARGO REMOVIDO',
+                fields: [
+                  { name: 'RECRUTADOR', value: `<@${membroId}>`, inline: true },
+                  { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
+                  { name: 'MOTIVO', value: motivo, inline: false },
+                  { name: 'PUNIÇÃO', value: punicao, inline: false },
+                  { name: 'PRAZO', value: `${prazoLabel} (VENCIDO)`, inline: false },
+                  { name: 'AÇÃO', value: 'CARGO DE RECRUTADOR REMOVIDO AUTOMATICAMENTE', inline: false },
+                  { name: 'DATA DE VENCIMENTO', value: `<t:${expiraEm}:F>`, inline: false }
+                ]
+              }]
+            });
+          }
+        } catch (err) {
+          console.error('[adv_rec] Erro ao processar vencimento:', err);
+        }
+      }, prazoMs);
+
+      return;
+    }
+
+    // Handler para submissão do modal de remover advertência de recrutador
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_remover_adv_rec:')) {
+      const membroId = interaction.customId.split(':')[1];
+      const motivo   = interaction.fields.getTextInputValue('motivo');
+      const prova    = interaction.fields.getTextInputValue('prova') || null;
+
+      let membro;
+      try {
+        membro = await interaction.guild.members.fetch(membroId);
+      } catch {
+        return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
+      }
+
+      const CANAL_HISTORICO_REC = '1447408212293714080';
+      const CARGOS_ADV = [
+        '1341153479602864188', // ADV¹
+        '1341149153992114229', // ADV²
+        '1340321522547429458', // ADV³
+      ];
+
+      const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
+
+      if (advAtual === -1) {
+        return interaction.reply({ content: `⚠️ ${membro} NÃO POSSUI NENHUMA ADVERTÊNCIA REGISTRADA.`, flags: 64 });
+      }
+
+      await membro.roles.remove(CARGOS_ADV[advAtual]);
+      if (advAtual > 0) await membro.roles.add(CARGOS_ADV[advAtual - 1]);
+
+      const numAdv = advAtual + 1;
+      const embedRemRec = {
+        color: 0x000000,
+        title: `🦅 ADV. RECRUTAMENTO ${numAdv}ª REMOVIDA`,
+        fields: [
+          { name: 'RECRUTADOR', value: `<@${membro.id}>`, inline: true },
+          { name: 'ADVERTÊNCIA REMOVIDA', value: `${numAdv}ª`, inline: true },
+          { name: 'MOTIVO', value: motivo, inline: false },
+          { name: 'PROVA', value: prova || 'NÃO INFORMADA', inline: false },
+          { name: 'REMOVIDO POR', value: `<@${interaction.user.id}>`, inline: false },
+          { name: 'DATA', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+        ]
+      };
+
+      const canalHistRec = interaction.guild.channels.cache.get(CANAL_HISTORICO_REC);
+      if (canalHistRec) await canalHistRec.send({ embeds: [embedRemRec] });
+
+      await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA DE RECRUTAMENTO** REMOVIDA DE ${membro}.`, flags: 64 });
+      return;
+    }
+
+    // ── FIM ADVERTÊNCIAS DE RECRUTADORES ─────────────────────────────────────
+
     // Comando slash
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
@@ -734,6 +970,7 @@ module.exports = (client, _config, utils) => {
           await guildMember.setNickname(novoNick).catch(() => {});
           // Registrar aprovação no banco
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
+          atualizarTopRecrutadores(client).catch(err => console.error('[aprovar] Erro ao atualizar top recrutadores:', err));
         } catch (err) {
           console.error('Erro ao registrar aprovação no banco:', err);
           await interaction.channel.send({

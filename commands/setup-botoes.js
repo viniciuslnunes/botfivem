@@ -102,6 +102,26 @@ module.exports = {
       });
     }
 
+    // Canal de advertências de recrutadores
+    const canalAdvRec = interaction.guild.channels.cache.get('1489851602381836538');
+    if (canalAdvRec && !await jaTemBotao(canalAdvRec, client)) {
+      const embed = new EmbedBuilder()
+        .setColor(0x000000)
+        .setTitle('⛔ ADVERTÊNCIAS DE RECRUTADORES — GAVIÕES DA FIEL FIVEM')
+        .setDescription('Use os botões abaixo para registrar ou remover uma advertência de um recrutador.');
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('abrir_registrar_adv_rec')
+          .setLabel('⛔ REGISTRAR ADVERTÊNCIA')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId('abrir_remover_adv_rec')
+          .setLabel('🦅 REMOVER ADVERTÊNCIA')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      await canalAdvRec.send({ embeds: [embed], components: [row] });
+    }
+
     await interaction.reply({ content: '🦅 Mensagens fixas verificadas/enviadas!', flags: 64 });
   }
 };
