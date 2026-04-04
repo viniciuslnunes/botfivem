@@ -684,8 +684,8 @@ module.exports = (client, _config, utils) => {
         const embed = interaction.message.embeds[0];
         const idField = embed.fields.find(f => f.name.startsWith('ID | DISCORD'));
         const candidatoId = idField ? idField.value.split(' ')[0] : null;
-        const nomeField = embed.fields.find(f => f.name === 'Nome');
-        const idFiveMField = embed.fields.find(f => f.name === 'ID FiveM');
+        const nomeField = embed.fields.find(f => f.name === 'NOME');
+        const idFiveMField = embed.fields.find(f => f.name === 'ID FIVEM');
         const nome = nomeField ? nomeField.value : '';
         const id_fivem = idFiveMField ? idFiveMField.value : '';
         // Buscar IDs bloqueados no canal de histórico-nao-recrutar
