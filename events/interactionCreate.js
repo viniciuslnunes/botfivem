@@ -338,8 +338,8 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({ content: 'Canal de histórico não encontrado.', flags: 64 });
       }
       const embed = {
-        color: 0x000000,
-        title: 'ID Bloqueado para Recrutamento',
+        color: 0xFF0000,
+        title: '❌ ID Bloqueado para Recrutamento',
         fields: [
           { name: 'ID', value: id, inline: false },
           { name: 'Motivo', value: motivo, inline: false },
@@ -402,8 +402,8 @@ module.exports = (client, _config, utils) => {
       const expiraEm = Math.floor(Date.now() / 1000) + prazoNum * 86400;
 
       const embed = {
-        color: 0x000000,
-        title: `⛔ ADVERTÊNCIA ${numAdv}ª REGISTRADA`,
+        color: 0xFF0000,
+        title: `❌ ADVERTÊNCIA ${numAdv}ª REGISTRADA`,
         fields: [
           { name: 'MEMBRO', value: `<@${membro.id}>`, inline: true },
           { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
@@ -438,7 +438,7 @@ module.exports = (client, _config, utils) => {
           if (canalPendentes) {
             await canalPendentes.send({
               embeds: [{
-                color: 0x000000,
+                color: 0xFF0000,
                 title: '❌ ADVERTÊNCIA NÃO PAGA — CARGO REMOVIDO',
                 fields: [
                   { name: 'MEMBRO', value: `<@${membroId}>`, inline: true },
@@ -645,8 +645,8 @@ module.exports = (client, _config, utils) => {
       const expiraEm = Math.floor(Date.now() / 1000) + prazoNum * 86400;
 
       const embedRec = {
-        color: 0x000000,
-        title: `⛔ ADV. RECRUTAMENTO ${numAdv}ª REGISTRADA`,
+        color: 0xFF0000,
+        title: `❌ ADV. RECRUTAMENTO ${numAdv}ª REGISTRADA`,
         fields: [
           { name: 'RECRUTADOR', value: `<@${membro.id}>`, inline: true },
           { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
@@ -677,7 +677,7 @@ module.exports = (client, _config, utils) => {
           if (canalHist) {
             await canalHist.send({
               embeds: [{
-                color: 0x000000,
+                color: 0xFF0000,
                 title: '❌ ADV. RECRUTAMENTO NÃO PAGA — CARGO REMOVIDO',
                 fields: [
                   { name: 'RECRUTADOR', value: `<@${membroId}>`, inline: true },

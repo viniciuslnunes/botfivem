@@ -16,7 +16,7 @@ async function atualizarListaEvento(message) {
       try {
         rawUsers = await message.client.rest.get(
           Routes.channelMessageReaction(message.channelId, message.id, encodeURIComponent(EMOJI_CONFIRMAR)),
-          { query: { limit: '100' } }
+          { query: new URLSearchParams({ limit: '100' }) }
         );
       } catch {
         rawUsers = []; // 404 = ainda não há reações
