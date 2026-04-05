@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, Routes } = require('discord.js');
 
 const EMOJI_CONFIRMAR = '🦅';
 const pendingUpdates  = new Map();
@@ -11,14 +11,20 @@ async function atualizarListaEvento(message) {
   pendingUpdates.set(message.id, setTimeout(async () => {
     pendingUpdates.delete(message.id);
     try {
-      const freshMessage = await message.fetch(true);
-      const reacao = freshMessage.reactions.cache.find(r => r.emoji.name === EMOJI_CONFIRMAR && !r.emoji.id);
-      let confirmados = [];
-      if (reacao) {
-        const users = await reacao.users.fetch();
-        confirmados = [...users.filter(u => !u.bot).values()];
+      // Buscar usuários direto pela REST API — sem passar por nenhum cache do Discord.js
+      let rawUsers = [];
+      try {
+        rawUsers = await message.client.rest.get(
+          Routes.channelMessageReaction(message.channelId, message.id, encodeURIComponent(EMOJI_CONFIRMAR)),
+          { query: { limit: '100' } }
+        );
+      } catch {
+        rawUsers = []; // 404 = ainda não há reações
       }
+      const confirmados = rawUsers.filter(u => !u.bot);
 
+      // Buscar mensagem fresca apenas para editar o embed
+      const freshMessage = await message.channel.messages.fetch(message.id, { force: true });
       const embed = freshMessage.embeds[0];
       if (!embed) return;
 
