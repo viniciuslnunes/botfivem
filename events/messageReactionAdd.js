@@ -3,10 +3,8 @@ const { EmbedBuilder } = require('discord.js');
 const EMOJI_CONFIRMAR = '🦅';
 const EMOJI_RECUSAR   = '❌';
 
-async function atualizarListaEvento(message) {
+async function atualizarListaEvento(message, reacao) {
   try {
-    // Busca a reação de confirmar e todos os usuários que reagiram
-    const reacao = message.reactions.cache.find(r => r.emoji.name === EMOJI_CONFIRMAR && !r.emoji.id);
     let confirmados = [];
     if (reacao) {
       const users = await reacao.users.fetch();
@@ -63,7 +61,7 @@ module.exports = (client) => {
 
     // Só atualiza lista se for o emoji de confirmar
     if (isConfirmar) {
-      await atualizarListaEvento(message);
+      await atualizarListaEvento(message, reaction);
     }
   });
 };
