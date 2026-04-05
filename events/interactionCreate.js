@@ -1066,18 +1066,11 @@ module.exports = (client, _config, utils) => {
       const titulo = interaction.fields.getTextInputValue('titulo');
       const horario = interaction.fields.getTextInputValue('horario');
 
-      const EMOJI_CONFIRMAR_ID = '1489501021108441240';
-      const EMOJI_RECUSAR      = '❌';
-
-      // Buscar emoji customizado :GAVIO:
-      let emojiGavio;
-      try {
-        emojiGavio = await interaction.guild.emojis.fetch(EMOJI_CONFIRMAR_ID);
-      } catch (e) { console.error('[evento] Emoji GAVIO não encontrado:', e.message); }
-
       const { EmbedBuilder } = require('discord.js');
-      const emojiConfirmarStr = emojiGavio ? `<:${emojiGavio.name}:${EMOJI_CONFIRMAR_ID}>` : '🦅';
-      const instrucoes = `${emojiConfirmarStr} para **confirmar** presença   ❌ para **recusar**`;
+      const EMOJI_CONFIRMAR = '🦅';
+      const EMOJI_RECUSAR   = '❌';
+
+      const instrucoes = `${EMOJI_CONFIRMAR} para **confirmar** presença   ${EMOJI_RECUSAR} para **recusar**`;
 
       const embed = new EmbedBuilder()
         .setColor(0x000000)
@@ -1085,17 +1078,15 @@ module.exports = (client, _config, utils) => {
         .setDescription(instrucoes)
         .addFields(
           { name: '🕐 Horário', value: horario, inline: false },
-          { name: `${emojiConfirmarStr} Confirmados (0)`, value: '*Nenhum confirmado ainda*', inline: false }
+          { name: `${EMOJI_CONFIRMAR} Confirmados (0)`, value: '*Nenhum confirmado ainda*', inline: false }
         )
         .setFooter({ text: 'evento' });
 
       await interaction.reply({ content: '🦅 Evento criado!', flags: 64 });
       const eventMsg = await interaction.channel.send({ embeds: [embed] });
 
-      if (emojiGavio) {
-        try { await eventMsg.react(emojiGavio); } catch (e) { console.error('[evento] Erro ao reagir confirmar:', e.message); }
-      }
-      try { await eventMsg.react('❌'); } catch (e) { console.error('[evento] Erro ao reagir recusar:', e.message); }
+      try { await eventMsg.react(EMOJI_CONFIRMAR); } catch (e) { console.error('[evento] Erro ao reagir confirmar:', e.message); }
+      try { await eventMsg.react(EMOJI_RECUSAR); } catch (e) { console.error('[evento] Erro ao reagir recusar:', e.message); }
       return;
     }
     } catch (err) {

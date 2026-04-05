@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 
-const EMOJI_CONFIRMAR_ID = '1489501021108441240'; // :GAVIO: (customizado)
-const EMOJI_RECUSAR      = '❌';
+const EMOJI_CONFIRMAR = '🦅';
+const EMOJI_RECUSAR   = '❌';
 
 async function atualizarListaEvento(message) {
   try {
     // Busca a reação de confirmar e todos os usuários que reagiram
-    const reacao = message.reactions.cache.find(r => r.emoji.id === EMOJI_CONFIRMAR_ID);
+    const reacao = message.reactions.cache.find(r => r.emoji.name === EMOJI_CONFIRMAR && !r.emoji.id);
     let confirmados = [];
     if (reacao) {
       const users = await reacao.users.fetch();
@@ -57,7 +57,7 @@ module.exports = (client) => {
     const embed = message.embeds?.[0];
     if (!embed || embed.footer?.text !== 'evento') return;
 
-    const isConfirmar = reaction.emoji.id === EMOJI_CONFIRMAR_ID;
+    const isConfirmar = reaction.emoji.name === EMOJI_CONFIRMAR && !reaction.emoji.id;
     const isRecusar   = reaction.emoji.name === EMOJI_RECUSAR && !reaction.emoji.id;
     if (!isConfirmar && !isRecusar) return;
 
