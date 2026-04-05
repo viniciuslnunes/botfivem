@@ -1,52 +1,69 @@
 const { EmbedBuilder, Routes } = require('discord.js');
 
 const EMOJI_CONFIRMAR = '🦅';
-const pendingUpdates  = new Map();
+const locks = new Map(); // messageId -> { busy, queued }
+
+async function _doUpdate(message) {
+  // Busca usuários direto pela REST API — sem nenhuma camada de cache/debounce
+  let rawUsers = [];
+  try {
+    rawUsers = await message.client.rest.get(
+      Routes.channelMessageReaction(message.channelId, message.id, encodeURIComponent(EMOJI_CONFIRMAR)),
+      { query: new URLSearchParams({ limit: '100' }) }
+    );
+  } catch (err) {
+    if (err.status !== 404) throw err; // 404 = sem reações ainda, normal
+  }
+  const confirmados = rawUsers.filter(u => !u.bot);
+
+  // Busca a mensagem fresca via canal (evita referência stale)
+  const channel = await message.client.channels.fetch(message.channelId);
+  const freshMessage = await channel.messages.fetch(message.id, { force: true });
+  const embed = freshMessage.embeds[0];
+  if (!embed) return;
+
+  const novoEmbed = EmbedBuilder.from(embed);
+  const confirmedText = confirmados.length
+    ? confirmados.map(u => `<@${u.id}>`).join('\n')
+    : '*Nenhum confirmado ainda*';
+
+  const fields = (novoEmbed.data.fields || []).map(f => {
+    if (f.name.includes('Confirmados')) {
+      const emojiPrefix = f.name.split(' ')[0];
+      return { name: `${emojiPrefix} Confirmados (${confirmados.length})`, value: confirmedText, inline: f.inline };
+    }
+    return f;
+  });
+
+  novoEmbed.setFields(fields);
+  await freshMessage.edit({ embeds: [novoEmbed] });
+  console.log(`[evento] Lista atualizada: ${confirmados.length} confirmado(s) — msg ${message.id}`);
+}
 
 async function atualizarListaEvento(message) {
-  if (pendingUpdates.has(message.id)) {
-    clearTimeout(pendingUpdates.get(message.id));
+  const msgId = message.id;
+  if (!locks.has(msgId)) locks.set(msgId, { busy: false, queued: false });
+  const lock = locks.get(msgId);
+
+  // Se já está atualizando, marca dirty e sai — o loop abaixo vai relançar
+  if (lock.busy) {
+    lock.queued = true;
+    return;
   }
 
-  pendingUpdates.set(message.id, setTimeout(async () => {
-    pendingUpdates.delete(message.id);
+  // Roda o update; se novas reações chegaram enquanto rodava (queued=true), roda de novo
+  do {
+    lock.busy = true;
+    lock.queued = false;
     try {
-      // Buscar usuários direto pela REST API — sem passar por nenhum cache do Discord.js
-      let rawUsers = [];
-      try {
-        rawUsers = await message.client.rest.get(
-          Routes.channelMessageReaction(message.channelId, message.id, encodeURIComponent(EMOJI_CONFIRMAR)),
-          { query: new URLSearchParams({ limit: '100' }) }
-        );
-      } catch {
-        rawUsers = []; // 404 = ainda não há reações
-      }
-      const confirmados = rawUsers.filter(u => !u.bot);
-
-      // Buscar mensagem fresca apenas para editar o embed
-      const freshMessage = await message.channel.messages.fetch(message.id, { force: true });
-      const embed = freshMessage.embeds[0];
-      if (!embed) return;
-
-      const novoEmbed = EmbedBuilder.from(embed);
-      const confirmedText = confirmados.length
-        ? confirmados.map(u => `<@${u.id}>`).join('\n')
-        : '*Nenhum confirmado ainda*';
-
-      const fields = (novoEmbed.data.fields || []).map(f => {
-        if (f.name.includes('Confirmados')) {
-          const emojiPrefix = f.name.split(' ')[0];
-          return { name: `${emojiPrefix} Confirmados (${confirmados.length})`, value: confirmedText, inline: f.inline };
-        }
-        return f;
-      });
-
-      novoEmbed.setFields(fields);
-      await freshMessage.edit({ embeds: [novoEmbed] });
+      await _doUpdate(message);
     } catch (err) {
       console.error('[evento] Erro ao atualizar lista:', err);
     }
-  }, 1000));
+    lock.busy = false;
+  } while (lock.queued);
+
+  locks.delete(msgId);
 }
 
 module.exports = { atualizarListaEvento };
