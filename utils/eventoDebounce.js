@@ -11,10 +11,13 @@ async function _doUpdate(message) {
       Routes.channelMessageReaction(message.channelId, message.id, encodeURIComponent(EMOJI_CONFIRMAR)),
       { query: new URLSearchParams({ limit: '100' }) }
     );
+    console.log(`[evento] API retornou ${rawUsers.length} usuário(s):`, rawUsers.map(u => `${u.username} (bot=${u.bot})`));
   } catch (err) {
-    if (err.status !== 404) throw err; // 404 = sem reações ainda, normal
+    if (err.status !== 404) throw err;
+    console.log('[evento] API retornou 404 — sem reações ainda');
   }
   const confirmados = rawUsers.filter(u => !u.bot);
+  console.log(`[evento] Confirmados após filtrar bots: ${confirmados.length}`);
 
   // Busca a mensagem fresca via canal (evita referência stale)
   const channel = await message.client.channels.fetch(message.channelId);
