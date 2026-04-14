@@ -1034,7 +1034,7 @@ module.exports = (client, _config, utils) => {
           title: embedOriginal.title || 'Recrutamento',
           description: embedOriginal.description || '',
           fields,
-          color: 0x000000
+          color: 0xFF0000
         };
         // Remover cargos de provar-manto e visitante ao reprovar
         const idFieldReprovado = embedOriginal.fields.find(f => f.name.startsWith('ID | DISCORD'));
