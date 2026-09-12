@@ -340,12 +340,11 @@ const PERIODOS_COM_PRESENTE = new Set(['hoje', '7d', '30d', '90d', 'tudo']);
 // mesmo tempo e o Discord passa a limitar o webhook — por isso tende a ficar
 // um pouco abaixo do número que o próprio jogo mostra).
 //
-// O rótulo em linhasContexto chama isso de "MAIOR BONDE MENSAL (LOG
-// WEBHOOK)" por pedido explícito — mesmo o cálculo continuando sendo
-// HISTÓRICO INTEIRO, não só do mês corrente. Fica parecido com o campo
-// manual "MAIOR BONDE MENSAL (RANKING DO JOGO)" de propósito, mas os dois
-// números não são comparáveis (um é histórico, o outro mensal) — avisado ao
-// pedir a troca.
+// O rótulo em linhasContexto chama isso de "MAIOR BONDE JÁ REGISTRADO
+// (WEBHOOK)" — nome escolhido de propósito pra não se confundir com o campo
+// manual "MAIOR BONDE MENSAL (RANKING DO JOGO)", que é mensal e batido à
+// mão a partir do painel do próprio jogo; este aqui é histórico inteiro e
+// automático, a partir do que o webhook registrou.
 async function picoHistoricoRegistrado() {
   const fim = new Date();
   const [baselineBruto, eventos] = await Promise.all([
@@ -372,7 +371,7 @@ function linhasContexto(sociosCount, manual, pico) {
   return [
     sociosCount != null ? `**SÓCIOS COM CARGO NO DISCORD:** ${E.formatarNumero(sociosCount)}` : null,
     manual?.socios?.valor != null ? `**SÓCIOS SETADOS (CONFERIDO À MÃO):** ${E.formatarNumero(manual.socios.valor)}` : null,
-    `**MAIOR BONDE MENSAL (LOG WEBHOOK):** ${E.formatarNumero(pico)}`,
+    `**MAIOR BONDE JÁ REGISTRADO (WEBHOOK):** ${E.formatarNumero(pico)}`,
     manual?.pico?.valor != null ? `**MAIOR BONDE MENSAL (RANKING DO JOGO):** ${E.formatarNumero(manual.pico.valor)}` : null,
   ].filter(l => l !== null);
 }
