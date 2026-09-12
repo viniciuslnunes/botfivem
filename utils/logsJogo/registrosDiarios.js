@@ -251,4 +251,9 @@ function agendarAtualizacaoReativa(client) {
   }, DEBOUNCE_MS);
 }
 
-module.exports = { iniciarRegistrosDiarios, atualizarRegistrosDiarios, agendarAtualizacaoReativa };
+module.exports = {
+  iniciarRegistrosDiarios,
+  atualizarRegistrosDiarios,
+  agendarAtualizacaoReativa,
+  reprocessarFormatacaoDiasFechados,
+};
