@@ -77,7 +77,10 @@ async function montarEstruturaDepartamentos(guild) {
     const nomes = nomesDosCargos(area.nome);
     const membro = await garantirCargo(guild, area.cargo_membro_id, nomes.membro);
     const gestor = await garantirCargo(guild, area.cargo_gestor_id, nomes.gestor);
-    const canal = await garantirCanal(guild, area.canal_id, {
+    // area.canalId (config) aponta para um canal que já existe na torcida: reaproveita
+    // sem mexer em nome/categoria/permissões dele. Só cria canal novo quando não há override
+    // nem canal já salvo do banco de uma execução anterior.
+    const canal = await garantirCanal(guild, area.canalId ?? area.canal_id, {
       name: nomeDoCanal(area),
       type: ChannelType.GuildText,
       parent: categoria.canal.id,

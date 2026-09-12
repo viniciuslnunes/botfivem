@@ -16,8 +16,8 @@ async function podeMexerNaArea(member, slug) {
 
 function linhaBotoesArea(slug) {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`dept:incluir:${slug}`).setLabel('Incluir').setEmoji('➕').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`dept:remover:${slug}`).setLabel('Remover').setEmoji('➖').setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId(`dept:incluir:${slug}`).setLabel('INCLUIR').setEmoji('➕').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`dept:remover:${slug}`).setLabel('REMOVER').setEmoji('➖').setStyle(ButtonStyle.Danger)
   );
 }
 

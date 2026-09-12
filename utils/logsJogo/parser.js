@@ -46,6 +46,24 @@ const REGRAS = [
       atorIdFivem: d.match(/\(\s*ID:\s*(\d+)\s*\)/i)?.[1] ?? null,
     }),
   },
+  {
+    acao: 'jogador_entrou',
+    // "#19200 Bigode lmzz entrou no servidor." (canal logs-painel)
+    teste: d => /^#\d+\s+.+\bentrou\b.*\bservidor\b/i.test(d),
+    extrair: d => {
+      const m = d.match(/^#(\d+)\s+(.+?)\s+entrou\b/i);
+      return { atorIdFivem: m?.[1] ?? null, atorNome: m?.[2]?.trim() ?? null, categoria: 'conexao' };
+    },
+  },
+  {
+    acao: 'jogador_saiu',
+    // "#19200 Bigode lmzz saiu do servidor." (canal logs-painel)
+    teste: d => /^#\d+\s+.+\bsaiu\b.*\bservidor\b/i.test(d),
+    extrair: d => {
+      const m = d.match(/^#(\d+)\s+(.+?)\s+saiu\b/i);
+      return { atorIdFivem: m?.[1] ?? null, atorNome: m?.[2]?.trim() ?? null, categoria: 'conexao' };
+    },
+  },
 ];
 
 function parseRegistro(embed) {

@@ -146,6 +146,44 @@ async function ultimaAtividadePorIds(ids) {
   return new Map(res.rows.map(r => [r.id, r.ultima]));
 }
 
+const ACOES_CONEXAO = ['jogador_entrou', 'jogador_saiu'];
+
+// Último evento de entrada/saída de cada jogador antes de `instante` (padrão:
+// agora) — é o estado de presença: entrou = online, saiu = offline.
+async function estadoDosJogadores(instante = new Date()) {
+  const res = await db.query(
+    `SELECT DISTINCT ON (ator_id_fivem) ator_id_fivem AS id, ator_nome AS nome, acao, ocorrido_em
+       FROM logs_jogo
+      WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL AND ocorrido_em < $2
+      ORDER BY ator_id_fivem, ocorrido_em DESC`,
+    [ACOES_CONEXAO, instante]
+  );
+  return res.rows;
+}
+
+// Eventos de entrada/saída em ordem cronológica, para reconstruir a linha do
+// tempo de simultâneos dentro do período.
+async function eventosConexao(inicio, fim) {
+  const res = await db.query(
+    `SELECT ator_id_fivem AS id, ator_nome AS nome, acao, ocorrido_em
+       FROM logs_jogo
+      WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL AND ocorrido_em >= $2 AND ocorrido_em < $3
+      ORDER BY ocorrido_em ASC`,
+    [ACOES_CONEXAO, inicio, fim]
+  );
+  return res.rows;
+}
+
+async function jogadoresDistintosNoPeriodo(inicio, fim) {
+  const res = await db.query(
+    `SELECT COUNT(DISTINCT ator_id_fivem)::int AS total
+       FROM logs_jogo
+      WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL AND ocorrido_em >= $2 AND ocorrido_em < $3`,
+    [ACOES_CONEXAO, inicio, fim]
+  );
+  return res.rows[0].total;
+}
+
 module.exports = {
   inserirRegistro,
   idsJaGravados,
@@ -158,4 +196,7 @@ module.exports = {
   categoriasDistintas: prefixo => valoresDistintos('categoria', prefixo),
   acoesDistintas: prefixo => valoresDistintos('acao', prefixo),
   ultimaAtividadePorIds,
+  estadoDosJogadores,
+  eventosConexao,
+  jogadoresDistintosNoPeriodo,
 };

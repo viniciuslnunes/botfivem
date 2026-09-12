@@ -62,20 +62,25 @@ module.exports = {
   // Quem consulta logs, estatísticas e situação das carteirinhas
   lideranca: [cargos.presidente, cargos.vicePresidente, cargos.velhaGuarda, cargos.diretoria],
 
-  // Áreas da torcida. Cargos (MEMBRO • / GESTOR •) e canais são criados por
+  // Áreas da torcida. Cargos (MEMBRO • / GESTOR •) são criados por
   // /departamentos setup e guardados no banco. A Diretoria não entra aqui: já
   // existe como cargo GDF • DIRETORIA e aparece no embed de hierarquia.
+  //
+  // canalId: cole aqui o ID do canal que JÁ EXISTE no servidor para esta área
+  // (copiar ID do canal no Discord). O setup usa esse canal em vez de criar um
+  // novo — não duplica categoria/canal que a torcida já tem. Só cria um canal
+  // novo (dentro de 🏛️ DEPARTAMENTOS) quando canalId ficar null.
   departamentos: [
-    { slug: 'financeiro', nome: 'Financeiro', emoji: '💰', descricao: 'Controla o caixa da torcida: mensalidade, loja, eventos e rifas — tudo em dinheiro do jogo.' },
-    { slug: 'social', nome: 'Social e Eventos', emoji: '🎉', descricao: 'Organiza eventos e festas da torcida, e cuida das rifas.' },
-    { slug: 'loja', nome: 'Materiais e Loja', emoji: '🛍️', descricao: 'Cuida do catálogo, do estoque e do atendimento dos pedidos da loja.' },
-    { slug: 'comunicacao', nome: 'Comunicação', emoji: '📣', descricao: 'Cuida dos avisos oficiais e modera os registros da memória da torcida.' },
-    { slug: 'patrimonio', nome: 'Patrimônio', emoji: '🗃️', descricao: 'Inventário da torcida: material de jogo, eletrônicos e mobiliário.' },
-    { slug: 'bandeiras', nome: 'Bandeiras', emoji: '🚩', descricao: 'Cuida das bandeiras, faixas e mastros da torcida.' },
-    { slug: 'bateria', nome: 'Bateria', emoji: '🥁', descricao: 'Organiza os ensaios e cuida dos instrumentos da bateria.' },
-    { slug: 'caravanas', nome: 'Caravanas', emoji: '🚌', descricao: 'Organiza as viagens para jogos fora: veículos, vagas e embarque.' },
-    { slug: 'feminino', nome: 'Feminino', emoji: '🌹', descricao: 'Espaço e organização do departamento feminino da torcida.' },
-    { slug: 'carnaval', nome: 'Carnaval', emoji: '🎭', descricao: 'Organiza a participação da torcida no carnaval.' },
+    { slug: 'financeiro', nome: 'Financeiro', emoji: '💰', descricao: 'Controla o caixa da torcida: mensalidade, loja, eventos e rifas — tudo em dinheiro do jogo.', canalId: null },
+    { slug: 'social', nome: 'Social e Eventos', emoji: '🎉', descricao: 'Organiza eventos e festas da torcida, e cuida das rifas.', canalId: null },
+    { slug: 'loja', nome: 'Materiais e Loja', emoji: '🛍️', descricao: 'Cuida do catálogo, do estoque e do atendimento dos pedidos da loja.', canalId: null },
+    { slug: 'comunicacao', nome: 'Comunicação', emoji: '📣', descricao: 'Cuida dos avisos oficiais e modera os registros da memória da torcida.', canalId: null },
+    { slug: 'patrimonio', nome: 'Patrimônio', emoji: '🗃️', descricao: 'Inventário da torcida: material de jogo, eletrônicos e mobiliário.', canalId: null },
+    { slug: 'bandeiras', nome: 'Bandeiras', emoji: '🚩', descricao: 'Cuida das bandeiras, faixas e mastros da torcida.', canalId: null },
+    { slug: 'bateria', nome: 'Bateria', emoji: '🥁', descricao: 'Organiza os ensaios e cuida dos instrumentos da bateria.', canalId: null },
+    { slug: 'caravanas', nome: 'Caravanas', emoji: '🚌', descricao: 'Organiza as viagens para jogos fora: veículos, vagas e embarque.', canalId: null },
+    { slug: 'feminino', nome: 'Feminino', emoji: '🌹', descricao: 'Espaço e organização do departamento feminino da torcida.', canalId: null },
+    { slug: 'carnaval', nome: 'Carnaval', emoji: '🎭', descricao: 'Organiza a participação da torcida no carnaval.', canalId: null },
   ],
 
   eventos: {
@@ -92,12 +97,15 @@ module.exports = {
   // Logs que o FiveM publica por webhook. Os canais continuam como estão;
   // o bot só lê, grava para filtros/estatísticas e dispara alertas.
   logsJogo: {
-    canais: ['1461544673825783929'], // logs-liderança
+    canais: ['1461544673825783929', '1531478268975251496'], // logs-liderança, logs-painel (entrada/saída)
     canalAlertas: '1490536504748150925',
     mencionarAlertas: [cargos.presidente, cargos.vicePresidente, cargos.velhaGuarda, cargos.diretoria, cargos.recrutador],
     // Canal do painel fixo de estatísticas. null = painel desligado.
     canalPainel: null,
     painelIntervaloMin: 30,
+    // Canal do painel fixo de jogadores online (entrada/saída do logs-painel).
+    canalPainelJogadores: '1548201757820059688', // 📊・painel-jogadores
+    painelJogadoresIntervaloMin: 5,
     inatividadeDias: 7,
     novatoSemRecrutamentoDias: 3, // alerta quem entrou no jogo e não pediu recrutamento após N dias
   },

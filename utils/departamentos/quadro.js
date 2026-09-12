@@ -5,7 +5,7 @@ const { listaLimitada } = require('./regras');
 
 function linhaBotaoQuadro() {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('dept:quadro-atualizar').setLabel('Atualizar').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('dept:quadro-atualizar').setLabel('ATUALIZAR').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
   );
 }
 

@@ -20,6 +20,7 @@ module.exports = {
     .addSubcommand(s => s.setName('categoria').setDescription('Uma categoria de log')
       .addStringOption(o => o.setName('categoria').setDescription('Categoria').setRequired(true).setAutocomplete(true))
       .addStringOption(opcaoPeriodo))
+    .addSubcommand(s => s.setName('online').setDescription('Presença de jogadores: quem está online e o pico de simultâneos').addStringOption(opcaoPeriodo))
     .addSubcommand(s => s.setName('inativos').setDescription('Sócios sem atividade no jogo')
       .addIntegerOption(o => o.setName('dias').setDescription(`Dias sem atividade (padrão: ${config.logsJogo.inatividadeDias})`).setMinValue(1).setMaxValue(90)))
     .addSubcommand(s => s.setName('recrutamento').setDescription('Funil: entrou no jogo → pediu recrutamento → aprovado')
@@ -43,6 +44,7 @@ module.exports = {
 
     let embed;
     if (sub === 'torcida') embed = await relatorios.montarEmbedTorcida(periodo);
+    else if (sub === 'online') embed = await relatorios.montarEmbedPresenca(periodo);
     else if (sub === 'membro') embed = await relatorios.montarEmbedMembro(alvo.idFivem, alvo.rotulo, periodo);
     else if (sub === 'categoria') embed = await relatorios.montarEmbedCategoria(interaction.options.getString('categoria'), periodo);
     else if (sub === 'recrutamento') embed = await montarEmbedFunil(interaction.guild, periodo);
