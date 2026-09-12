@@ -225,38 +225,81 @@ function camposOnline(online) {
   return campos;
 }
 
-// Painel de presença: quem está online agora + pico de simultâneos por
-// hora (hoje), por dia (semana e mês)
-async function montarEmbedJogadoresOnline(agora = new Date()) {
+// "Hoje/últimos 7-30-90 dias/tudo" incluem o presente: fazem sentido junto
+// de "online agora". "Ontem/semana passada/mês passado" são passado fechado:
+// mostrar "online agora" ali seria mostrar um número que não tem nada a ver
+// com o período pedido (era exatamente por isso que os botões pareciam "não
+// filtrar" — o número não mudava porque é sempre o presente).
+const PERIODOS_COM_PRESENTE = new Set(['hoje', '7d', '30d', '90d', 'tudo']);
+
+// Maior pico de simultâneos já visto em todo o histórico de logs (não
+// necessariamente o recorde real do servidor: o log perde mensagem de vez em
+// quando, e perde mais ainda justo nos picos, quando muita gente entra/sai ao
+// mesmo tempo e o Discord passa a limitar o webhook — por isso tende a ficar
+// um pouco abaixo do número que o próprio jogo mostra).
+async function picoHistoricoRegistrado() {
+  const fim = new Date();
+  const [baselineBruto, eventos] = await Promise.all([
+    repo.estadoDosJogadores(new Date(0)),
+    repo.eventosConexao(new Date(0), fim),
+  ]);
+  const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, new Date(0));
+  const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventos, LIMITE_SESSAO_MS, fim);
+  const serie = P.serieDeOcupacao([], eventosAjustados, [{ chave: 'tudo', fim: fim.getTime() }]);
+  return P.picoDoPeriodo([], serie);
+}
+
+// Painel fixo: só os valores-chave (online agora, sócios, maior pico já
+// registrado). O detalhe por período (lista de quem está online, pico e
+// tempo jogado de hoje/semana/mês/ontem/...) fica nos botões — cada um abre
+// só pra quem clicou, com montarEmbedPresenca.
+async function montarEmbedJogadoresOnline(sociosCount, agora = new Date()) {
   const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
-
-  const [hoje, semana, mes] = await Promise.all([
-    blocoOcupacao('HOJE (pico por hora)', E.resolverPeriodo('hoje', agora), 'hora'),
-    blocoOcupacao('ESTA SEMANA (pico por dia)', E.resolverPeriodo('7d', agora), 'dia'),
-    blocoOcupacao('ESTE MÊS (pico por dia)', E.resolverPeriodo('30d', agora), 'dia'),
-  ]);
+  const pico = await picoHistoricoRegistrado();
 
   return {
     color: COR,
     title: '🎮 JOGADORES ONLINE — GAVIÕES DA FIEL FIVEM',
-    description: `**Online agora:** ${E.formatarNumero(online.length)}`,
-    fields: [...camposOnline(online), hoje, semana, mes],
+    description: [
+      `**Online agora:** ${E.formatarNumero(online.length)}`,
+      sociosCount != null ? `**Sócios:** ${E.formatarNumero(sociosCount)}` : null,
+      `**Maior pico já registrado nos logs:** ${E.formatarNumero(pico)}`,
+      '',
+      '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
+    ].filter(l => l !== null).join('\n'),
     footer: { text: `${RODAPE} · canal logs-painel` },
     timestamp: new Date().toISOString(),
   };
 }
 
-// Consulta sob demanda (/estatisticas online periodo:X): mesma "online agora"
-// + um único bloco de pico/distintos para o período escolhido. "Hoje" quebra
-// por hora; qualquer período maior quebra por dia.
+// Consulta sob demanda (/estatisticas online e os botões do painel): pico +
+// distintos + tempo jogado do período escolhido. "Hoje"/"ontem" quebram por
+// hora; o resto por dia. "Online agora" e a lista de quem está online só
+// aparecem em período que inclui o presente — não fazem sentido num período
+// passado fechado (ontem, semana passada, mês passado).
 async function montarEmbedPresenca(periodo, agora = new Date()) {
-  const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
-  const online = P.listaOnline(estadoAgora);
-
+  const comPresente = PERIODOS_COM_PRESENTE.has(periodo.chave);
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
   const rotuloBloco = granularidade === 'hora' ? 'POR HORA' : 'POR DIA';
   const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade);
+
+  if (!comPresente) {
+    const diaInicio = E.formatarDiaCurto(E.chaveDia(periodo.inicio));
+    const diaFim = E.formatarDiaCurto(E.chaveDia(new Date(periodo.fim.getTime() - 1)));
+    const faixa = diaInicio === diaFim ? diaInicio : `${diaInicio} → ${diaFim}`;
+    return {
+      color: COR,
+      title: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
+      description: `*Período fechado: ${faixa}.*`,
+      fields: [bloco],
+      footer: { text: `${RODAPE} · canal logs-painel` },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
+  const online = P.listaOnline(estadoAgora);
 
   return {
     color: COR,

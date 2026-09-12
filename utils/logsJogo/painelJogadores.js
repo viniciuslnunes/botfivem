@@ -8,11 +8,24 @@ const { linhaBotoesPresenca } = require('./presencaInteracoes');
 // perder um ciclo num reinício não tem custo.
 const CONFIG_KEY = 'painel_jogadores_message_id';
 
+// Sócios (cargo Discord), pra bater com o painel do próprio jogo. Falha em
+// buscar não derruba o painel — só sai sem esse número.
+async function contarSocios(guild) {
+  try {
+    await guild.members.fetch();
+    return guild.members.cache.filter(m => m.roles.cache.has(config.cargos.socio)).size;
+  } catch (err) {
+    console.error('[painel-jogadores] Erro ao contar sócios:', err);
+    return null;
+  }
+}
+
 async function atualizarPainelJogadores(client) {
   const canal = await client.channels.fetch(config.logsJogo.canalPainelJogadores).catch(() => null);
   if (!canal) return;
 
-  const embed = await montarEmbedJogadoresOnline();
+  const sociosCount = await contarSocios(canal.guild);
+  const embed = await montarEmbedJogadoresOnline(sociosCount);
   const components = linhaBotoesPresenca();
   const res = await db.query('SELECT value FROM bot_config WHERE key = $1', [CONFIG_KEY]);
   const messageId = res.rows[0]?.value;
