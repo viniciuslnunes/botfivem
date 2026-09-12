@@ -5,7 +5,8 @@ const {
 } = require('discord.js');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
-const { lerConfig, gravarConfig } = require('../botConfig');
+const { lerConfig } = require('../botConfig');
+const db = require('../db');
 const E = require('./estatisticas');
 const relatorios = require('./relatorios');
 const { gerarGraficoOcupacao } = require('./graficoOcupacao');
@@ -188,12 +189,54 @@ async function lerManualAtual() {
 // canal logsJogo.canalRecrutamentoJogo chama isso direto (ver
 // events/messageCreate.js), somando 1 por recrutamento novo. Preserva
 // quem/quando da última edição manual — só o valor muda.
+//
+// Feito num UPDATE/INSERT só (jsonb_set direto no Postgres), não
+// ler→somar→gravar em JS: o webhook pode mandar várias mensagens de log em
+// rajada (várias entrando quase juntas), cada uma virando uma chamada
+// concorrente daqui. Ler→somar→gravar em JS tem uma janela entre o read e o
+// write onde duas chamadas leem o mesmo valor e uma soma se perde (a que
+// grava por último "vence" e apaga o incremento da outra) — o painel ficava
+// mostrando um número e o formulário de EDITAR abria com outro, mais baixo,
+// porque o valor persistido no banco tinha ficado pra trás. Uma única
+// instrução SQL pega lock de linha no Postgres, então as chamadas
+// concorrentes serializam e nenhum incremento se perde.
+// Grava um campo só de `manual` (jsonb_set atômico, mesmo motivo de
+// incrementarSociosManual acima) sem tocar no resto do objeto — não lê o
+// objeto inteiro pra devolver na hora de gravar, então não tem como essa
+// edição manual pisar num incremento automático (ou vice-versa) que
+// aconteceu no meio do caminho. `valorObj` null remove a chave (campo sem
+// valor batido à mão).
+async function gravarCampoManual(chave, valorObj) {
+  if (valorObj == null) {
+    await db.query(
+      `INSERT INTO bot_config (key, value) VALUES ($1, '{}')
+       ON CONFLICT (key) DO UPDATE SET value = (COALESCE(bot_config.value::jsonb, '{}'::jsonb) - $2)::text`,
+      [CONFIG_KEY_MANUAL, chave]
+    );
+    return;
+  }
+  await db.query(
+    `INSERT INTO bot_config (key, value)
+     VALUES ($1, jsonb_set('{}'::jsonb, ARRAY[$2], $3::jsonb)::text)
+     ON CONFLICT (key) DO UPDATE SET value = jsonb_set(
+       COALESCE(bot_config.value::jsonb, '{}'::jsonb), ARRAY[$2], $3::jsonb
+     )::text`,
+    [CONFIG_KEY_MANUAL, chave, JSON.stringify(valorObj)]
+  );
+}
+
 async function incrementarSociosManual(incremento) {
   if (!incremento) return;
-  const manual = await lerManualAtual();
-  const atual = manual.socios?.valor ?? 0;
-  manual.socios = { ...manual.socios, valor: atual + incremento };
-  await gravarConfig(CONFIG_KEY_MANUAL, JSON.stringify(manual));
+  await db.query(
+    `INSERT INTO bot_config (key, value)
+     VALUES ($2, jsonb_set('{}'::jsonb, '{socios,valor}', to_jsonb($1::bigint))::text)
+     ON CONFLICT (key) DO UPDATE SET value = jsonb_set(
+       COALESCE(bot_config.value::jsonb, '{}'::jsonb),
+       '{socios,valor}',
+       to_jsonb(COALESCE((bot_config.value::jsonb->'socios'->>'valor')::bigint, 0) + $1::bigint)
+     )::text`,
+    [incremento, CONFIG_KEY_MANUAL]
+  );
 }
 
 // Consulta paginada: a lista inteira (quem está online, ou o ranking de
@@ -627,16 +670,16 @@ registrarModulo('presenca', async interaction => {
     const lido = lerInteiroOuNulo(interaction.fields.getTextInputValue('valor'));
     if (lido.erro) return interaction.reply({ content: '❌ USE SÓ NÚMEROS (EX.: 1234 OU 1.234).', flags: 64 });
 
-    // Lê de novo bem antes de gravar: dois campos são editados em modais
-    // separados, então só mexe na chave deste campo, sem sobrescrever a do
-    // outro com um valor desatualizado.
-    const manual = await lerManualAtual();
-    manual[campo.chave] = lido.valor == null ? null : {
+    // Grava só a chave deste campo (gravarCampoManual, atômico) — não lê o
+    // objeto `manual` inteiro pra devolver, então não corre o risco de
+    // sobrescrever um incremento automático (SÓCIOS SETADOS somando por
+    // recrutamento, ver incrementarSociosManual) que tenha acontecido entre
+    // o clique em EDITAR e o envio deste modal.
+    await gravarCampoManual(campo.chave, lido.valor == null ? null : {
       valor: lido.valor,
       atualizadoPor: interaction.user.id,
       atualizadoEm: new Date().toISOString(),
-    };
-    await gravarConfig(CONFIG_KEY_MANUAL, JSON.stringify(manual));
+    });
     await interaction.reply({ content: `**${campo.rotuloCampo}** atualizado.`, flags: 64 });
     // Requerido aqui dentro (não no topo do arquivo) pra evitar ciclo de
     // require com painelJogadores.js, que importa este módulo pelos botões.

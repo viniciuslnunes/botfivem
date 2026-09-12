@@ -138,6 +138,25 @@ function picoDoPeriodo(idsNoInicio, serie) {
   return Math.max(idsNoInicio.length, ...serie.map(b => b.pico));
 }
 
+// Igual a serieDeOcupacao, mas evento a evento (sem baldes) e guardando QUANDO
+// o recorde aconteceu — pra mostrar "recorde em tal data", não só o número.
+// `quando` fica null se o pico já valia desde o início do período (nenhum
+// evento chegou a superá-lo) — não tem uma data exata pra apontar.
+function picoComInstante(idsNoInicio, eventos) {
+  const online = new Set(idsNoInicio);
+  let pico = online.size;
+  let quando = null;
+  for (const evento of eventos) {
+    if (evento.acao === 'jogador_entrou') online.add(evento.id);
+    else online.delete(evento.id);
+    if (online.size > pico) {
+      pico = online.size;
+      quando = evento.ocorrido_em;
+    }
+  }
+  return { pico, quando };
+}
+
 // Tempo jogado por jogador dentro do período: pareia cada entrada com a
 // próxima saída do mesmo ID. Quem já estava online no início do período
 // (baselineEstado) tem a sessão contada a partir do início do período, não de
@@ -189,5 +208,6 @@ module.exports = {
   idsOnline,
   serieDeOcupacao,
   picoDoPeriodo,
+  picoComInstante,
   tempoJogadoPorPeriodo,
 };

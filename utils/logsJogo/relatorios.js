@@ -346,6 +346,8 @@ const PERIODOS_COM_PRESENTE = new Set(['hoje', '7d', '30d', '90d', 'tudo']);
 // manual "MAIOR BONDE MENSAL (RANKING DO JOGO)", que é mensal e batido à
 // mão a partir do painel do próprio jogo; este aqui é histórico inteiro e
 // automático, a partir do que o webhook registrou.
+// Devolve `{ pico, quando }` — `quando` é a data/hora exata (fuso SP) em que
+// o recorde foi batido, pra aparecer ao lado do número no painel.
 async function picoHistoricoRegistrado() {
   const fim = new Date();
   const [baselineBruto, eventos] = await Promise.all([
@@ -355,8 +357,21 @@ async function picoHistoricoRegistrado() {
   const eventosUnificados = P.unificarReconexoesRapidas(eventos, FOLGA_RECONEXAO_MS);
   const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, new Date(0));
   const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventosUnificados, LIMITE_SESSAO_MS, fim);
-  const serie = P.serieDeOcupacao([], eventosAjustados, [{ chave: 'tudo', fim: fim.getTime() }]);
-  return P.picoDoPeriodo([], serie);
+  return P.picoComInstante([], eventosAjustados);
+}
+
+// Quantos "fulano recrutou beltrano" o webhook logou hoje e nos últimos 7
+// dias — o "+X/hoje +Y/semana" ao lado de SÓCIOS SETADOS. Mesma ação que
+// incrementarSociosManual soma (ver events/messageCreate.js), só que aqui é
+// uma contagem no período, direto do histórico gravado, não o acumulado
+// manual — não precisa (nem pode) ser editado à mão.
+async function recrutamentosRecentes(agora = new Date()) {
+  const filtroBase = { acao: 'jogador_recrutou', fim: agora };
+  const [hoje, semana] = await Promise.all([
+    repo.resumo({ ...filtroBase, inicio: E.inicioDoDiaSP(agora) }),
+    repo.resumo({ ...filtroBase, inicio: E.resolverPeriodo('7d', agora).inicio }),
+  ]);
+  return { hoje: hoje.total, semana: semana.total };
 }
 
 // `manual` são os números batidos à mão a partir do painel/ranking do
@@ -368,11 +383,17 @@ async function picoHistoricoRegistrado() {
 // Linhas fixas repetidas no painel E em cada consulta de período (ver
 // montarDadosPresenca) — sem isso, abrir um período parecia "não bater" com
 // os números fixos do painel, que ficavam só na mensagem principal.
-function linhasContexto(sociosCount, manual, pico) {
+// `recrutamentos` (recrutamentosRecentes) vira o "+X/hoje +Y/semana" colado
+// na linha de SÓCIOS SETADOS — reativo aos logs, não outro campo manual.
+function linhasContexto(sociosCount, manual, pico, recrutamentos) {
+  const variacaoSocios = recrutamentos
+    ? ` (+${E.formatarNumero(recrutamentos.hoje)}/hoje +${E.formatarNumero(recrutamentos.semana)}/semana)`
+    : '';
+  const dataPico = pico?.quando ? ` (em ${E.formatarDataHora(pico.quando)})` : '';
   return [
     sociosCount != null ? `**SÓCIOS COM CARGO NO DISCORD:** ${E.formatarNumero(sociosCount)}` : null,
-    manual?.socios?.valor != null ? `**SÓCIOS SETADOS:** ${E.formatarNumero(manual.socios.valor)}` : null,
-    pico != null ? `**MAIOR BONDE JÁ REGISTRADO (WEBHOOK):** ${E.formatarNumero(pico)}` : null,
+    manual?.socios?.valor != null ? `**SÓCIOS SETADOS:** ${E.formatarNumero(manual.socios.valor)}${variacaoSocios}` : null,
+    pico?.pico != null ? `**MAIOR BONDE JÁ REGISTRADO (WEBHOOK):** ${E.formatarNumero(pico.pico)}${dataPico}` : null,
     manual?.pico?.valor != null ? `**MAIOR BONDE MENSAL (RANKING DO JOGO):** ${E.formatarNumero(manual.pico.valor)}` : null,
   ].filter(l => l !== null);
 }
@@ -384,14 +405,14 @@ function linhasContexto(sociosCount, manual, pico) {
 async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = new Date()) {
   const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
-  const pico = await picoHistoricoRegistrado();
+  const [pico, recrutamentos] = await Promise.all([picoHistoricoRegistrado(), recrutamentosRecentes(agora)]);
 
   return {
     color: COR,
     title: '🎮 JOGADORES ONLINE — GAVIÕES DA FIEL FIVEM',
     description: [
       `**ONLINE AGORA:** ${E.formatarNumero(online.length)}`,
-      ...linhasContexto(sociosCount, manual, pico),
+      ...linhasContexto(sociosCount, manual, pico, recrutamentos),
       '',
       '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
       '*Pra buscar um jogador é preciso ter um ID vinculado ao seu usuário do Discord.*',
@@ -459,9 +480,10 @@ async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
   // confundia (dois números de "pico" parecidos, escopos bem diferentes).
   // Sem a flag (uso ao vivo — painel/consulta), continua mostrando, pra
   // comparar o período com o recorde geral.
-  const [bloco, picoHistorico] = await Promise.all([
+  const [bloco, picoHistorico, recrutamentos] = await Promise.all([
     blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride),
     contexto.semContextoGlobal ? Promise.resolve(null) : picoHistoricoRegistrado(),
+    contexto.semContextoGlobal ? Promise.resolve(null) : recrutamentosRecentes(agora),
   ]);
 
   let linhaOnline;
@@ -478,7 +500,7 @@ async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
   }
   // Os mesmos números fixos do painel (sócios, pico histórico, bonde
   // mensal manual), repetidos aqui pra essa consulta "bater" com o painel.
-  const linhaTopo = [linhaOnline, ...linhasContexto(contexto.sociosCount, contexto.manual, picoHistorico)].join('\n');
+  const linhaTopo = [linhaOnline, ...linhasContexto(contexto.sociosCount, contexto.manual, picoHistorico, recrutamentos)].join('\n');
 
   const tituloLista = ehAgora ? 'QUEM ESTÁ ONLINE' : `MAIS TEMPO JOGADO — ${periodo.rotulo}`;
   // Entradas em ordem de exibição, cru — quem formata a linha e monta o

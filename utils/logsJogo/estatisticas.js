@@ -199,6 +199,16 @@ function formatarDiaCurto(chave) {
   return `${dia}/${mes}`;
 }
 
+const formatadorDataHora = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
+// "12/09/2026 14:32" no fuso de São Paulo — usado pra apontar QUANDO um
+// recorde (ex.: maior bonde já registrado) aconteceu, não só o valor.
+function formatarDataHora(data) {
+  return formatadorDataHora.format(new Date(data));
+}
+
 function truncar(texto, max) {
   const s = String(texto ?? '');
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
@@ -223,5 +233,6 @@ module.exports = {
   formatarDinheiro,
   formatarDuracao,
   formatarDiaCurto,
+  formatarDataHora,
   truncar,
 };
