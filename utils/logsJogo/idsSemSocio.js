@@ -283,6 +283,14 @@ function linhaBotoesGerenciar() {
   );
 }
 
+// Dentro de UMA mensagem, os componentes sempre ficam depois do embed — não
+// tem como um botão aparecer "antes" do conteúdo da própria mensagem. Pra
+// ficar de verdade acima de toda a listagem, os botões moram numa mensagem
+// própria (só eles, sem embed), separada das páginas — e essa mensagem
+// precisa ser a mais antiga do canal (Discord ordena por quando foi
+// enviada, editar não reordena). Guardada à parte de CONFIG_KEY_MSGS.
+const CONFIG_KEY_BOTOES_MSG = 'ids_sem_socio_botoes_message_id';
+
 async function lerMsgIds() {
   try {
     const bruto = await lerConfig(CONFIG_KEY_MSGS);
@@ -298,6 +306,25 @@ async function lerMsgIds() {
 // ciclo de 20 min), então nunca fica mais desatualizada que o canal em si.
 let ultimosCandidatos = [];
 
+// Garante a mensagem de botões como a PRIMEIRA do canal. Se ela já existe
+// (fluxo normal, todo ciclo depois do primeiro), só devolve o ID — nunca
+// precisa reenviar, os botões não mudam. Se ainda não existe (primeira vez
+// com esse formato, ou canal criado agora), apaga qualquer página antiga
+// que já esteja lá (só acontece essa migração uma vez) e manda os botões
+// antes de tudo, garantindo a ordem: botões → página 1 → página 2 → ...
+async function garantirMsgBotoes(canal, idsPaginasAntigas) {
+  const salvoId = await lerConfig(CONFIG_KEY_BOTOES_MSG);
+  const salvo = salvoId && await canal.messages.fetch(salvoId).catch(() => null);
+  if (salvo) return salvo.id;
+
+  for (const id of idsPaginasAntigas) {
+    await canal.messages.delete(id).catch(() => {});
+  }
+  const msg = await canal.send({ content: '🔎 GERENCIAR IDS PENDENTES:', components: [linhaBotoesGerenciar()] });
+  await gravarConfig(CONFIG_KEY_BOTOES_MSG, msg.id);
+  return msg.id;
+}
+
 async function atualizarIdsSemSocio(client) {
   const guild = await client.guilds.fetch(config.guildId);
   const canal = await garantirCanal(guild);
@@ -306,13 +333,18 @@ async function atualizarIdsSemSocio(client) {
   ultimosCandidatos = candidatos;
   const embeds = montarEmbeds(candidatos);
   const idsAntigos = await lerMsgIds();
-  const idsNovos = [];
 
+  // Só apaga as páginas antigas na migração (mensagem de botões ainda não
+  // existia) — no dia a dia elas continuam sendo editadas em posição, como
+  // sempre foram.
+  const jaTinhaBotoes = Boolean(await lerConfig(CONFIG_KEY_BOTOES_MSG));
+  await garantirMsgBotoes(canal, jaTinhaBotoes ? [] : idsAntigos);
+  const idsBase = jaTinhaBotoes ? idsAntigos : [];
+
+  const idsNovos = [];
   for (let i = 0; i < embeds.length; i++) {
-    // Botões só na primeira mensagem — no topo do canal, não escondidos lá
-    // embaixo depois de várias páginas de lista.
-    const payload = { embeds: [embeds[i]], components: i === 0 ? [linhaBotoesGerenciar()] : [], allowedMentions: { parse: [] } };
-    const idAntigo = idsAntigos[i];
+    const payload = { embeds: [embeds[i]], allowedMentions: { parse: [] } };
+    const idAntigo = idsBase[i];
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
       if (msg) {
@@ -324,7 +356,7 @@ async function atualizarIdsSemSocio(client) {
     const nova = await canal.send(payload);
     idsNovos.push(nova.id);
   }
-  for (const idExtra of idsAntigos.slice(embeds.length)) {
+  for (const idExtra of idsBase.slice(embeds.length)) {
     await canal.messages.delete(idExtra).catch(() => {});
   }
   await gravarConfig(CONFIG_KEY_MSGS, JSON.stringify(idsNovos));
