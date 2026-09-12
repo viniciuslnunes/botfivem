@@ -41,6 +41,11 @@ Aprendidos no BotPDE e aplicáveis a qualquer módulo novo aqui:
 8. **Derivar o que vence sozinho** (reserva, prazo, validade) em vez de gravar um
    contador que diverge.
 9. **Estado que precisa sobreviver a reinício não mora em `setTimeout`.**
+10. **Editar um dado fixo de painel é botão → select → modal de um campo só**
+    (padrão do BOT PDE, replicado em `utils/logsJogo/presencaInteracoes.js`
+    a partir de 2026-09-12 — ver §4.10). Nunca um modal com vários campos de
+    uma vez: o Discord já dá Cancelar/Enviar de graça no modal, então o único
+    componente customizado é o select do passo 1.
 
 ## 3. Mapa dos módulos
 
@@ -381,6 +386,35 @@ Em aberto:
 **Para ativar:** reiniciar o bot — ele faz o backfill do histórico inteiro do
 canal logs-painel na primeira sincronização (pode demorar se o canal for
 grande) e o painel passa a ser criado/atualizado sozinho.
+
+**Edição de dado manual num painel fixo (padrão, entregue em 2026-09-12).**
+O painel mistura números automáticos (dos logs) com números batidos à mão
+pela liderança a partir do painel/ranking do próprio jogo — os dois divergem
+por perda de mensagem no webhook (ver auditoria abaixo), então em vez de
+fingir que é um só número, o painel mostra os dois lado a lado e avisa no
+rodapé que podem divergir. O fluxo de edição é o padrão a copiar sempre que
+outro painel fixo precisar de um campo mantido à mão (visto primeiro no BOT
+PDE, módulo de loja — imagens de referência na conversa de 2026-09-12):
+
+1. **Botão EDITAR** no painel (`presenca:editar`) — visível pra todo mundo,
+   mas o handler confere `ehLideranca` nele mesmo, não só escondendo o botão.
+2. Abre, só pra quem clicou (`flags: 64`), um **select** com um campo por
+   opção (`presenca:editarcampo`, opções em `CAMPOS_MANUAIS`).
+3. Escolher uma opção abre um **modal de um campo só** (`presenca:editarmodal:
+   <campo>`), já preenchido com o valor atual — texto vazio ao salvar remove o
+   valor. Cancelar/Enviar são os botões nativos do modal do Discord.
+4. No submit: valida (só inteiro, aceita `1.234` ou `1234`), grava em
+   `bot_config` (chave `painel_jogadores_manual`, JSON por campo com
+   `valor`/`atualizadoPor`/`atualizadoEm` — lido de novo antes de gravar, pra
+   um campo não pisar no outro) e atualiza o painel na hora.
+
+Tudo em `utils/logsJogo/presencaInteracoes.js` (`CAMPOS_MANUAIS`,
+`selectCampoManual`, `modalCampoManual`) + leitura em
+`utils/logsJogo/painelJogadores.js#lerManual` + exibição em
+`utils/logsJogo/relatorios.js#montarEmbedJogadoresOnline`. Pra replicar num
+painel novo: um `CAMPOS_MANUAIS` próprio, uma chave de `bot_config` própria,
+os mesmos três customIds (`<modulo>:editar`, `:editarcampo`,
+`:editarmodal:<campo>`) — não inventar variação do fluxo.
 
 **Auditoria da fonte (2026-09-12).** Varredura completa dos 12.625 registros
 do canal logs-painel, não só dos formatos que os testes cobrem:

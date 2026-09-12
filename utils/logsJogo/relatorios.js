@@ -198,13 +198,6 @@ async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = 
   return { resumo: { name: rotulo, value: E.truncar(linhas.join('\n'), 1024), inline: false }, ranking };
 }
 
-// Uma linha por jogador, em ordem alfabética, com o tempo de sessão que o
-// Discord mantém atualizado sozinho (<t:...:R>)
-function linhaOnline(j) {
-  const desde = Math.floor(new Date(j.desde).getTime() / 1000);
-  return `**${j.nome ?? '?'}**${j.id ? ` \`${j.id}\`` : ''} · desde <t:${desde}:R>`;
-}
-
 // "Hoje/últimos 7-30-90 dias/tudo" incluem o presente: fazem sentido junto
 // de "online agora". "Ontem/semana passada/mês passado" são passado fechado:
 // mostrar "online agora" ali seria mostrar um número que não tem nada a ver
@@ -237,7 +230,9 @@ async function picoHistoricoRegistrado() {
 //
 // `manual` são os números batidos à mão a partir do painel/ranking do
 // próprio jogo (botão EDITAR, só pra liderança) — ficam fixos ao lado dos
-// automáticos, sem entrar na conta de ninguém, só pra comparação.
+// automáticos, sem entrar na conta de ninguém, só pra comparação. Formato:
+// `{ socios: { valor, atualizadoPor, atualizadoEm }, pico: {...} }`, cada
+// chave gravada e lida por presencaInteracoes.js (CAMPOS_MANUAIS).
 async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = new Date()) {
   const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
@@ -249,9 +244,9 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
     description: [
       `**Online agora:** ${E.formatarNumero(online.length)}`,
       sociosCount != null ? `**Sócios:** ${E.formatarNumero(sociosCount)}` : null,
-      manual?.sociosJogo != null ? `**Sócios (painel do jogo):** ${E.formatarNumero(manual.sociosJogo)}` : null,
+      manual?.socios?.valor != null ? `**Sócios (painel do jogo):** ${E.formatarNumero(manual.socios.valor)}` : null,
       `**Maior pico já registrado nos logs:** ${E.formatarNumero(pico)}`,
-      manual?.picoJogo != null ? `**Maior pico (painel/ranking do jogo):** ${E.formatarNumero(manual.picoJogo)}` : null,
+      manual?.pico?.valor != null ? `**Maior pico (painel/ranking do jogo):** ${E.formatarNumero(manual.pico.valor)}` : null,
       '',
       '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
     ].filter(l => l !== null).join('\n'),
@@ -289,7 +284,7 @@ async function montarDadosPresenca(periodo, agora = new Date()) {
     // jogado pouco, quando só a CONTAGEM de hoje é curta, não a sessão.
     topTempoOverride = [...online]
       .sort((a, b) => new Date(a.desde) - new Date(b.desde))
-      .map(j => ({ id: j.id, nome: j.nome, ms: agora.getTime() - new Date(j.desde).getTime() }));
+      .map(j => ({ id: j.id, nome: j.nome, ms: agora.getTime() - new Date(j.desde).getTime(), desde: j.desde }));
   }
 
   const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride);
@@ -308,16 +303,23 @@ async function montarDadosPresenca(periodo, agora = new Date()) {
   }
 
   const tituloLista = ehAgora ? 'QUEM ESTÁ ONLINE' : `MAIS TEMPO JOGADO — ${periodo.rotulo}`;
-  const linhas = ehAgora
-    ? [...online].sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR')).map(linhaOnline)
-    : bloco.ranking.map((t, i) => `${i + 1}. **${t.nome ?? '?'}** \`${t.id}\` — ${E.formatarDuracao(t.ms)}`);
+  // Entradas em ordem de exibição, cru — quem formata a linha e monta o
+  // select de filtro por ID é presencaInteracoes.js. Pro "hoje" (AGORA), a
+  // lista fica alfabética (mais fácil de achar alguém agora); pros demais,
+  // do maior pro menor tempo jogado — mas o `ms` de cada um é o mesmo dado
+  // usado no ranking (bloco.ranking), pra "filtrar por ID" bater com o que
+  // aparece na lista.
+  const entradas = ehAgora
+    ? [...topTempoOverride].sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR'))
+    : bloco.ranking;
 
   return {
     titulo: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
     linhaTopo,
     resumo: bloco.resumo,
     tituloLista,
-    linhas,
+    ehAgora,
+    entradas,
   };
 }
 
