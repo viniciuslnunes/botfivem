@@ -119,6 +119,115 @@ async function montarEmbedCategoria(categoria, periodo) {
   };
 }
 
+// Convocação da equipe pra sede + uso das fechaduras (ver parser.js) — quem
+// da liderança realmente está atuando no jogo, não só quem tem o cargo.
+const ACOES_LIDERANCA_ATIVA = [
+  'convocou_equipe', 'usou_sistema_porta',
+  'sede_trancou', 'sede_destrancou', 'portao_trancou', 'portao_destrancou',
+];
+const ROTULO_ACAO_LIDERANCA = {
+  convocou_equipe: 'convocou a equipe',
+  usou_sistema_porta: 'usou o sistema de porta',
+  sede_trancou: 'trancou a sede',
+  sede_destrancou: 'destrancou a sede',
+  portao_trancou: 'trancou o portão',
+  portao_destrancou: 'destrancou o portão',
+};
+
+async function montarEmbedLiderancaAtiva(periodo) {
+  const filtro = { inicio: periodo.inicio, fim: periodo.fim };
+  const [porTipo, atores] = await Promise.all([
+    repo.contarPorAcoes(ACOES_LIDERANCA_ATIVA, filtro),
+    repo.topAtoresPorAcoes(ACOES_LIDERANCA_ATIVA, filtro, 10),
+  ]);
+  const total = porTipo.reduce((s, l) => s + l.total, 0);
+  return {
+    color: COR,
+    title: `🛡️ LIDERANÇA ATIVA — ${periodo.rotulo}`,
+    description: total
+      ? `**Ações de liderança registradas:** ${E.formatarNumero(total)}`
+      : '*Sem convocação, sede ou portão mexidos por alguém da liderança no período.*',
+    fields: [
+      { name: 'POR TIPO', value: listaTop(porTipo, l => `${ROTULO_ACAO_LIDERANCA[l.acao] ?? l.acao} — ${E.formatarNumero(l.total)}`), inline: true },
+      { name: 'MAIS ATIVOS', value: listaTop(atores, l => `${rotuloPessoa(l)} — ${E.formatarNumero(l.total)}`), inline: true },
+    ],
+    footer: { text: `${RODAPE} · sede/portão/convocação da equipe (canal logs-painel)` },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// Trilha de promoções/rebaixamentos de um sócio — "de > para" vem da
+// descrição do log (ver E.extrairMudancaCargo), não de coluna própria.
+async function montarEmbedCarreira(idFivem, rotulo) {
+  const eventos = await repo.historicoCargo(idFivem);
+  if (!eventos.length) {
+    return {
+      color: COR,
+      title: `🪜 CARREIRA — ${rotulo}`,
+      description: '*Nenhuma promoção ou rebaixamento registrado nos logs pra esse ID.*',
+      footer: { text: RODAPE },
+      timestamp: new Date().toISOString(),
+    };
+  }
+  const linhas = eventos.map(e => {
+    const mudanca = E.extrairMudancaCargo(e.descricao);
+    const seta = e.acao === 'promoveu_cargo' ? '⬆️' : '⬇️';
+    const quando = `<t:${Math.floor(new Date(e.ocorrido_em).getTime() / 1000)}:d>`;
+    const texto = mudanca ? `${mudanca.de} → ${mudanca.para}` : (e.acao === 'promoveu_cargo' ? 'promovido' : 'rebaixado');
+    return `${quando} ${seta} ${texto} — por ${e.ator_nome ?? '?'}`;
+  });
+  return {
+    color: COR,
+    title: `🪜 CARREIRA — ${rotulo}`,
+    description: E.truncar(linhas.join('\n'), 4096),
+    footer: { text: `${RODAPE} · ${E.formatarNumero(eventos.length)} evento(s) no total` },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// Saída de sócio: voluntária, expulsão ou removida pelo próprio jogo por
+// inatividade (ver parser.js) — pra liderança acompanhar evasão sem vasculhar
+// o canal de logs na mão.
+const ACOES_CHURN = ['saiu_torcida', 'expulso_torcida', 'removido_torcida_automatico'];
+const ROTULO_ACAO_CHURN = {
+  saiu_torcida: 'saiu por conta própria',
+  expulso_torcida: 'foi expulso',
+  removido_torcida_automatico: 'removido por inatividade (jogo)',
+};
+
+async function montarEmbedChurn(periodo) {
+  const filtro = { inicio: periodo.inicio, fim: periodo.fim };
+  const [porTipo, lista, topExpulsores] = await Promise.all([
+    repo.contarPorAcoes(ACOES_CHURN, filtro),
+    repo.listarPorAcoes(ACOES_CHURN, filtro, 20),
+    repo.topAtoresPorAcoes(['expulso_torcida'], filtro, 5),
+  ]);
+  const total = porTipo.reduce((s, l) => s + l.total, 0);
+  const linhas = lista.map(l => {
+    const quando = `<t:${Math.floor(new Date(l.ocorrido_em).getTime() / 1000)}:d>`;
+    const quem = l.alvo_nome ?? l.ator_nome ?? '?';
+    if (l.acao === 'expulso_torcida') return `${quando} · **${quem}** foi expulso por ${l.ator_nome ?? '?'}`;
+    if (l.acao === 'removido_torcida_automatico') return `${quando} · **${quem}** removido por inatividade`;
+    return `${quando} · **${quem}** saiu por conta própria`;
+  });
+  const fields = [
+    { name: 'POR TIPO', value: listaTop(porTipo, l => `${ROTULO_ACAO_CHURN[l.acao] ?? l.acao} — ${E.formatarNumero(l.total)}`), inline: true },
+  ];
+  if (topExpulsores.length) {
+    fields.push({ name: 'QUEM MAIS EXPULSOU', value: listaTop(topExpulsores, l => `${rotuloPessoa(l)} — ${E.formatarNumero(l.total)}`), inline: true });
+  }
+  fields.push({ name: 'ÚLTIMAS SAÍDAS (até 20)', value: E.truncar(linhas.join('\n') || '*Nenhuma.*', 1024), inline: false });
+
+  return {
+    color: COR,
+    title: `🚪 SAÍDAS DA TORCIDA — ${periodo.rotulo}`,
+    description: total ? `**Total de saídas:** ${E.formatarNumero(total)}` : '*Ninguém saiu da torcida no período.*',
+    fields,
+    footer: { text: RODAPE },
+    timestamp: new Date().toISOString(),
+  };
+}
+
 // Sócios (cargo SÓCIO) sem registro no jogo há N dias, cruzando o ID do apelido
 async function montarEmbedInativos(guild, dias) {
   await guild.members.fetch();
@@ -204,10 +313,18 @@ async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = 
     `**Pico de simultâneos:** ${E.formatarNumero(pico)}`,
     `**Jogadores distintos:** ${E.formatarNumero(distintos)}`,
   ];
-  if (serie.some(b => b.pico > 0)) {
-    linhas.push('', `\`${E.sparkline(serie.map(b => b.pico))}\` *(variação ${hora ? 'por hora' : 'por dia'})*`);
-  }
-  return { resumo: { name: rotulo, value: E.truncar(linhas.join('\n'), 1024), inline: false }, ranking };
+  // O gráfico de barras (ver graficoOcupacao.js) substitui o antigo
+  // sparkline em texto — ilegível pra saber A QUE hora corresponde cada
+  // barra. `serie` sai crua daqui pra quem monta a mensagem (presencaInteracoes.js)
+  // poder desenhar a imagem só quando for anexar (evita gerar canvas à toa
+  // em quem só usa os números, como /estatisticas).
+  const temVariacao = serie.some(b => b.pico > 0);
+  return {
+    resumo: { name: rotulo, value: E.truncar(linhas.join('\n'), 1024), inline: false },
+    ranking,
+    serie: temVariacao ? serie : null,
+    unidadeSerie: hora ? 'por hora' : 'por dia',
+  };
 }
 
 // "Hoje/últimos 7-30-90 dias/tudo" incluem o presente: fazem sentido junto
@@ -302,6 +419,11 @@ async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
   // sparkline é quebrado por hora/dia, e isso já fica na legenda dele (ver
   // blocoOcupacao).
   const rotuloBloco = 'OCUPAÇÃO NO PERÍODO';
+  // Balde que contém o instante presente, pro gráfico marcar "estamos aqui"
+  // — só faz sentido quando o período inclui o presente (comPresente); nos
+  // períodos fechados (ontem, semana/mês passados) essa marca não apareceria
+  // em nenhum balde mesmo, então nem vale calcular.
+  const chaveAtual = comPresente ? (granularidade === 'hora' ? E.chaveHora(agora) : E.chaveDia(agora)) : null;
 
   let online = null;
   let topTempoOverride = null;
@@ -352,6 +474,9 @@ async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
     titulo: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
     linhaTopo,
     resumo: bloco.resumo,
+    serie: bloco.serie,
+    unidadeSerie: bloco.unidadeSerie,
+    chaveAtual,
     tituloLista,
     ehAgora,
     entradas,
@@ -407,4 +532,7 @@ module.exports = {
   montarDadosPresenca,
   montarFichaCompletaJogador,
   picoHistoricoRegistrado,
+  montarEmbedLiderancaAtiva,
+  montarEmbedCarreira,
+  montarEmbedChurn,
 };

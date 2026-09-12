@@ -146,6 +146,87 @@ async function ultimaAtividadePorIds(ids) {
   return new Map(res.rows.map(r => [r.id, r.ultima]));
 }
 
+// Condições comuns a topAtoresPorAcoes/contarPorAcoes/listarPorAcoes: um
+// conjunto de ações (não uma só, como montarFiltro) + período opcional. Essas
+// três consultas reaproveitam a lideranca ativa, o histórico de carreira e as
+// saídas da torcida — todas "algumas ações específicas, num período".
+function condicoesPorAcoes(acoes, { inicio, fim } = {}) {
+  const condicoes = ['acao = ANY($1)'];
+  const params = [acoes];
+  if (inicio) { params.push(inicio); condicoes.push(`ocorrido_em >= $${params.length}`); }
+  if (fim) { params.push(fim); condicoes.push(`ocorrido_em < $${params.length}`); }
+  return { condicoes, params };
+}
+
+// Ranking de quem mais AGIU (ator) entre um conjunto de ações — usado pela
+// liderança ativa (convocação/patrimônio) e por "quem mais promoveu".
+async function topAtoresPorAcoes(acoes, periodo, limite) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  condicoes.push('(ator_id_fivem IS NOT NULL OR ator_nome IS NOT NULL)');
+  const res = await db.query(
+    `SELECT MAX(ator_id_fivem) AS id, MAX(ator_nome) AS nome, COUNT(*)::int AS total
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY COALESCE(ator_id_fivem, ator_nome)
+      ORDER BY total DESC LIMIT ${Number(limite)}`,
+    params
+  );
+  return res.rows;
+}
+
+// Quantidade por ação dentro de um conjunto — "quantas de cada tipo" (ex.:
+// sede trancou vs destrancou, saiu vs foi expulso).
+async function contarPorAcoes(acoes, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  const res = await db.query(
+    `SELECT acao, COUNT(*)::int AS total FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY acao ORDER BY total DESC`,
+    params
+  );
+  return res.rows;
+}
+
+// Últimos eventos de um conjunto de ações, mais recentes primeiro — usado
+// pela lista de "últimas saídas" em montarEmbedChurn.
+async function listarPorAcoes(acoes, periodo, limite) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  const res = await db.query(
+    `SELECT acao, ator_nome, ator_id_fivem, alvo_nome, alvo_id_fivem, descricao, ocorrido_em
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      ORDER BY ocorrido_em DESC LIMIT ${Number(limite)}`,
+    params
+  );
+  return res.rows;
+}
+
+// Trilha de promoções/rebaixamentos de UM sócio (é o alvo, não o ator), em
+// ordem cronológica — "de > para" fica pra quem exibir extrair da
+// `descricao` (ver E.extrairMudancaCargo), não vira coluna nova.
+async function historicoCargo(idFivem) {
+  const res = await db.query(
+    `SELECT acao, ator_nome, alvo_nome, descricao, ocorrido_em
+       FROM logs_jogo
+      WHERE acao IN ('promoveu_cargo', 'rebaixou_cargo') AND alvo_id_fivem = $1
+      ORDER BY ocorrido_em ASC`,
+    [idFivem]
+  );
+  return res.rows;
+}
+
+// Último evento de qualquer uma das ações dadas — usado pro módulo de
+// segurança descobrir o estado atual de uma fechadura (o último "trancou"/
+// "destrancou" registrado, qual dos dois foi por último é que decide).
+async function ultimoEvento(acoes) {
+  const res = await db.query(
+    `SELECT acao, ator_nome, ator_id_fivem, ocorrido_em
+       FROM logs_jogo
+      WHERE acao = ANY($1)
+      ORDER BY ocorrido_em DESC, message_id::bigint DESC, embed_indice DESC
+      LIMIT 1`,
+    [acoes]
+  );
+  return res.rows[0] ?? null;
+}
+
 const ACOES_CONEXAO = ['jogador_entrou', 'jogador_saiu'];
 
 // O webhook do jogo manda vários eventos JUNTOS num só embed do Discord (um
@@ -199,4 +280,9 @@ module.exports = {
   ultimaAtividadePorIds,
   estadoDosJogadores,
   eventosConexao,
+  ultimoEvento,
+  topAtoresPorAcoes,
+  contarPorAcoes,
+  listarPorAcoes,
+  historicoCargo,
 };

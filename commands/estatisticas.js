@@ -6,6 +6,7 @@ const { resolverIdFivem, autocompletarFiltro } = require('../utils/logsJogo/cons
 const relatorios = require('../utils/logsJogo/relatorios');
 const { abrirPresenca } = require('../utils/logsJogo/presencaInteracoes');
 const { montarEmbedFunil } = require('../utils/recrutamento/funilRelatorio');
+const { estadoFechaduras, embedEstadoAtual } = require('../utils/logsJogo/seguranca');
 
 const opcaoPeriodo = o => o.setName('periodo').setDescription('Período (padrão: últimos 7 dias)').addChoices(...PERIODO_CHOICES);
 
@@ -25,7 +26,15 @@ module.exports = {
     .addSubcommand(s => s.setName('inativos').setDescription('Sócios sem atividade no jogo')
       .addIntegerOption(o => o.setName('dias').setDescription(`Dias sem atividade (padrão: ${config.logsJogo.inatividadeDias})`).setMinValue(1).setMaxValue(90)))
     .addSubcommand(s => s.setName('recrutamento').setDescription('Funil: entrou no jogo → pediu recrutamento → aprovado')
-      .addStringOption(o => o.setName('periodo').setDescription('Período (padrão: últimos 30 dias)').addChoices(...PERIODO_CHOICES))),
+      .addStringOption(o => o.setName('periodo').setDescription('Período (padrão: últimos 30 dias)').addChoices(...PERIODO_CHOICES)))
+    .addSubcommand(s => s.setName('seguranca').setDescription('Estado atual da sede e do portão (trancado/destrancado, desde quando, por quem)'))
+    .addSubcommand(s => s.setName('lideranca').setDescription('Quem da liderança tá atuando de verdade: convocação, sede e portão')
+      .addStringOption(opcaoPeriodo))
+    .addSubcommand(s => s.setName('carreira').setDescription('Trilha de promoções/rebaixamentos de um sócio')
+      .addUserOption(o => o.setName('membro').setDescription('Membro do Discord (usa o ID FiveM do apelido)'))
+      .addStringOption(o => o.setName('id').setDescription('ID FiveM')))
+    .addSubcommand(s => s.setName('saidas').setDescription('Quem saiu da torcida no período: voluntária, expulsão ou inatividade')
+      .addStringOption(opcaoPeriodo)),
 
   async execute(interaction) {
     if (!ehLideranca(interaction.member)) {
@@ -35,7 +44,7 @@ module.exports = {
     const periodo = resolverPeriodo(interaction.options.getString('periodo') ?? (sub === 'recrutamento' ? '30d' : '7d'));
 
     let alvo = null;
-    if (sub === 'membro') {
+    if (sub === 'membro' || sub === 'carreira') {
       alvo = await resolverIdFivem(interaction);
       if (alvo.erro) return interaction.reply({ content: alvo.erro, flags: 64 });
       if (!alvo.idFivem) return interaction.reply({ content: '❌ INFORME UM MEMBRO OU UM ID FIVEM.', flags: 64 });
@@ -50,6 +59,10 @@ module.exports = {
     else if (sub === 'membro') embed = await relatorios.montarEmbedMembro(alvo.idFivem, alvo.rotulo, periodo);
     else if (sub === 'categoria') embed = await relatorios.montarEmbedCategoria(interaction.options.getString('categoria'), periodo);
     else if (sub === 'recrutamento') embed = await montarEmbedFunil(interaction.guild, periodo);
+    else if (sub === 'seguranca') embed = embedEstadoAtual(await estadoFechaduras());
+    else if (sub === 'lideranca') embed = await relatorios.montarEmbedLiderancaAtiva(periodo);
+    else if (sub === 'carreira') embed = await relatorios.montarEmbedCarreira(alvo.idFivem, alvo.rotulo);
+    else if (sub === 'saidas') embed = await relatorios.montarEmbedChurn(periodo);
     else embed = await relatorios.montarEmbedInativos(interaction.guild, interaction.options.getInteger('dias') ?? config.logsJogo.inatividadeDias);
 
     await interaction.editReply({ embeds: [embed], allowedMentions: { parse: [] } });

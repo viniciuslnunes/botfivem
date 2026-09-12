@@ -60,6 +60,97 @@ test('recrutamento do próprio jogo (canal logs-recrutamento)', () => {
   assert.equal(r.categoria, 'recrutamento');
 });
 
+test('sede trancada/destrancada (canal logs-painel)', () => {
+  const trancou = parseRegistro({ title: 'Sede', description: '#163 Gladiador LHP trancou a sede.' });
+  assert.equal(trancou.acao, 'sede_trancou');
+  assert.equal(trancou.atorNome, 'Gladiador LHP');
+  assert.equal(trancou.atorIdFivem, '163');
+  assert.equal(trancou.categoria, 'patrimonio');
+
+  const destrancou = parseRegistro({ title: 'Sede', description: '#13067 Cris Sabará destrancou a sede.' });
+  assert.equal(destrancou.acao, 'sede_destrancou');
+  assert.equal(destrancou.atorNome, 'Cris Sabará');
+});
+
+test('portão trancado/destrancado, galpão ou externo', () => {
+  const trancou = parseRegistro({ title: 'Portão', description: '#1983 Joao Vitor trancou o portão do galpão.' });
+  assert.equal(trancou.acao, 'portao_trancou');
+  assert.equal(trancou.atorNome, 'Joao Vitor');
+
+  const destrancou = parseRegistro({ title: 'Portão', description: '#7311 Bragunso Pertubado destrancou o portão externo.' });
+  assert.equal(destrancou.acao, 'portao_destrancou');
+  assert.equal(destrancou.atorIdFivem, '7311');
+});
+
+test('uso do sistema de trancar porta não diz se trancou ou destrancou, mas conta como atividade', () => {
+  const r = parseRegistro({
+    title: 'Registro de Atividade: Mgzin Lhp',
+    description: 'O jogador Mgzin Lhp (ID: 377) usou o sistema de trancar porta.',
+    footer: { text: 'Time: Gaviões da Fiel | Categoria: lideranca' },
+  });
+  assert.equal(r.acao, 'usou_sistema_porta');
+  assert.equal(r.atorNome, 'Mgzin Lhp');
+  assert.equal(r.atorIdFivem, '377');
+});
+
+test('convocação da equipe pra sede', () => {
+  const r = parseRegistro({
+    title: 'Registro de Atividade: Japa Sccp',
+    description: 'O jogador Japa Sccp (ID: 368) convocou a equipe para a sede.',
+  });
+  assert.equal(r.acao, 'convocou_equipe');
+  assert.equal(r.atorNome, 'Japa Sccp');
+  assert.equal(r.atorIdFivem, '368');
+  assert.equal(r.categoria, 'lideranca');
+});
+
+test('promoção e rebaixamento de cargo (o "de > para" fica na descrição, não em coluna própria)', () => {
+  const promoveu = parseRegistro({
+    title: 'promoveu',
+    description: '#560 Gabriel Inajar promoveu #7670 Milgrau LHP (Sócio > Recrutador).',
+  });
+  assert.equal(promoveu.acao, 'promoveu_cargo');
+  assert.equal(promoveu.atorNome, 'Gabriel Inajar');
+  assert.equal(promoveu.atorIdFivem, '560');
+  assert.equal(promoveu.alvoNome, 'Milgrau LHP');
+  assert.equal(promoveu.alvoIdFivem, '7670');
+  assert.match(promoveu.descricao, /Sócio > Recrutador/);
+
+  const rebaixou = parseRegistro({
+    title: 'rebaixou',
+    description: '#1535 Texugo daBaixada rebaixou #196 Miguel ZonaLeste (Diretor > Recrutador).',
+  });
+  assert.equal(rebaixou.acao, 'rebaixou_cargo');
+  assert.equal(rebaixou.alvoNome, 'Miguel ZonaLeste');
+});
+
+test('saída de sócio: voluntária, expulsão e remoção automática por inatividade', () => {
+  const voluntaria = parseRegistro({ title: 'removeu', description: '#2127 Eduardo Fkk saiu da torcida.' });
+  assert.equal(voluntaria.acao, 'saiu_torcida');
+  assert.equal(voluntaria.atorNome, 'Eduardo Fkk');
+  assert.equal(voluntaria.categoria, 'saida');
+
+  const expulsao = parseRegistro({ title: 'removeu', description: '#2190 Macaco Loko removeu #3766 Paulo Vitor ().' });
+  assert.equal(expulsao.acao, 'expulso_torcida');
+  assert.equal(expulsao.atorNome, 'Macaco Loko');
+  assert.equal(expulsao.alvoNome, 'Paulo Vitor');
+  assert.equal(expulsao.alvoIdFivem, '3766');
+
+  const automatica = parseRegistro({
+    title: 'removeu',
+    description: '#10728 Jhow Sccp removido automaticamente da torcida (sem login há mais de 10 dias).',
+  });
+  assert.equal(automatica.acao, 'removido_torcida_automatico');
+  assert.equal(automatica.alvoNome, 'Jhow Sccp');
+  assert.equal(automatica.alvoIdFivem, '10728');
+  assert.equal(automatica.atorIdFivem, null); // ninguém agiu, foi o próprio sistema
+});
+
+test('remoção de blacklist/suspensão não é confundida com expulsão de sócio (sem segundo #ID de alvo)', () => {
+  const r = parseRegistro({ title: 'blacklist', description: '#2190 Macaco Loko adicionou blacklist da torcida #7262 Pedro Pisico.' });
+  assert.equal(r.acao, 'desconhecido');
+});
+
 test('formato desconhecido é mantido, com IDs e valor extraídos', () => {
   const r = parseRegistro({
     title: 'Registro de Atividade: Fulano',

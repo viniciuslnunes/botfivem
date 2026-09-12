@@ -10,9 +10,16 @@ const PERIODOS = {
   '7d': { dias: 7, rotulo: 'ÚLTIMOS 7 DIAS' },
   '30d': { dias: 30, rotulo: 'ÚLTIMOS 30 DIAS' },
   '90d': { dias: 90, rotulo: 'ÚLTIMOS 90 DIAS' },
+  '180d': { dias: 180, rotulo: 'ÚLTIMOS 6 MESES' },
+  '365d': { dias: 365, rotulo: 'ÚLTIMOS 12 MESES' },
   tudo: { dias: null, rotulo: 'TODO O HISTÓRICO' },
 };
 
+// Lista em ordem cronológica: do período mais recente/curto pro mais antigo/
+// longo, alternando janela rolante (a partir de agora) com o período
+// fechado equivalente (o intervalo imediatamente anterior, mesma duração) —
+// mesmo par que já existia pra semana/mês, agora também pra trimestre,
+// semestre e ano. Cresce sozinho conforme os logs também vão crescendo.
 const PERIODO_CHOICES = [
   { name: 'Hoje', value: 'hoje' },
   { name: 'Ontem', value: 'ontem' },
@@ -21,6 +28,11 @@ const PERIODO_CHOICES = [
   { name: 'Últimos 30 dias', value: '30d' },
   { name: 'Mês passado', value: 'mes_passado' },
   { name: 'Últimos 90 dias', value: '90d' },
+  { name: 'Trimestre passado', value: 'trimestre_passado' },
+  { name: 'Últimos 6 meses', value: '180d' },
+  { name: 'Semestre passado', value: 'semestre_passado' },
+  { name: 'Últimos 12 meses', value: '365d' },
+  { name: 'Ano passado', value: 'ano_passado' },
   { name: 'Todo o histórico', value: 'tudo' },
 ];
 
@@ -76,6 +88,18 @@ const PERIODOS_FECHADOS = {
   mes_passado: (agora) => {
     const atual = resolverPeriodo('30d', agora);
     return { rotulo: 'MÊS PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
+  },
+  trimestre_passado: (agora) => {
+    const atual = resolverPeriodo('90d', agora);
+    return { rotulo: 'TRIMESTRE PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
+  },
+  semestre_passado: (agora) => {
+    const atual = resolverPeriodo('180d', agora);
+    return { rotulo: 'SEMESTRE PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
+  },
+  ano_passado: (agora) => {
+    const atual = resolverPeriodo('365d', agora);
+    return { rotulo: 'ANO PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
   },
 };
 
@@ -152,6 +176,14 @@ function idFivemDoNick(nick) {
   return m ? m[1] : null;
 }
 
+// "(Sócio > Recrutador)" fica intacto na `descricao` dos logs de
+// promoveu_cargo/rebaixou_cargo (ver parser.js) — quem monta o histórico de
+// carreira relê daqui em vez de guardar "de"/"para" em coluna própria.
+function extrairMudancaCargo(descricao) {
+  const m = String(descricao ?? '').match(/\(([^()>]+?)\s*>\s*([^()]+?)\)\.?\s*$/);
+  return m ? { de: m[1].trim(), para: m[2].trim() } : null;
+}
+
 const formatadorNumero = new Intl.NumberFormat('pt-BR');
 const formatadorDinheiro = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 
@@ -199,6 +231,7 @@ module.exports = {
   sparkline,
   variacao,
   idFivemDoNick,
+  extrairMudancaCargo,
   formatarNumero,
   formatarDinheiro,
   formatarDuracao,

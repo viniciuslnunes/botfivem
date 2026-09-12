@@ -8,6 +8,7 @@ const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const E = require('./estatisticas');
 const relatorios = require('./relatorios');
+const { gerarGraficoOcupacao } = require('./graficoOcupacao');
 
 // Chave no bot_config pros números batidos à mão (painel/ranking do jogo)
 // que aparecem fixos no painel, ao lado dos automáticos. Exportada porque
@@ -25,15 +26,25 @@ const CAMPOS_MANUAIS = [
 ];
 
 // Botões do painel fixo de jogadores viraram um select (eram 6 botões — 2
-// linhas cheias só pra escolher um período, poluição visual). Janela rolante
-// (a partir de agora) e período civil fechado (o anterior), na mesma lista.
+// linhas cheias só pra escolher um período, poluição visual). Ordem
+// cronológica (do mais recente/curto pro mais antigo/longo), alternando
+// janela rolante e período fechado equivalente. Períodos maiores (90/180/
+// 365 dias) já existem em E.PERIODOS/PERIODOS_FECHADOS — só entrar aqui
+// quando fizerem sentido no painel de presença (select tem limite de 25
+// opções do Discord, sobra espaço de sobra).
 const PERIODOS_PRESENCA = [
   { chave: 'hoje', label: 'AGORA' },
-  { chave: '7d', label: 'ÚLTIMOS 7 DIAS' },
-  { chave: '30d', label: 'ÚLTIMOS 30 DIAS' },
   { chave: 'ontem', label: 'ONTEM' },
+  { chave: '7d', label: 'ÚLTIMOS 7 DIAS' },
   { chave: 'semana_passada', label: 'SEMANA PASSADA' },
+  { chave: '30d', label: 'ÚLTIMOS 30 DIAS' },
   { chave: 'mes_passado', label: 'MÊS PASSADO' },
+  { chave: '90d', label: 'ÚLTIMOS 90 DIAS' },
+  { chave: 'trimestre_passado', label: 'TRIMESTRE PASSADO' },
+  { chave: '180d', label: 'ÚLTIMOS 6 MESES' },
+  { chave: 'semestre_passado', label: 'SEMESTRE PASSADO' },
+  { chave: '365d', label: 'ÚLTIMOS 12 MESES' },
+  { chave: 'ano_passado', label: 'ANO PASSADO' },
 ];
 
 function selectPeriodo() {
@@ -270,6 +281,21 @@ function renderizarPagina(consultaId, consulta, pagina) {
     ],
     footer: { text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel · Página ${atual + 1}/${totalPaginas}` },
   };
+  // Gráfico de barras (imagem) da variação de pico por hora/dia, no lugar do
+  // sparkline em texto — some quando o período não teve nenhum pico > 0
+  // (relatorios.js já devolve `serie: null` nesse caso). Gerado uma vez só
+  // por consulta e cacheado nela: a série não muda entre páginas, então não
+  // tem por quê redesenhar o canvas a cada clique de paginação/busca — mas
+  // o attachment precisa ser reenviado em toda edição de mensagem, porque o
+  // Discord não reaproveita anexo de uma edição anterior sozinho.
+  let files;
+  if (consulta.serie?.length) {
+    if (!consulta._graficoBuffer) {
+      consulta._graficoBuffer = gerarGraficoOcupacao(consulta.serie, consulta.unidadeSerie, { chaveAtual: consulta.chaveAtual });
+    }
+    embed.image = { url: 'attachment://ocupacao.png' };
+    files = [{ attachment: consulta._graficoBuffer, name: 'ocupacao.png' }];
+  }
   const selectRow = selectFiltrarPorId(consultaId);
   const temAnterior = atual > 0;
   const temProxima = atual < totalPaginas - 1;
@@ -292,7 +318,7 @@ function renderizarPagina(consultaId, consulta, pagina) {
       .setLabel('🔎 BUSCAR')
       .setStyle(ButtonStyle.Secondary)
   );
-  return { embeds: [embed], components: [selectRow, botoes], allowedMentions: { parse: [] } };
+  return { embeds: [embed], components: [selectRow, botoes], files, allowedMentions: { parse: [] } };
 }
 
 // Ficha de um jogador só, a partir do ID escolhido no select — busca na

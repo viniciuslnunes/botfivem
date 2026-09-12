@@ -125,6 +125,13 @@ module.exports = {
     presencaReconexaoFolgaMin: 2,
     inatividadeDias: 7,
     novatoSemRecrutamentoDias: 3, // alerta quem entrou no jogo e não pediu recrutamento após N dias
+    // Segurança do patrimônio (sede/portão): a partir de sede_trancou/
+    // destrancou e portao_trancou/destrancou nos logs (ver parser.js).
+    seguranca: {
+      limiteDestrancadaMin: 120, // fechadura destrancada + ninguém online por mais que isso = alerta
+      repetirAlertaMin: 180,     // não manda o mesmo alerta de novo antes desse tempo (segue destrancada)
+      verificarIntervaloMin: 10,
+    },
   },
 
   confianca: {

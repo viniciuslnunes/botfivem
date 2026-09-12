@@ -7,9 +7,11 @@ const { sincronizarCanaisDeLog } = require('../utils/logsJogo/ingestao');
 const { iniciarPainelLogs } = require('../utils/logsJogo/painel');
 const { iniciarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
 const { iniciarPainelSociosSemId } = require('../utils/logsJogo/painelSociosSemId');
+const { iniciarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
+const { iniciarVerificacaoSeguranca } = require('../utils/logsJogo/seguranca');
 const { atualizarQuadroDepartamentos } = require('../utils/departamentos/quadro');
 const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
 
@@ -30,6 +32,7 @@ module.exports = (client) => {
         iniciarPainelLogs(client);
         iniciarPainelJogadores(client);
         iniciarPainelSociosSemId(client);
+        iniciarRegistrosDiarios(client);
       });
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
@@ -40,6 +43,8 @@ module.exports = (client) => {
     iniciarVerificacaoVencimentos(client);
     // Novatos do jogo que não pediram recrutamento no Discord (a cada 6h)
     iniciarAlertaNovatos(client);
+    // Sede/portão destrancados sem ninguém online no jogo (a cada 10min)
+    iniciarVerificacaoSeguranca(client);
     // Quadro de departamentos em dia com quem entrou/saiu das áreas com o bot desligado
     atualizarQuadroDepartamentos(client)
       .catch(err => console.error('[departamentos] Erro ao atualizar quadro:', err));
