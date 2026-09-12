@@ -6,6 +6,7 @@ const {
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const { lerConfig } = require('../botConfig');
+const { aplicarIdNoNick } = require('../formatarNick');
 const db = require('../db');
 const E = require('./estatisticas');
 const relatorios = require('./relatorios');
@@ -116,17 +117,6 @@ function modalVincularId(discordUserId, idAtual) {
       .setCustomId('id').setLabel('ID FIVEM (APENAS NÚMEROS)')
       .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(8)
       .setValue(idAtual ?? '')));
-}
-
-// Troca só o "- 1234" no fim do apelido (ou acrescenta, se não tiver nenhum)
-// — mesma sintaxe que E.idFivemDoNick lê de volta. Corta o nome se precisar
-// pra caber no limite de 32 caracteres do Discord, igual formatarNick faz no
-// fluxo de recrutamento.
-function aplicarIdNoNick(nickAtual, novoId) {
-  const semId = String(nickAtual ?? '').replace(/\s*-\s*\d{1,8}\s*$/, '').trimEnd();
-  const sufixo = ` - ${novoId}`;
-  const base = semId || 'Sem nome';
-  return `${base.slice(0, Math.max(0, 32 - sufixo.length))}${sufixo}`;
 }
 
 // Passo 1 do botão RANKING (ephemeral, só quem clicou vê): qual período.

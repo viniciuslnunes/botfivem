@@ -5,6 +5,7 @@ const {
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const { garantirMembrosCarregados } = require('../membrosGuild');
+const { aplicarIdNoNick } = require('../formatarNick');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const E = require('./estatisticas');
@@ -20,6 +21,16 @@ const { buscarBloqueio } = require('../naoRecrutar');
 // conta aqui, por isso é lista de referência pra liderança, não canal
 // público como o de sócio sem ID).
 const CONFIG_KEY_CANAL = 'canal_ids_sem_socio';
+// Canal separado só pra RESOLVER PENDENTE/VER IGNORADOS (e tudo que vem
+// depois: fichas, selects). Existia junto do canal de listagem, com a
+// mensagem de botões fixada como a mais antiga do canal (ver
+// garantirMsgBotoes) — mas resposta ephemeral do Discord não nasce "colada"
+// no botão que a gerou, nasce como mensagem nova no FIM da timeline do
+// canal. Com a listagem paginada inteira entre o botão e o fim, cada clique
+// exigia rolar por tudo isso pra achar o select. Canal isolado, sem lista
+// nenhuma, tira esse "fim" gigante do meio: a resposta nasce logo abaixo do
+// botão de verdade.
+const CONFIG_KEY_CANAL_GERENCIAR = 'canal_ids_sem_socio_gerenciar';
 const CONFIG_KEY_MSGS = 'ids_sem_socio_message_ids';
 // IDs trocam a cada season do jogo — o mesmo jogador pode aparecer aqui de
 // novo com um ID novo depois de já ter sido resolvido (correlacionado com
@@ -33,6 +44,7 @@ const CONFIG_KEY_IGNORADOS = 'ids_sem_socio_ignorados';
 // continua pendente normalmente.
 const CONFIG_KEY_SUGESTOES_REJEITADAS = 'ids_sem_socio_sugestoes_rejeitadas';
 const NOME_CANAL = '🔗・ids-sem-discord';
+const NOME_CANAL_GERENCIAR = '🔎・gerenciar-ids-sem-discord';
 const INTERVALO_MIN = 20;
 const MINIMO_INTERACOES = 3; // filtra aparição isolada/errática nos logs
 const LIMITE_DESCRICAO = 3900; // margem abaixo do limite de 4096 da description
@@ -69,6 +81,25 @@ async function garantirCanal(guild) {
   return canal;
 }
 
+// Mesma categoria do canal de listagem, mas canal à parte — só a mensagem de
+// botões (RESOLVER PENDENTE/VER IGNORADOS) e as respostas ephemeral que ela
+// gera. Ver comentário de CONFIG_KEY_CANAL_GERENCIAR.
+async function garantirCanalGerenciar(guild, canalListagem) {
+  const salvoId = await lerConfig(CONFIG_KEY_CANAL_GERENCIAR);
+  const salvo = salvoId && await guild.channels.fetch(salvoId).catch(() => null);
+  if (salvo) return salvo;
+
+  const canal = await guild.channels.create({
+    name: NOME_CANAL_GERENCIAR,
+    type: ChannelType.GuildText,
+    parent: canalListagem?.parentId ?? null,
+    permissionOverwrites: permissoesCanal(guild, guild.members.me.id),
+    reason: 'Botões de gerenciamento de IDs sem Discord, separados da listagem pra resposta ephemeral não nascer atrás de uma lista inteira',
+  });
+  await gravarConfig(CONFIG_KEY_CANAL_GERENCIAR, canal.id);
+  return canal;
+}
+
 // ── Persistência: ignorados e sugestões rejeitadas ──────────────────────
 
 async function lerLista(chave) {
@@ -96,6 +127,28 @@ async function ignorarId(candidato, motivo, porUserId) {
     motivo, ignoradoPor: porUserId, ignoradoEm: new Date().toISOString(),
   });
   await gravarIgnorados(semEsse);
+}
+
+// Associar aqui marca o ID como resolvido (ignorarId), mas isso sozinho não
+// bastava: quem lê "esse membro já tem um ID vinculado" em todo o resto do
+// bot (presença, sócio-sem-id, este próprio módulo na próxima atualização)
+// é E.idFivemDoNick, que lê o "- 1234" do final do apelido — sem atualizar o
+// apelido de verdade, o membro continuava com o ID antigo (de uma season
+// anterior) no nick, e o ID novo reaparecia aqui pendente de novo assim que
+// alguém revertesse o "ignorado" ou o ciclo de 20 min rodasse de novo com um
+// candidato parecido. `aplicarIdNoNick` troca só o sufixo do ID, preservando
+// prefixo/nome como já estão (mesma função usada em presencaInteracoes.js
+// pro fluxo equivalente a partir do painel de presença). Devolve a mensagem
+// de erro (string) se não conseguiu renomear (sem permissão/cargo acima do
+// bot), ou null se deu certo — não é fatal pro fluxo, só some do aviso.
+async function renomearComNovoId(membro, novoId) {
+  const novoNick = aplicarIdNoNick(membro.nickname ?? membro.displayName, novoId);
+  try {
+    await membro.setNickname(novoNick);
+    return null;
+  } catch (err) {
+    return err.message;
+  }
 }
 
 async function reativarId(id) {
@@ -283,12 +336,9 @@ function linhaBotoesGerenciar() {
   );
 }
 
-// Dentro de UMA mensagem, os componentes sempre ficam depois do embed — não
-// tem como um botão aparecer "antes" do conteúdo da própria mensagem. Pra
-// ficar de verdade acima de toda a listagem, os botões moram numa mensagem
-// própria (só eles, sem embed), separada das páginas — e essa mensagem
-// precisa ser a mais antiga do canal (Discord ordena por quando foi
-// enviada, editar não reordena). Guardada à parte de CONFIG_KEY_MSGS.
+// Mensagem de botões vive sozinha no canal de gerenciamento (só ela, sem
+// embed) — guardada à parte de CONFIG_KEY_MSGS, que é só das páginas da
+// listagem.
 const CONFIG_KEY_BOTOES_MSG = 'ids_sem_socio_botoes_message_id';
 
 async function lerMsgIds() {
@@ -306,21 +356,20 @@ async function lerMsgIds() {
 // ciclo de 20 min), então nunca fica mais desatualizada que o canal em si.
 let ultimosCandidatos = [];
 
-// Garante a mensagem de botões como a PRIMEIRA do canal. Se ela já existe
-// (fluxo normal, todo ciclo depois do primeiro), só devolve o ID — nunca
-// precisa reenviar, os botões não mudam. Se ainda não existe (primeira vez
-// com esse formato, ou canal criado agora), apaga qualquer página antiga
-// que já esteja lá (só acontece essa migração uma vez) e manda os botões
-// antes de tudo, garantindo a ordem: botões → página 1 → página 2 → ...
-async function garantirMsgBotoes(canal, idsPaginasAntigas) {
+// Garante a mensagem de botões no canal de gerenciamento. Se ela já existe
+// lá, só devolve o ID — os botões não mudam, nunca precisa reenviar. Se o ID
+// salvo aponta pra uma mensagem que não existe MAIS nesse canal (migração:
+// canal de gerenciamento acabou de ser criado, mensagem antiga ainda estava
+// no canal de listagem, junto das páginas), apaga a sobra de lá antes de
+// mandar a mensagem nova aqui.
+async function garantirMsgBotoes(canalGerenciar, canalListagem) {
   const salvoId = await lerConfig(CONFIG_KEY_BOTOES_MSG);
-  const salvo = salvoId && await canal.messages.fetch(salvoId).catch(() => null);
-  if (salvo) return salvo.id;
-
-  for (const id of idsPaginasAntigas) {
-    await canal.messages.delete(id).catch(() => {});
+  if (salvoId) {
+    const salvo = await canalGerenciar.messages.fetch(salvoId).catch(() => null);
+    if (salvo) return salvo.id;
+    await canalListagem.messages.delete(salvoId).catch(() => {});
   }
-  const msg = await canal.send({ content: '🔎 GERENCIAR IDS PENDENTES:', components: [linhaBotoesGerenciar()] });
+  const msg = await canalGerenciar.send({ content: '🔎 GERENCIAR IDS PENDENTES:', components: [linhaBotoesGerenciar()] });
   await gravarConfig(CONFIG_KEY_BOTOES_MSG, msg.id);
   return msg.id;
 }
@@ -328,23 +377,18 @@ async function garantirMsgBotoes(canal, idsPaginasAntigas) {
 async function atualizarIdsSemSocio(client) {
   const guild = await client.guilds.fetch(config.guildId);
   const canal = await garantirCanal(guild);
+  const canalGerenciar = await garantirCanalGerenciar(guild, canal);
+  await garantirMsgBotoes(canalGerenciar, canal);
 
   const candidatos = await buscarIdsSemDiscord(client, guild);
   ultimosCandidatos = candidatos;
   const embeds = montarEmbeds(candidatos);
   const idsAntigos = await lerMsgIds();
 
-  // Só apaga as páginas antigas na migração (mensagem de botões ainda não
-  // existia) — no dia a dia elas continuam sendo editadas em posição, como
-  // sempre foram.
-  const jaTinhaBotoes = Boolean(await lerConfig(CONFIG_KEY_BOTOES_MSG));
-  await garantirMsgBotoes(canal, jaTinhaBotoes ? [] : idsAntigos);
-  const idsBase = jaTinhaBotoes ? idsAntigos : [];
-
   const idsNovos = [];
   for (let i = 0; i < embeds.length; i++) {
     const payload = { embeds: [embeds[i]], allowedMentions: { parse: [] } };
-    const idAntigo = idsBase[i];
+    const idAntigo = idsAntigos[i];
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
       if (msg) {
@@ -356,7 +400,7 @@ async function atualizarIdsSemSocio(client) {
     const nova = await canal.send(payload);
     idsNovos.push(nova.id);
   }
-  for (const idExtra of idsBase.slice(embeds.length)) {
+  for (const idExtra of idsAntigos.slice(embeds.length)) {
     await canal.messages.delete(idExtra).catch(() => {});
   }
   await gravarConfig(CONFIG_KEY_MSGS, JSON.stringify(idsNovos));
@@ -551,9 +595,13 @@ registrarModulo('idsemsocio', async interaction => {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     const c = ultimosCandidatos.find(e => String(e.id) === a);
     if (!c) return interaction.reply({ content: '❌ ESSE ID NÃO ESTÁ MAIS PENDENTE (A LISTA JÁ ATUALIZOU).', flags: 64 });
+    const membro = await interaction.guild.members.fetch(b).catch(() => null);
+    if (!membro) return interaction.reply({ content: '❌ ESSE MEMBRO NÃO ESTÁ MAIS NO SERVIDOR.', flags: 64 });
+    const erroRename = await renomearComNovoId(membro, c.id);
     await ignorarId(c, `associado a <@${b}> (season anterior)`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
-    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+    const aviso = erroRename ? `\n⚠️ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}` : '';
+    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   // Correção manual: a liderança busca e escolhe direto no select nativo do
@@ -567,9 +615,11 @@ registrarModulo('idsemsocio', async interaction => {
     if (!c) return interaction.reply({ content: '❌ ESSE ID NÃO ESTÁ MAIS PENDENTE (A LISTA JÁ ATUALIZOU).', flags: 64 });
     const membro = interaction.members.first();
     if (!membro) return interaction.reply({ content: '❌ MEMBRO NÃO ENCONTRADO.', flags: 64 });
+    const erroRename = await renomearComNovoId(membro, c.id);
     await ignorarId(c, `associado manualmente a ${membro} por <@${interaction.user.id}>`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
-    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+    const aviso = erroRename ? `\n⚠️ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}` : '';
+    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   if (interaction.isButton() && acao === 'rejeitarsugestao') {
