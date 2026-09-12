@@ -6,6 +6,7 @@ const { iniciarAgendador } = require('../utils/agendador');
 const { sincronizarCanaisDeLog } = require('../utils/logsJogo/ingestao');
 const { iniciarPainelLogs } = require('../utils/logsJogo/painel');
 const { iniciarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
+const { iniciarPainelSociosSemId } = require('../utils/logsJogo/painelSociosSemId');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
@@ -28,6 +29,7 @@ module.exports = (client) => {
       .finally(() => {
         iniciarPainelLogs(client);
         iniciarPainelJogadores(client);
+        iniciarPainelSociosSemId(client);
       });
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado

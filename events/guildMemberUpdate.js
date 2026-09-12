@@ -7,6 +7,8 @@ const { sincronizarCarteirinhaComCargo } = require('../utils/carteirinhaSocio');
 const { removerTodasAsAreas } = require('../utils/departamentos/gestao');
 const { mapaCargosDepartamento } = require('../utils/departamentos/repositorio');
 const { agendarAtualizacaoQuadro } = require('../utils/departamentos/quadro');
+const { agendarAtualizacaoReativa: agendarSociosSemId } = require('../utils/logsJogo/painelSociosSemId');
+const { idFivemDoNick } = require('../utils/logsJogo/estatisticas');
 
 const CARGO_IDS_HIERARQUIA = new Set(HIERARQUIA.map(c => c.id));
 
@@ -42,6 +44,17 @@ module.exports = (client) => {
         await removerTodasAsAreas(client, newMember)
           .catch(err => console.error('[departamentos] Erro ao remover áreas no desligamento:', err));
       }
+    }
+
+    // Canal "sócio sem ID": só recalcula se o apelido mudou (pode ter
+    // acabado de vincular/perder o ID) ou se ganhou/perdeu o cargo SÓCIO
+    // (entra ou sai da lista de quem é cobrado ali) — comparar o ID lido
+    // evita reagendar em toda troca de apelido que não mexe nisso.
+    const eraSocio = oldRoles.has(config.cargos.socio);
+    const ehSocioAgora = newRoles.has(config.cargos.socio);
+    if (eraSocio || ehSocioAgora) {
+      const idMudou = idFivemDoNick(oldMember.nickname ?? oldMember.displayName) !== idFivemDoNick(newMember.nickname ?? newMember.displayName);
+      if (mudouSocio || idMudou) agendarSociosSemId(client);
     }
 
     const cargosDeArea = await mapaCargosDepartamento().catch(() => new Map());
