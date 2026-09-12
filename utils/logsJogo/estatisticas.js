@@ -16,23 +16,22 @@ const PERIODOS = {
 };
 
 // Lista em ordem cronológica: do período mais recente/curto pro mais antigo/
-// longo, alternando janela rolante (a partir de agora) com o período
-// fechado equivalente (o intervalo imediatamente anterior, mesma duração) —
-// mesmo par que já existia pra semana/mês, agora também pra trimestre,
-// semestre e ano. Cresce sozinho conforme os logs também vão crescendo.
+// longo. Só janela rolante (a partir de agora) — o par "X passado" (semana/
+// mês/trimestre/semestre/ano passado) saiu daqui por confundir mais do que
+// ajudar: não é período civil de verdade (não é "semana começando na
+// segunda"), só o bloco anterior de mesma duração, e ficava parecendo
+// sinônimo de "últimos N dias" pra quem lê no Discord. "Ontem" continua
+// (esse sim é sempre um dia civil fechado, sem ambiguidade). "Semana
+// passada"/"mês passado" continuam existindo como período (resolverPeriodo),
+// só não aparecem mais nessa lista — ver PERIODOS_FICHA em relatorios.js.
 const PERIODO_CHOICES = [
   { name: 'Hoje', value: 'hoje' },
   { name: 'Ontem', value: 'ontem' },
   { name: 'Últimos 7 dias', value: '7d' },
-  { name: 'Semana passada', value: 'semana_passada' },
   { name: 'Últimos 30 dias', value: '30d' },
-  { name: 'Mês passado', value: 'mes_passado' },
   { name: 'Últimos 90 dias', value: '90d' },
-  { name: 'Trimestre passado', value: 'trimestre_passado' },
   { name: 'Últimos 6 meses', value: '180d' },
-  { name: 'Semestre passado', value: 'semestre_passado' },
   { name: 'Últimos 12 meses', value: '365d' },
-  { name: 'Ano passado', value: 'ano_passado' },
   { name: 'Todo o histórico', value: 'tudo' },
 ];
 
@@ -88,18 +87,6 @@ const PERIODOS_FECHADOS = {
   mes_passado: (agora) => {
     const atual = resolverPeriodo('30d', agora);
     return { rotulo: 'MÊS PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
-  },
-  trimestre_passado: (agora) => {
-    const atual = resolverPeriodo('90d', agora);
-    return { rotulo: 'TRIMESTRE PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
-  },
-  semestre_passado: (agora) => {
-    const atual = resolverPeriodo('180d', agora);
-    return { rotulo: 'SEMESTRE PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
-  },
-  ano_passado: (agora) => {
-    const atual = resolverPeriodo('365d', agora);
-    return { rotulo: 'ANO PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
   },
 };
 

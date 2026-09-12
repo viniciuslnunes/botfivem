@@ -9,6 +9,7 @@ const { lerConfig, gravarConfig } = require('../botConfig');
 const E = require('./estatisticas');
 const relatorios = require('./relatorios');
 const { gerarGraficoOcupacao } = require('./graficoOcupacao');
+const { incrementarContadorVinculados } = require('./painelSociosSemId');
 
 // Chave no bot_config pros números batidos à mão (painel/ranking do jogo)
 // que aparecem fixos no painel, ao lado dos automáticos. Exportada porque
@@ -34,24 +35,19 @@ const CAMPOS_MANUAIS = [
 
 // Botões do painel fixo de jogadores viraram um select (eram 6 botões — 2
 // linhas cheias só pra escolher um período, poluição visual). Ordem
-// cronológica (do mais recente/curto pro mais antigo/longo), alternando
-// janela rolante e período fechado equivalente. Períodos maiores (90/180/
-// 365 dias) já existem em E.PERIODOS/PERIODOS_FECHADOS — só entrar aqui
-// quando fizerem sentido no painel de presença (select tem limite de 25
-// opções do Discord, sobra espaço de sobra).
+// cronológica (do mais recente/curto pro mais antigo/longo). Só janela
+// rolante — o par "X passado" saiu daqui: não é período civil de verdade,
+// só o bloco anterior de mesma duração, e ficava parecendo sinônimo de
+// "últimos N dias" (12 opções pra só 7 ideias diferentes). "Ontem" continua
+// por ser sempre um dia civil fechado, sem essa ambiguidade.
 const PERIODOS_PRESENCA = [
   { chave: 'hoje', label: 'AGORA' },
   { chave: 'ontem', label: 'ONTEM' },
   { chave: '7d', label: 'ÚLTIMOS 7 DIAS' },
-  { chave: 'semana_passada', label: 'SEMANA PASSADA' },
   { chave: '30d', label: 'ÚLTIMOS 30 DIAS' },
-  { chave: 'mes_passado', label: 'MÊS PASSADO' },
   { chave: '90d', label: 'ÚLTIMOS 90 DIAS' },
-  { chave: 'trimestre_passado', label: 'TRIMESTRE PASSADO' },
   { chave: '180d', label: 'ÚLTIMOS 6 MESES' },
-  { chave: 'semestre_passado', label: 'SEMESTRE PASSADO' },
   { chave: '365d', label: 'ÚLTIMOS 12 MESES' },
-  { chave: 'ano_passado', label: 'ANO PASSADO' },
 ];
 
 function selectPeriodo() {
@@ -586,6 +582,10 @@ registrarModulo('presenca', async interaction => {
       });
     }
     const acaoTexto = idAtual ? `ID ALTERADO DE \`${idAtual}\` PARA \`${idInformado}\`` : `ID \`${idInformado}\` VINCULADO`;
+    // Só soma no placar de incentivo (🆔・socio-sem-id) em vínculo NOVO — quem
+    // já tinha ID e só trocou não estava na lista de pendentes, então não é
+    // o que o aviso está pedindo pra resolver.
+    if (!idAtual) incrementarContadorVinculados(interaction.client).catch(err => console.error('[socios-sem-id] Erro ao somar placar:', err));
     return interaction.reply({
       content: `${acaoTexto} EM ${membro} — NOVO APELIDO: \`${novoNick}\``,
       flags: 64,
