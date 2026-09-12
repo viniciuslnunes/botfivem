@@ -118,16 +118,58 @@ const gravarRejeitadas = lista => gravarConfig(CONFIG_KEY_SUGESTOES_REJEITADAS, 
 
 // Marca um ID como resolvido (correlacionado com um membro já registrado,
 // ou simplesmente "não interessa avisar") — some da lista até alguém
-// reverter manualmente (ver reativarId). `nome`/`total`/`ultima` ficam
-// salvos junto pra "VER IGNORADOS" mostrar sem precisar reconsultar o banco.
-async function ignorarId(candidato, motivo, porUserId) {
+// reverter manualmente (ver reativarId) ou até a reconciliação automática
+// perceber que a associação não colou de verdade (ver reconciliarIgnorados).
+// `associadoA` (Discord ID) só é passado nos dois fluxos de associação
+// (confirmar sugestão / selecionar membro na mão) — é o que permite essa
+// reconciliação depois; ignorar manual "sem correlação nenhuma" não tem
+// membro pra conferir, então fica null e nunca é revertido sozinho.
+// `nome`/`total`/`ultima` ficam salvos junto pra "VER IGNORADOS" mostrar sem
+// precisar reconsultar o banco.
+async function ignorarId(candidato, motivo, porUserId, associadoA = null) {
   const ignorados = await lerIgnorados();
   const semEsse = ignorados.filter(r => String(r.id) !== String(candidato.id));
   semEsse.push({
     id: candidato.id, nome: candidato.nome ?? null, total: candidato.total ?? null, ultima: candidato.ultima ?? null,
-    motivo, ignoradoPor: porUserId, ignoradoEm: new Date().toISOString(),
+    motivo, ignoradoPor: porUserId, ignoradoEm: new Date().toISOString(), associadoA,
   });
   await gravarIgnorados(semEsse);
+}
+
+// Um ID "associado" (ver `associadoA` acima) só deve continuar fora da lista
+// enquanto o membro pra quem foi associado ainda tiver ESSE id no apelido de
+// verdade. Sem essa conferência, um apelido revertido depois (na mão pelo
+// próprio sócio, ou por qualquer outro fluxo que reescreva o nick), ou uma
+// associação que nunca colou (rename falhou mas foi marcado ignorado do
+// mesmo jeito, bug já corrigido nos handlers CONFIRMAR/SELECIONARMEMBRO),
+// deixava o ID "resolvido" pra sempre em `ids_sem_socio_ignorados`, mesmo o
+// vínculo nunca tendo existido de verdade — foi o que aconteceu com o Cris
+// Sabará e o Lucas Gdf: apareciam em VER IGNORADOS como "associado", mas o
+// apelido nunca tinha o ID, e o sócio ficava pendente em 🆔・socio-sem-id sem
+// jeito de ser resolvido de novo por aqui. Ignorados "sem correlação"
+// nenhuma não entram nessa checagem — não tem membro pra conferir, e
+// continuam dependendo só da reativação manual (VER IGNORADOS).
+//
+// `associadoA` só existe em registros gravados depois desse fix; pra
+// reconciliar os que já ficaram presos antes (sem o campo), cai pro Discord
+// ID mencionado dentro do próprio `motivo` — só quando o motivo É de
+// associação ("associado a <@123...>" / "associado manualmente a <@123...>
+// por <@456...>"): o texto de "ignorado manualmente por <@456...>" (sem
+// correlação nenhuma) também tem uma menção, só que é de quem ignorou, não
+// de um membro associado — cair nela reconciliaria um ignorado "de verdade"
+// contra a ficha do próprio admin, sem sentido nenhum.
+function reconciliarIgnorados(ignorados, membros) {
+  const validos = [];
+  const revertidos = [];
+  for (const entry of ignorados) {
+    const motivoDeAssociacao = /^associado/.test(entry.motivo ?? '');
+    const associadoA = entry.associadoA ?? (motivoDeAssociacao ? entry.motivo.match(/<@(\d+)>/)?.[1] : null);
+    if (!associadoA) { validos.push(entry); continue; }
+    const membro = membros.find(m => m.id === associadoA);
+    const aindaVinculado = membro && E.idFivemDoNick(membro.nick) === String(entry.id);
+    (aindaVinculado ? validos : revertidos).push(entry);
+  }
+  return { validos, revertidos };
 }
 
 // Associar aqui marca o ID como resolvido (ignorarId), mas isso sozinho não
@@ -254,7 +296,17 @@ async function buscarIdsSemDiscord(client, guild) {
     lerRejeitadas(),
   ]);
 
-  const ignoradosSet = new Set(ignorados.map(r => String(r.id)));
+  // Reconcilia antes de filtrar: um ID marcado "associado" cujo membro não
+  // tem mais esse ID no apelido (revertido manualmente, ou associação que já
+  // devia ter sido bloqueada — ver comentário em reconciliarIgnorados) volta
+  // a ser candidato pendente sozinho, sem precisar de REATIVAR manual.
+  const { validos: ignoradosValidos, revertidos } = reconciliarIgnorados(ignorados, membros);
+  if (revertidos.length) {
+    await gravarIgnorados(ignoradosValidos);
+    console.warn('[ids-sem-socio] Reconciliação automática: vínculo desfeito, volta a pendente:', revertidos.map(r => `${r.nome ?? '?'} (${r.id})`));
+  }
+
+  const ignoradosSet = new Set(ignoradosValidos.map(r => String(r.id)));
   const rejeitadasSet = new Set(rejeitadas);
   const vinculados = new Set(membros.map(m => E.idFivemDoNick(m.nick)).filter(Boolean));
 
@@ -335,7 +387,7 @@ function montarEmbeds(candidatos) {
 function linhaBotoesGerenciar() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('idsemsocio:resolver').setLabel('VER PENDENTES').setEmoji('🔎').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('idsemsocio:verignorados').setLabel('VER IGNORADOS').setEmoji('🗂️').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('idsemsocio:verignorados').setLabel('VER RESOLVIDOS').setEmoji('🗂️').setStyle(ButtonStyle.Secondary)
   );
 }
 
@@ -369,7 +421,7 @@ function payloadMsgBotoes() {
     .setDescription(
       'Clique em um dos botões abaixo:\n' +
       '**VER PENDENTES** — todo ID pendente, com sugestão automática de nome parecido primeiro.\n' +
-      '**VER IGNORADOS** — reverter um ID já ignorado/associado.'
+      '**VER RESOLVIDOS** — reverter um ID já ignorado/associado.'
     );
   return { content: null, embeds: [embed], components: [linhaBotoesGerenciar()] };
 }
@@ -661,10 +713,23 @@ registrarModulo('idsemsocio', async interaction => {
     const membro = await interaction.guild.members.fetch(b).catch(() => null);
     if (!membro) return interaction.reply({ content: '❌ ESSE MEMBRO NÃO ESTÁ MAIS NO SERVIDOR.', flags: 64 });
     const erroRename = await renomearComNovoId(membro, c.id);
-    await ignorarId(c, `associado a <@${b}> (season anterior)`, interaction.user.id);
-    agendarAtualizacaoReativa(interaction.client);
-    const aviso = erroRename ? `\n⚠️ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}` : '';
-    return interaction.reply({ content: `ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
+    // Só marca como resolvido se o apelido realmente mudou — se o rename
+    // falhou (sem permissão/cargo acima do bot), marcar ignorarId aqui
+    // escondia o ID pra sempre em `ids_sem_socio_ignorados` como "associado"
+    // sem o vínculo ter sido criado de verdade (era exatamente esse o bug do
+    // Cris Sabará: ficava em VER IGNORADOS, sumia da lista de pendentes, mas
+    // o apelido nunca tinha o ID). Sem chamar ignorarId, o candidato continua
+    // pendente e pode ser tentado de novo assim que a permissão for corrigida.
+    if (!erroRename) {
+      await ignorarId(c, `associado a <@${b}> (season anterior)`, interaction.user.id, b);
+      agendarAtualizacaoReativa(interaction.client);
+      return interaction.reply({ content: `ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+    }
+    return interaction.reply({
+      content: `❌ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}\nID \`${a}\` CONTINUA PENDENTE — CORRIJA A PERMISSÃO E TENTE DE NOVO.`,
+      flags: 64,
+      allowedMentions: { parse: [] },
+    });
   }
 
   // Correção manual: a liderança busca e escolhe direto no select nativo do
@@ -679,10 +744,18 @@ registrarModulo('idsemsocio', async interaction => {
     const membro = interaction.members.first();
     if (!membro) return interaction.reply({ content: '❌ MEMBRO NÃO ENCONTRADO.', flags: 64 });
     const erroRename = await renomearComNovoId(membro, c.id);
-    await ignorarId(c, `associado manualmente a ${membro} por <@${interaction.user.id}>`, interaction.user.id);
-    agendarAtualizacaoReativa(interaction.client);
-    const aviso = erroRename ? `\n⚠️ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}` : '';
-    return interaction.reply({ content: `ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
+    // Mesmo motivo do fluxo CONFIRMAR acima: só marca resolvido se o apelido
+    // mudou de verdade.
+    if (!erroRename) {
+      await ignorarId(c, `associado manualmente a ${membro} por <@${interaction.user.id}>`, interaction.user.id, membro.id);
+      agendarAtualizacaoReativa(interaction.client);
+      return interaction.reply({ content: `ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+    }
+    return interaction.reply({
+      content: `❌ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}\nID \`${a}\` CONTINUA PENDENTE — CORRIJA A PERMISSÃO E TENTE DE NOVO.`,
+      flags: 64,
+      allowedMentions: { parse: [] },
+    });
   }
 
   if (interaction.isButton() && acao === 'rejeitarsugestao') {
@@ -697,7 +770,7 @@ registrarModulo('idsemsocio', async interaction => {
     const c = ultimosCandidatos.find(e => String(e.id) === a) ?? { id: a };
     await ignorarId(c, `ignorado manualmente por <@${interaction.user.id}>`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
-    return interaction.reply({ content: `🚫 ID \`${a}\` IGNORADO — SAI DA LISTA (USE VER IGNORADOS PRA REVERTER).`, flags: 64 });
+    return interaction.reply({ content: `🚫 ID \`${a}\` IGNORADO — SAI DA LISTA (USE VER RESOLVIDOS PRA REVERTER).`, flags: 64 });
   }
 
   if (interaction.isButton() && acao === 'reativar') {
