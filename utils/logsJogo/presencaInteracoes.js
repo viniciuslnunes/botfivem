@@ -20,7 +20,7 @@ const CONFIG_KEY_MANUAL = 'painel_jogadores_manual';
 // pra replicar em outro painel — não inventar um fluxo novo por módulo.
 // Cada entrada aqui vira uma opção do select e um modal de um campo só.
 const CAMPOS_MANUAIS = [
-  { chave: 'socios', rotuloSelect: 'Sócios recrutados na torcida', rotuloCampo: 'SÓCIOS RECRUTADOS NA TORCIDA' },
+  { chave: 'socios', rotuloSelect: 'Sócios setados', rotuloCampo: 'SÓCIOS SETADOS' },
   { chave: 'pico', rotuloSelect: 'Maior bonde mensal', rotuloCampo: 'MAIOR BONDE MENSAL' },
 ];
 
@@ -54,20 +54,37 @@ function selectBuscarJogador() {
   return new ActionRowBuilder().addComponents(select);
 }
 
-// Botão à parte pra abrir a edição dos números manuais (painel/ranking do
-// jogo) — só a liderança consegue usar, checado no handler.
-function linhaBotaoEditar() {
+// Botão pra abrir a edição dos números manuais (painel/ranking do jogo) e
+// botão pra ver o top 10 de tempo jogado de um período — os dois só a
+// liderança consegue usar, checado no handler.
+function linhaBotoesAcao() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('presenca:editar')
       .setLabel('EDITAR')
       .setEmoji('✏️')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('presenca:ranking')
+      .setLabel('RANKING')
+      .setEmoji('🏆')
       .setStyle(ButtonStyle.Secondary)
   );
 }
 
+// Passo 1 do botão RANKING (ephemeral, só quem clicou vê): qual período.
+// Mesma lista de PERIODOS_PRESENCA — o ranking é o mesmo dado do select de
+// período, só que já cortado nos 10 primeiros, sem paginação.
+function selectPeriodoRanking() {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('presenca:selrankingperiodo')
+    .setPlaceholder('ESCOLHA UM PERÍODO PARA O RANKING')
+    .addOptions(PERIODOS_PRESENCA.map(p => ({ label: p.label, value: p.chave })));
+  return new ActionRowBuilder().addComponents(select);
+}
+
 function linhaBotoesPresenca() {
-  return [selectPeriodo(), selectBuscarJogador(), linhaBotaoEditar()];
+  return [selectPeriodo(), selectBuscarJogador(), linhaBotoesAcao()];
 }
 
 // Passo 1 (ephemeral, só quem clicou EDITAR vê): qual campo alterar.
@@ -237,6 +254,32 @@ function embedFichaJogador(consulta, entrada) {
   };
 }
 
+const MEDALHAS = ['🥇', '🥈', '🥉'];
+
+// Top 10 de tempo jogado de um período — mesmo dado do select de período
+// (montarDadosPresenca), só que cortado nos 10 primeiros, sem paginação.
+// Pro período "AGORA" as entradas vêm em ordem alfabética (útil pra achar
+// alguém), então reordena por tempo de sessão só aqui, pro ranking bater com
+// "quem está online há mais tempo" em vez de A-Z.
+function embedRanking(dados) {
+  const ordenadas = dados.ehAgora ? [...dados.entradas].sort((a, b) => b.ms - a.ms) : dados.entradas;
+  const top10 = ordenadas.slice(0, 10);
+  const linhas = top10.map((e, i) =>
+    `${MEDALHAS[i] ?? `${i + 1}.`} **${e.nome ?? '?'}** \`${e.id}\` — ${E.formatarDuracao(e.ms)}`);
+  return {
+    color: 0x000000,
+    title: `🏆 RANKING — ${dados.titulo.replace('🎮 PRESENÇA DE JOGADORES — ', '')}`,
+    description: dados.linhaTopo,
+    fields: [{
+      name: `TOP ${top10.length} DE ${E.formatarNumero(dados.entradas.length)}${dados.ehAgora ? ' — TEMPO DE SESSÃO' : ' — TEMPO JOGADO'}`,
+      value: linhas.join('\n') || '*Sem dados no período.*',
+      inline: false,
+    }],
+    footer: { text: 'Com base nos logs do jogo recebidos pelo webhook · canal logs-painel' },
+    timestamp: new Date().toISOString(),
+  };
+}
+
 // Ficha de um jogador buscado direto pelo select de membro do painel fixo
 // (sem passar por nenhum período antes): tempo jogado nos mesmos 6 períodos
 // dos botões antigos, tudo junto — dado bruto vem de relatorios.js
@@ -280,9 +323,21 @@ function resetarPainelFixo(client) {
   agendarAtualizacaoReativa(client);
 }
 
+// Sócios (cargo Discord) + números manuais (sócios/pico batidos à mão) — os
+// mesmos 3 que aparecem no painel fixo, repetidos em cada consulta de
+// período pra não parecer que os dois lugares mostram coisas diferentes.
+// `contarSocios` é lazy-requerido pelo mesmo motivo do resetarPainelFixo:
+// evitar ciclo de require com painelJogadores.js.
+async function montarContextoPainel(guild) {
+  const { contarSocios } = require('./painelJogadores');
+  const [sociosCount, manual] = await Promise.all([contarSocios(guild), lerManualAtual()]);
+  return { sociosCount, manual };
+}
+
 async function abrirPresenca(interaction, periodo) {
   limparExpiradas();
-  const dados = await relatorios.montarDadosPresenca(periodo);
+  const contexto = await montarContextoPainel(interaction.guild);
+  const dados = await relatorios.montarDadosPresenca(periodo, contexto);
   const consultaId = crypto.randomBytes(6).toString('hex');
   const consulta = { ...dados, userId: interaction.user.id, criadoEm: Date.now() };
   consultas.set(consultaId, consulta);
@@ -408,6 +463,20 @@ registrarModulo('presenca', async interaction => {
     return interaction.reply({ components: [selectCampoManual()], flags: 64 });
   }
 
+  if (interaction.isButton() && acao === 'ranking') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    return interaction.reply({ components: [selectPeriodoRanking()], flags: 64 });
+  }
+
+  if (interaction.isStringSelectMenu() && acao === 'selrankingperiodo') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    await interaction.deferReply({ flags: 64 });
+    const contexto = await montarContextoPainel(interaction.guild);
+    const dados = await relatorios.montarDadosPresenca(E.resolverPeriodo(interaction.values[0]), contexto);
+    await interaction.editReply({ embeds: [embedRanking(dados)], allowedMentions: { parse: [] } });
+    return;
+  }
+
   if (interaction.isStringSelectMenu() && acao === 'editarcampo') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     const campo = CAMPOS_MANUAIS.find(c => c.chave === interaction.values[0]);
@@ -433,7 +502,7 @@ registrarModulo('presenca', async interaction => {
       atualizadoEm: new Date().toISOString(),
     };
     await gravarConfig(CONFIG_KEY_MANUAL, JSON.stringify(manual));
-    await interaction.reply({ content: `✅ **${campo.rotuloCampo}** atualizado.`, flags: 64 });
+    await interaction.reply({ content: `**${campo.rotuloCampo}** atualizado.`, flags: 64 });
     // Requerido aqui dentro (não no topo do arquivo) pra evitar ciclo de
     // require com painelJogadores.js, que importa este módulo pelos botões.
     const { atualizarPainelJogadores } = require('./painelJogadores');

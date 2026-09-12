@@ -86,4 +86,4 @@ function agendarAtualizacaoReativa(client) {
   }, DEBOUNCE_MS);
 }
 
-module.exports = { atualizarPainelJogadores, iniciarPainelJogadores, agendarAtualizacaoReativa };
+module.exports = { atualizarPainelJogadores, iniciarPainelJogadores, agendarAtualizacaoReativa, contarSocios };

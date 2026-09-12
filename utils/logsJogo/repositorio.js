@@ -148,27 +148,38 @@ async function ultimaAtividadePorIds(ids) {
 
 const ACOES_CONEXAO = ['jogador_entrou', 'jogador_saiu'];
 
-// Último evento de entrada/saída de cada jogador antes de `instante` (padrão:
-// agora) — é o estado de presença: entrou = online, saiu = offline.
+// O webhook do jogo manda vários eventos JUNTOS num só embed do Discord (um
+// "Entrada"/"Saída" por linha), e todos eles gravam o mesmo `ocorrido_em`
+// (é a hora da MENSAGEM, não do evento em si — ver ingestao.js). Dentro
+// dessa mensagem, `embed_indice` é a única coisa que preserva a ordem real
+// dos eventos (a ordem em que o jogo mandou pro webhook); sem desempatar por
+// ele, o Postgres pode devolver entrada/saída do mesmo jogador na mesma
+// mensagem em qualquer ordem — inclusive invertida — o que confundiria uma
+// saída-e-reconexão de verdade (`unificarReconexoesRapidas`) com uma sessão
+// nova. `message_id` desempata entre mensagens diferentes que caiam no
+// mesmíssimo milissegundo (raro, mas os snowflakes do Discord são
+// cronológicos, então dá pra comparar como número).
 async function estadoDosJogadores(instante = new Date()) {
   const res = await db.query(
     `SELECT DISTINCT ON (ator_id_fivem) ator_id_fivem AS id, ator_nome AS nome, acao, ocorrido_em
        FROM logs_jogo
       WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL AND ocorrido_em < $2
-      ORDER BY ator_id_fivem, ocorrido_em DESC`,
+      ORDER BY ator_id_fivem, ocorrido_em DESC, message_id::bigint DESC, embed_indice DESC`,
     [ACOES_CONEXAO, instante]
   );
   return res.rows;
 }
 
 // Eventos de entrada/saída em ordem cronológica, para reconstruir a linha do
-// tempo de simultâneos dentro do período.
+// tempo de simultâneos dentro do período. Ver o comentário de
+// estadoDosJogadores sobre por que o desempate por message_id/embed_indice é
+// necessário, não só um capricho de determinismo.
 async function eventosConexao(inicio, fim) {
   const res = await db.query(
     `SELECT ator_id_fivem AS id, ator_nome AS nome, acao, ocorrido_em
        FROM logs_jogo
       WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL AND ocorrido_em >= $2 AND ocorrido_em < $3
-      ORDER BY ocorrido_em ASC`,
+      ORDER BY ocorrido_em ASC, message_id::bigint ASC, embed_indice ASC`,
     [ACOES_CONEXAO, inicio, fim]
   );
   return res.rows;

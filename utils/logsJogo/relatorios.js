@@ -223,16 +223,28 @@ async function picoHistoricoRegistrado() {
   return P.picoDoPeriodo([], serie);
 }
 
-// Painel fixo: só os valores-chave (online agora, sócios, maior pico já
-// registrado). O detalhe por período (lista de quem está online, pico e
-// tempo jogado de hoje/semana/mês/ontem/...) fica nos botões — cada um abre
-// só pra quem clicou, com montarEmbedPresenca.
-//
 // `manual` são os números batidos à mão a partir do painel/ranking do
 // próprio jogo (botão EDITAR, só pra liderança) — ficam fixos ao lado dos
 // automáticos, sem entrar na conta de ninguém, só pra comparação. Formato:
 // `{ socios: { valor, atualizadoPor, atualizadoEm }, pico: {...} }`, cada
 // chave gravada e lida por presencaInteracoes.js (CAMPOS_MANUAIS).
+//
+// Linhas fixas repetidas no painel E em cada consulta de período (ver
+// montarDadosPresenca) — sem isso, abrir um período parecia "não bater" com
+// os números fixos do painel, que ficavam só na mensagem principal.
+function linhasContexto(sociosCount, manual, pico) {
+  return [
+    sociosCount != null ? `**SÓCIOS COM CARGO NO DISCORD:** ${E.formatarNumero(sociosCount)}` : null,
+    manual?.socios?.valor != null ? `**SÓCIOS SETADOS (CONFERIDO À MÃO):** ${E.formatarNumero(manual.socios.valor)}` : null,
+    `**MAIOR PICO JÁ REGISTRADO NOS LOGS:** ${E.formatarNumero(pico)}`,
+    manual?.pico?.valor != null ? `**MAIOR BONDE MENSAL (RANKING DO JOGO):** ${E.formatarNumero(manual.pico.valor)}` : null,
+  ].filter(l => l !== null);
+}
+
+// Painel fixo: só os valores-chave (online agora, sócios, maior pico já
+// registrado). O detalhe por período (lista de quem está online, pico e
+// tempo jogado de hoje/semana/mês/ontem/...) fica nos botões — cada um abre
+// só pra quem clicou, com montarEmbedPresenca.
 async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = new Date()) {
   const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
@@ -242,14 +254,11 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
     color: COR,
     title: '🎮 JOGADORES ONLINE — GAVIÕES DA FIEL FIVEM',
     description: [
-      `**Online agora:** ${E.formatarNumero(online.length)}`,
-      sociosCount != null ? `**Sócios com cargo no Discord:** ${E.formatarNumero(sociosCount)}` : null,
-      manual?.socios?.valor != null ? `**Sócios recrutados na torcida (conferido à mão):** ${E.formatarNumero(manual.socios.valor)}` : null,
-      `**Maior pico já registrado nos logs:** ${E.formatarNumero(pico)}`,
-      manual?.pico?.valor != null ? `**Maior bonde mensal (ranking do jogo):** ${E.formatarNumero(manual.pico.valor)}` : null,
+      `**ONLINE AGORA:** ${E.formatarNumero(online.length)}`,
+      ...linhasContexto(sociosCount, manual, pico),
       '',
       '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
-    ].filter(l => l !== null).join('\n'),
+    ].join('\n'),
     footer: { text: `${RODAPE} · ${AVISO_DIVERGENCIA} · canal logs-painel` },
     timestamp: new Date().toISOString(),
   };
@@ -268,7 +277,11 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
 // mudaria conforme a hora do clique, sem relação com o período pedido. Nos
 // demais, "Online agora" fica só como uma linha de contexto (quando o
 // período inclui o presente).
-async function montarDadosPresenca(periodo, agora = new Date()) {
+// `contexto` (sociosCount + manual) é o mesmo par que o painel fixo usa —
+// vem de quem chama (presencaInteracoes.js tem acesso à guild e ao config
+// manual), pra repetir os mesmos 3 números fixos aqui embaixo da linha de
+// "Online agora"/período, e não só na mensagem principal do painel.
+async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
   const comPresente = PERIODOS_COM_PRESENTE.has(periodo.chave);
   const ehAgora = periodo.chave === 'hoje';
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
@@ -287,20 +300,26 @@ async function montarDadosPresenca(periodo, agora = new Date()) {
       .map(j => ({ id: j.id, nome: j.nome, ms: agora.getTime() - new Date(j.desde).getTime(), desde: j.desde }));
   }
 
-  const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride);
+  const [bloco, picoHistorico] = await Promise.all([
+    blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride),
+    picoHistoricoRegistrado(),
+  ]);
 
-  let linhaTopo;
+  let linhaOnline;
   if (ehAgora) {
-    linhaTopo = `**Online agora:** ${E.formatarNumero(online.length)}`;
+    linhaOnline = `**ONLINE AGORA:** ${E.formatarNumero(online.length)}`;
   } else if (comPresente) {
     const agoraOnline = P.totalOnline(P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora));
-    linhaTopo = `**Online agora:** ${E.formatarNumero(agoraOnline)}`;
+    linhaOnline = `**ONLINE AGORA:** ${E.formatarNumero(agoraOnline)}`;
   } else {
     const diaInicio = E.formatarDiaCurto(E.chaveDia(periodo.inicio));
     const diaFim = E.formatarDiaCurto(E.chaveDia(new Date(periodo.fim.getTime() - 1)));
     const faixa = diaInicio === diaFim ? diaInicio : `${diaInicio} → ${diaFim}`;
-    linhaTopo = `*Período fechado: ${faixa}.*`;
+    linhaOnline = `*Período fechado: ${faixa}.*`;
   }
+  // Os mesmos números fixos do painel (sócios, pico histórico, bonde
+  // mensal manual), repetidos aqui pra essa consulta "bater" com o painel.
+  const linhaTopo = [linhaOnline, ...linhasContexto(contexto.sociosCount, contexto.manual, picoHistorico)].join('\n');
 
   const tituloLista = ehAgora ? 'QUEM ESTÁ ONLINE' : `MAIS TEMPO JOGADO — ${periodo.rotulo}`;
   // Entradas em ordem de exibição, cru — quem formata a linha e monta o
@@ -371,4 +390,5 @@ module.exports = {
   montarEmbedJogadoresOnline,
   montarDadosPresenca,
   montarFichaCompletaJogador,
+  picoHistoricoRegistrado,
 };

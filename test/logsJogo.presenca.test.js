@@ -160,6 +160,52 @@ test('tempo jogado de uma sessão presa também é limitado pelo fechamento auto
   assert.equal(tempo.get('preso').ms, limiteMs); // e não 4 dias inteiros
 });
 
+// Casos reais do canal logs-painel (2026-09-12): o webhook manda vários
+// eventos JUNTOS numa mensagem só, e todo mundo daquele lote recebe o MESMO
+// `ocorrido_em` (é a hora da mensagem, não do evento — ver ingestao.js e o
+// desempate por embed_indice em repositorio.js). Estes testes replicam esse
+// ruído (múltiplas entradas seguidas sem saída, saída+entrada no mesmo
+// instante) já na ordem correta (a que o SQL desempatado devolve), pra travar
+// que a intel de presença ignora o ruído sem contar ninguém em dobro.
+test('múltiplas entradas seguidas do mesmo ID (mensagem duplicando o evento) contam uma sessão só', () => {
+  // Caso real: "#1932 baiano dobronx entrou" 4x seguidas na mesma mensagem,
+  // sem nenhuma saída no meio.
+  const eventos = [
+    { id: '1932', nome: 'baiano dobronx', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T01:41:00Z' },
+    { id: '1932', nome: 'baiano dobronx', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T01:41:00Z' },
+    { id: '1932', nome: 'baiano dobronx', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T01:41:00Z' },
+    { id: '1932', nome: 'baiano dobronx', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T01:41:00Z' },
+    { id: '1932', nome: 'baiano dobronx', acao: 'jogador_saiu', ocorrido_em: '2026-09-12T04:48:00Z' },
+  ];
+  const unificado = P.unificarReconexoesRapidas(eventos, 2 * 60 * 1000);
+  const inicio = new Date('2026-09-12T01:00:00Z');
+  const fim = new Date('2026-09-12T05:00:00Z');
+  const tempo = P.tempoJogadoPorPeriodo([], unificado, inicio, fim);
+  // Uma sessão só, do 1º "entrou" até o "saiu" — não 4x o tempo, nem 4
+  // sessões separadas.
+  assert.equal(tempo.get('1932').ms, new Date('2026-09-12T04:48:00Z') - new Date('2026-09-12T01:41:00Z'));
+
+  const baldes = E.gerarBaldes(inicio, fim, HORA_MS, E.chaveHora, E.inicioDaHoraSP);
+  const serie = P.serieDeOcupacao([], unificado, baldes);
+  assert.ok(serie.every(b => b.pico <= 1), 'as 4 entradas duplicadas não podem contar 4 jogadores simultâneos');
+});
+
+test('saída seguida de entrada no mesmíssimo instante (mesma mensagem) é reconexão, não visita nova', () => {
+  // Caso real: "Saída #1260 mgzin rlk" e "Entrada #1260 mgzin rlk" na mesma
+  // mensagem (mesmo ocorrido_em) — só existe a ordem certa (saída antes da
+  // entrada) porque o SQL agora desempata por embed_indice; sem isso, o
+  // Postgres poderia devolver a entrada primeiro, e essa reconexão viraria
+  // (errado) uma sessão fechada seguida de uma sessão nova.
+  const eventos = [
+    { id: '1260', nome: 'mgzin rlk', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T01:49:00Z' },
+    { id: '1260', nome: 'mgzin rlk', acao: 'jogador_saiu', ocorrido_em: '2026-09-12T01:49:00Z' },
+    { id: '1260', nome: 'mgzin rlk', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T01:49:00Z' },
+  ];
+  const unificado = P.unificarReconexoesRapidas(eventos, 2 * 60 * 1000);
+  // A saída-e-volta no mesmo instante some: sobra só a entrada original.
+  assert.deepEqual(unificado.map(e => e.acao), ['jogador_entrou']);
+});
+
 test('balde de hora e dia no fuso de São Paulo', () => {
   assert.equal(E.chaveHora('2026-09-11T02:30:00Z'), '2026-09-10 23h');
   assert.equal(E.inicioDaHoraSP('2026-09-11T02:30:00Z').toISOString(), '2026-09-11T02:00:00.000Z');
