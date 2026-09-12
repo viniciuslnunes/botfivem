@@ -183,26 +183,30 @@ function linhaOnline(j) {
   return `**${j.nome ?? '?'}**${j.id ? ` \`${j.id}\`` : ''} · desde <t:${desde}:R>`;
 }
 
-const MAX_LISTADOS = 20;
+// Cabe ~20 linhas por campo de 1024 caracteres; o resto some num "e mais N"
+// e continua contado no "Online agora" lá em cima.
+const MAX_POR_CAMPO = 20;
 
-// Campo "QUEM ESTÁ ONLINE", partido em duas colunas quando a lista é grande
+// Campo(s) "QUEM ESTÁ ONLINE": uma coluna vertical, um jogador por linha.
+// Mais de ~20 exige um segundo campo (limite de 1024 caracteres por campo).
 function camposOnline(online) {
   if (!online.length) {
     return [{ name: 'QUEM ESTÁ ONLINE', value: '*Ninguém online agora.*', inline: false }];
   }
   const ordenados = [...online].sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR'));
-  const listados = ordenados.slice(0, MAX_LISTADOS);
-  const resto = ordenados.length - listados.length;
-  const linhas = listados.map(linhaOnline);
-  if (resto > 0) linhas.push(`*… e mais ${E.formatarNumero(resto)}.*`);
+  const linhas = ordenados.map(linhaOnline);
 
-  const meio = Math.ceil(linhas.length / 2);
-  const colunas = linhas.length > 8 ? [linhas.slice(0, meio), linhas.slice(meio)] : [linhas];
-  return colunas.map((coluna, i) => ({
-    name: i === 0 ? 'QUEM ESTÁ ONLINE' : '​',
-    value: E.truncar(coluna.join('\n'), 1024),
-    inline: colunas.length > 1,
-  }));
+  const campos = [];
+  for (let i = 0; i < linhas.length && i < MAX_POR_CAMPO * 3; i += MAX_POR_CAMPO) {
+    campos.push({
+      name: i === 0 ? 'QUEM ESTÁ ONLINE' : '​',
+      value: E.truncar(linhas.slice(i, i + MAX_POR_CAMPO).join('\n'), 1024),
+      inline: false,
+    });
+  }
+  const resto = linhas.length - MAX_POR_CAMPO * 3;
+  if (resto > 0) campos.push({ name: '​', value: `*… e mais ${E.formatarNumero(resto)}.*`, inline: false });
+  return campos;
 }
 
 // Painel de presença: quem está online agora + pico de simultâneos por
