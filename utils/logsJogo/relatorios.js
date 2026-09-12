@@ -151,7 +151,12 @@ async function montarEmbedInativos(guild, dias) {
 
 // Um bloco "pico + distintos" para um período já resolvido (hoje por hora,
 // semana/mês por dia). "Tudo" (sem início) usa a época como início efetivo.
-async function blocoOcupacao(rotulo, periodo, granularidade) {
+//
+// `topTempoOverride`, quando passado, substitui o ranking "tempo jogado
+// dentro do período" (que corta na virada do dia/semana/mês) por outro já
+// pronto — usado pelo botão AGORA, onde faz mais sentido mostrar a sessão
+// atual inteira de quem está online do que só a fatia de hoje.
+async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = null) {
   const inicio = periodo.inicio ?? new Date(0);
   const [baselineBruto, eventos, distintos] = await Promise.all([
     repo.estadoDosJogadores(inicio),
@@ -175,7 +180,8 @@ async function blocoOcupacao(rotulo, periodo, granularidade) {
   const serie = P.serieDeOcupacao(idsNoInicio, eventosAjustados, baldes);
   const pico = P.picoDoPeriodo(idsNoInicio, serie);
 
-  const topTempo = [...P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim).entries()]
+  const rotuloTempo = topTempoOverride ? 'Sessão mais longa (agora):' : 'Mais tempo jogado:';
+  const topTempo = topTempoOverride ?? [...P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim).entries()]
     .map(([id, v]) => ({ id, ...v }))
     .sort((a, b) => b.ms - a.ms)
     .slice(0, 5);
@@ -186,7 +192,7 @@ async function blocoOcupacao(rotulo, periodo, granularidade) {
   ];
   if (serie.some(b => b.pico > 0)) linhas.push('', `\`${E.sparkline(serie.map(b => b.pico))}\``);
   if (topTempo.length) {
-    linhas.push('', '**Mais tempo jogado:**',
+    linhas.push('', `**${rotuloTempo}**`,
       ...topTempo.map((t, i) => `${i + 1}. ${t.nome ?? '?'} \`${t.id}\` — ${E.formatarDuracao(t.ms)}`));
   }
   return { name: rotulo, value: E.truncar(linhas.join('\n'), 1024), inline: false };
@@ -282,9 +288,9 @@ async function montarEmbedPresenca(periodo, agora = new Date()) {
   const comPresente = PERIODOS_COM_PRESENTE.has(periodo.chave);
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
   const rotuloBloco = granularidade === 'hora' ? 'POR HORA' : 'POR DIA';
-  const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade);
 
   if (!comPresente) {
+    const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade);
     const diaInicio = E.formatarDiaCurto(E.chaveDia(periodo.inicio));
     const diaFim = E.formatarDiaCurto(E.chaveDia(new Date(periodo.fim.getTime() - 1)));
     const faixa = diaInicio === diaFim ? diaInicio : `${diaInicio} → ${diaFim}`;
@@ -300,6 +306,17 @@ async function montarEmbedPresenca(periodo, agora = new Date()) {
 
   const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
+
+  // Botão AGORA (período "hoje"): "tempo jogado" vira "sessão mais longa" —
+  // a sessão inteira de quem está online, sem cortar na virada da meia-noite.
+  // Senão, alguém que entrou antes de hoje começar pareceria ter jogado
+  // pouco, quando na verdade só a CONTAGEM de hoje é curta, não a sessão.
+  const topTempoOverride = periodo.chave === 'hoje'
+    ? [...online].sort((a, b) => new Date(a.desde) - new Date(b.desde))
+      .slice(0, 5)
+      .map(j => ({ id: j.id, nome: j.nome, ms: agora.getTime() - new Date(j.desde).getTime() }))
+    : null;
+  const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride);
 
   return {
     color: COR,
