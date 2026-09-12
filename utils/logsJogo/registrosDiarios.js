@@ -133,6 +133,26 @@ function montarEmbedsRegistro(dia, dados) {
   }));
 }
 
+// Reexecuta `fn` se o Discord recusar por rate limit (mesma lógica de
+// membrosGuild.js: `retry_after` diz exatamente quanto esperar). Sem isso, um
+// 429 no meio do loop de mensagens abaixo derrubava a função inteira — a
+// página que já tinha sido editada ficava com o cabeçalho novo, mas as
+// páginas seguintes travavam no conteúdo antigo (números batendo, lista
+// desatualizada), porque a exceção também impedia o dia de ser marcado
+// `finalizado` (e por isso nunca mais era reprocessado sozinho).
+async function comRetry(fn, tentativasRestantes = 2) {
+  try {
+    return await fn();
+  } catch (err) {
+    const retryAfter = err?.data?.retry_after ?? err?.retryAfter;
+    if (tentativasRestantes > 0 && typeof retryAfter === 'number') {
+      await new Promise(resolve => setTimeout(resolve, retryAfter * 1000 + 500));
+      return comRetry(fn, tentativasRestantes - 1);
+    }
+    throw err;
+  }
+}
+
 // Monta/edita as mensagens de um dia (uma ou várias, se a lista de
 // jogadores precisar de mais de um embed) e devolve os IDs finais — reaproveita
 // as mensagens antigas por posição, cria as que faltarem e apaga o excesso
@@ -154,12 +174,12 @@ async function atualizarRegistroDoDia(canal, dia, periodo, agora, idsAntigos = [
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
       if (msg) {
-        await msg.edit({ embeds: [embeds[i]], allowedMentions: { parse: [] } });
+        await comRetry(() => msg.edit({ embeds: [embeds[i]], allowedMentions: { parse: [] } }));
         idsNovos.push(idAntigo);
         continue;
       }
     }
-    const nova = await canal.send({ embeds: [embeds[i]], allowedMentions: { parse: [] } });
+    const nova = await comRetry(() => canal.send({ embeds: [embeds[i]], allowedMentions: { parse: [] } }));
     idsNovos.push(nova.id);
   }
   for (const idExtra of idsAntigos.slice(embeds.length)) {

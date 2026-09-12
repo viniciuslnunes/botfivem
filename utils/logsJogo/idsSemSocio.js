@@ -332,6 +332,7 @@ function montarEmbeds(candidatos) {
 function linhaBotoesGerenciar() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('idsemsocio:resolver').setLabel('RESOLVER PENDENTE').setEmoji('🔎').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('idsemsocio:buscarpendente').setLabel('BUSCAR PENDENTE').setEmoji('🔍').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('idsemsocio:verignorados').setLabel('VER IGNORADOS').setEmoji('🗂️').setStyle(ButtonStyle.Secondary)
   );
 }
@@ -363,7 +364,12 @@ function payloadMsgBotoes() {
   const embed = new EmbedBuilder()
     .setColor(0x000000)
     .setTitle('GERENCIAR IDS PENDENTES - GAVIÕES DA FIEL - FIVEM')
-    .setDescription('Clique em um dos botões abaixo pra ver associações sugeridas por nome parecido ou buscar um ID já ignorado.');
+    .setDescription(
+      'Clique em um dos botões abaixo:\n' +
+      '**RESOLVER PENDENTE** — só quem já tem sugestão automática de nome parecido.\n' +
+      '**BUSCAR PENDENTE** — qualquer ID pendente, com ou sem sugestão (busque por nome ou ID).\n' +
+      '**VER IGNORADOS** — reverter um ID já ignorado/associado.'
+    );
   return { content: null, embeds: [embed], components: [linhaBotoesGerenciar()] };
 }
 
@@ -378,8 +384,12 @@ async function garantirMsgBotoes(canalGerenciar, canalListagem) {
   const salvoId = await lerConfig(CONFIG_KEY_BOTOES_MSG);
   if (salvoId) {
     const salvo = await canalGerenciar.messages.fetch(salvoId).catch(() => null);
+    // Sempre reedita em posição (idempotente, uma mensagem só) — não compara
+    // conteúdo antigo vs. novo, então mudanças futuras no texto/botões (como
+    // a adição do botão BUSCAR PENDENTE) chegam sozinhas no próximo ciclo,
+    // sem precisar de outra migração manual.
     if (salvo) {
-      if (salvo.content || !salvo.embeds.length) await salvo.edit(payloadMsgBotoes());
+      await salvo.edit(payloadMsgBotoes());
       return salvo.id;
     }
     await canalListagem.messages.delete(salvoId).catch(() => {});
@@ -440,14 +450,16 @@ function agendarAtualizacaoReativa(client) {
   }, DEBOUNCE_MS);
 }
 
-// ── Interação: RESOLVER PENDENTE / VER IGNORADOS ────────────────────────
+// ── Interação: RESOLVER PENDENTE / BUSCAR PENDENTE / VER IGNORADOS ──────
 // RESOLVER PENDENTE não precisa de busca: já filtra pra só quem tem
 // sugestão de correlação (normalmente uma fração da lista toda) e mostra
 // direto num select paginado — botão → select, sem passo de busca no meio.
-// VER IGNORADOS pode crescer bastante com o tempo, então continua no
-// padrão botão → modal de busca → select (não cabe botão por linha).
-// Em ambos, a escolha no select mostra a ficha do candidato com os botões
-// de ação cabíveis (aprovar/reprovar sugestão, ignorar, reativar).
+// BUSCAR PENDENTE e VER IGNORADOS podem crescer bastante com o tempo (e o
+// primeiro cobre TODO pendente, com ou sem sugestão — sem ele não existia
+// jeito de associar manualmente quem o nome não bateu automaticamente),
+// então seguem o padrão botão → modal de busca → select (não cabe botão por
+// linha). Em todos, a escolha no select mostra a ficha do candidato com os
+// botões de ação cabíveis (aprovar/reprovar sugestão, ignorar, reativar).
 
 function modalBuscar(customId, titulo) {
   return new ModalBuilder()
@@ -573,6 +585,26 @@ registrarModulo('idsemsocio', async interaction => {
     // Primeiro clique (sem página no customId) é reply novo; clique de
     // paginação (ANTERIOR/PRÓXIMA) edita a mesma mensagem ephemeral.
     return a == null ? interaction.reply({ ...resposta, flags: 64 }) : interaction.update(resposta);
+  }
+
+  // Cobre quem RESOLVER PENDENTE não alcança: candidatos sem sugestão
+  // automática (nome não bateu os 72% de similaridade, ou a pessoa nem está
+  // no Discord ainda com um nick parecido) — sem isso não existia jeito
+  // nenhum de associar esse tipo de pendente na mão, só os que a sugestão
+  // automática pegava.
+  if (interaction.isButton() && acao === 'buscarpendente') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    return interaction.showModal(modalBuscar('idsemsocio:pendentemodal', 'BUSCAR ID PENDENTE'));
+  }
+
+  if (interaction.isModalSubmit() && acao === 'pendentemodal') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    const termo = interaction.fields.getTextInputValue('termo');
+    const encontrados = buscarEmLista(ultimosCandidatos, termo);
+    if (!encontrados.length) return interaction.reply({ content: `❌ NENHUM ID PENDENTE ENCONTRADO PARA \`${termo}\`.`, flags: 64 });
+    const selectRow = selectDeResultado('idsemsocio:selpendente', encontrados,
+      e => e.sugestao ? `${e.total}x · ${Math.round(e.sugestao.score * 100)}% parecido` : `${e.total}x · sem sugestão automática`);
+    return interaction.reply({ content: `🔍 BUSCA POR \`${termo}\`:`, components: [selectRow], flags: 64 });
   }
 
   if (interaction.isButton() && acao === 'verignorados') {
