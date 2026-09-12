@@ -244,9 +244,9 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
     description: [
       `**Online agora:** ${E.formatarNumero(online.length)}`,
       sociosCount != null ? `**Sócios:** ${E.formatarNumero(sociosCount)}` : null,
-      manual?.socios?.valor != null ? `**Sócios com cargo no Discord (conferido à mão):** ${E.formatarNumero(manual.socios.valor)}` : null,
+      manual?.socios?.valor != null ? `**Sócios recrutados na torcida (conferido à mão):** ${E.formatarNumero(manual.socios.valor)}` : null,
       `**Maior pico já registrado nos logs:** ${E.formatarNumero(pico)}`,
-      manual?.pico?.valor != null ? `**Maior pico (painel/ranking do jogo):** ${E.formatarNumero(manual.pico.valor)}` : null,
+      manual?.pico?.valor != null ? `**Maior bonde mensal (ranking do jogo):** ${E.formatarNumero(manual.pico.valor)}` : null,
       '',
       '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
     ].filter(l => l !== null).join('\n'),
