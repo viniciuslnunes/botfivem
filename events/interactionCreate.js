@@ -872,7 +872,7 @@ module.exports = (client, _config, utils) => {
       // Enviar embed com botões para aprovar/recusar no canal validar-setagem
       const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
       if (canalValidarSetagem) {
-        const mensagemFicha = await canalValidarSetagem.send({ embeds: [embed], components: botoesRecrutamento(Boolean(area)) });
+        const mensagemFicha = await canalValidarSetagem.send({ embeds: [embed], components: botoesRecrutamento() });
         await registrarFicha({
           messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador, areaSlug: area?.slug ?? null,
         }).catch(err => console.error('[recrutamento] Erro ao registrar ficha:', err));
@@ -916,7 +916,7 @@ module.exports = (client, _config, utils) => {
       return;
     }
 
-    if (interaction.isButton() && (interaction.customId === 'aprovar_recrutamento' || interaction.customId === 'aprovar_recrutamento_sem_area')) {
+    if (interaction.isButton() && interaction.customId === 'aprovar_recrutamento') {
       // Trava contra clique duplo: dois recrutadores decidindo a mesma ficha ao mesmo tempo
       const fichaId = interaction.message.id;
       if (decisaoEmAndamento(fichaId) || interaction.message.components.length === 0) {
@@ -925,7 +925,6 @@ module.exports = (client, _config, utils) => {
       travarFicha(fichaId);
       try {
       {
-        const semArea = interaction.customId === 'aprovar_recrutamento_sem_area';
         // Extrair dados do candidato do embed ANTES da busca no histórico
         const embed = interaction.message.embeds[0];
         const idField = embed.fields.find(f => f.name.startsWith('ID | DISCORD'));
@@ -971,10 +970,8 @@ module.exports = (client, _config, utils) => {
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
           atualizarTopRecrutadores(client).catch(err => console.error('[aprovar] Erro ao atualizar top recrutadores:', err));
           // Área pretendida só vira cargo agora, depois de aprovado (preferência ≠ lotação)
-          if (!semArea) {
-            areaAplicada = await aplicarAreaNaAprovacao(guildMember, fichaId, embed)
-              .catch(err => { console.error('[aprovar] Erro ao aplicar área pretendida:', err); return null; });
-          }
+          areaAplicada = await aplicarAreaNaAprovacao(guildMember, fichaId, embed)
+            .catch(err => { console.error('[aprovar] Erro ao aplicar área pretendida:', err); return null; });
           await decidirFicha(fichaId, { status: 'APROVADO', decididoPorId: interaction.user.id }, embed)
             .catch(err => console.error('[aprovar] Erro ao registrar decisão da ficha:', err));
           await registrarSinal(client, { discordId: candidatoId, sinal: 'APROVACAO', origemTipo: 'ficha', origemId: fichaId })
@@ -994,7 +991,7 @@ module.exports = (client, _config, utils) => {
             ...embed.fields,
             {
               name: 'STATUS',
-              value: `🦅 APROVADO POR <@${interaction.user.id}>${areaAplicada ? `\n🏛️ ÁREA: ${areaAplicada.nome.toUpperCase()}` : semArea ? '\n🏛️ APROVADO SEM ÁREA' : ''}`,
+              value: `🦅 APROVADO POR <@${interaction.user.id}>${areaAplicada ? `\n🏛️ ÁREA: ${areaAplicada.nome.toUpperCase()}` : ''}`,
               inline: false
             }
           ],
