@@ -176,8 +176,33 @@ async function blocoOcupacao(rotulo, periodo, granularidade) {
   return { name: rotulo, value: linhas.join('\n'), inline: false };
 }
 
-function rotuloOnline(j) {
-  return `${j.nome ?? '?'}${j.id ? ` (${j.id})` : ''}`;
+// Uma linha por jogador, em ordem alfabética, com o tempo de sessão que o
+// Discord mantém atualizado sozinho (<t:...:R>)
+function linhaOnline(j) {
+  const desde = Math.floor(new Date(j.desde).getTime() / 1000);
+  return `**${j.nome ?? '?'}**${j.id ? ` \`${j.id}\`` : ''} · desde <t:${desde}:R>`;
+}
+
+const MAX_LISTADOS = 20;
+
+// Campo "QUEM ESTÁ ONLINE", partido em duas colunas quando a lista é grande
+function camposOnline(online) {
+  if (!online.length) {
+    return [{ name: 'QUEM ESTÁ ONLINE', value: '*Ninguém online agora.*', inline: false }];
+  }
+  const ordenados = [...online].sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR'));
+  const listados = ordenados.slice(0, MAX_LISTADOS);
+  const resto = ordenados.length - listados.length;
+  const linhas = listados.map(linhaOnline);
+  if (resto > 0) linhas.push(`*… e mais ${E.formatarNumero(resto)}.*`);
+
+  const meio = Math.ceil(linhas.length / 2);
+  const colunas = linhas.length > 8 ? [linhas.slice(0, meio), linhas.slice(meio)] : [linhas];
+  return colunas.map((coluna, i) => ({
+    name: i === 0 ? 'QUEM ESTÁ ONLINE' : '​',
+    value: E.truncar(coluna.join('\n'), 1024),
+    inline: colunas.length > 1,
+  }));
 }
 
 // Painel de presença: quem está online agora + pico de simultâneos por
@@ -185,11 +210,6 @@ function rotuloOnline(j) {
 async function montarEmbedJogadoresOnline(agora = new Date()) {
   const estadoAgora = await repo.estadoDosJogadores(agora);
   const online = P.listaOnline(estadoAgora);
-  const nomes = online.slice(0, 25).map(rotuloOnline);
-  const resto = online.length - nomes.length;
-  const descOnline = online.length
-    ? nomes.join(', ') + (resto > 0 ? ` … e mais ${E.formatarNumero(resto)}` : '')
-    : '*Ninguém online agora.*';
 
   const [hoje, semana, mes] = await Promise.all([
     blocoOcupacao('HOJE (pico por hora)', E.resolverPeriodo('hoje', agora), 'hora'),
@@ -200,8 +220,8 @@ async function montarEmbedJogadoresOnline(agora = new Date()) {
   return {
     color: COR,
     title: '🎮 JOGADORES ONLINE — GAVIÕES DA FIEL FIVEM',
-    description: `**Online agora:** ${E.formatarNumero(online.length)}\n${E.truncar(descOnline, 600)}`,
-    fields: [hoje, semana, mes],
+    description: `**Online agora:** ${E.formatarNumero(online.length)}`,
+    fields: [...camposOnline(online), hoje, semana, mes],
     footer: { text: `${RODAPE} · canal logs-painel` },
     timestamp: new Date().toISOString(),
   };
@@ -213,11 +233,6 @@ async function montarEmbedJogadoresOnline(agora = new Date()) {
 async function montarEmbedPresenca(periodo, agora = new Date()) {
   const estadoAgora = await repo.estadoDosJogadores(agora);
   const online = P.listaOnline(estadoAgora);
-  const nomes = online.slice(0, 25).map(rotuloOnline);
-  const resto = online.length - nomes.length;
-  const descOnline = online.length
-    ? nomes.join(', ') + (resto > 0 ? ` … e mais ${E.formatarNumero(resto)}` : '')
-    : '*Ninguém online agora.*';
 
   const granularidade = periodo.chave === 'hoje' ? 'hora' : 'dia';
   const rotuloBloco = granularidade === 'hora' ? 'POR HORA' : 'POR DIA';
@@ -226,8 +241,8 @@ async function montarEmbedPresenca(periodo, agora = new Date()) {
   return {
     color: COR,
     title: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
-    description: `**Online agora:** ${E.formatarNumero(online.length)}\n${E.truncar(descOnline, 600)}`,
-    fields: [bloco],
+    description: `**Online agora:** ${E.formatarNumero(online.length)}`,
+    fields: [...camposOnline(online), bloco],
     footer: { text: `${RODAPE} · canal logs-painel` },
     timestamp: new Date().toISOString(),
   };

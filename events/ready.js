@@ -20,12 +20,15 @@ module.exports = (client) => {
     await executarMigracoes();
     iniciarAgendador(client);
 
-    // Recupera logs do jogo que chegaram com o bot desligado
+    // Recupera logs do jogo que chegaram com o bot desligado. Os painéis só
+    // começam depois: postar antes mostraria tudo zerado até o backfill acabar.
     sincronizarCanaisDeLog(client)
       .then(resultados => console.log('[logs-jogo] Sincronização inicial:', resultados))
-      .catch(err => console.error('[logs-jogo] Erro na sincronização inicial:', err));
-    iniciarPainelLogs(client);
-    iniciarPainelJogadores(client);
+      .catch(err => console.error('[logs-jogo] Erro na sincronização inicial:', err))
+      .finally(() => {
+        iniciarPainelLogs(client);
+        iniciarPainelJogadores(client);
+      });
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
     reconciliarCarteirinhas(client)
