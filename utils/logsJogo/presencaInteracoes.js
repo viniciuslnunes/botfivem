@@ -20,8 +20,8 @@ const CONFIG_KEY_MANUAL = 'painel_jogadores_manual';
 // pra replicar em outro painel — não inventar um fluxo novo por módulo.
 // Cada entrada aqui vira uma opção do select e um modal de um campo só.
 const CAMPOS_MANUAIS = [
-  { chave: 'socios', rotuloSelect: 'Sócios no painel do jogo', rotuloCampo: 'SÓCIOS NO PAINEL DO JOGO' },
-  { chave: 'pico', rotuloSelect: 'Maior pico no ranking do jogo', rotuloCampo: 'MAIOR PICO NO RANKING DO JOGO' },
+  { chave: 'socios', rotuloSelect: 'Sócios recrutados na torcida', rotuloCampo: 'SÓCIOS RECRUTADOS NA TORCIDA' },
+  { chave: 'pico', rotuloSelect: 'Maior bonde mensal', rotuloCampo: 'MAIOR BONDE MENSAL' },
 ];
 
 // Botões do painel fixo de jogadores: cada um abre, só pra quem clicou, uma
@@ -78,7 +78,7 @@ function selectCampoManual() {
 function modalCampoManual(campo, valorAtual) {
   return new ModalBuilder()
     .setCustomId(`presenca:editarmodal:${campo.chave}`)
-    .setTitle('EDITAR DADO DO PAINEL')
+    .setTitle('RANKING')
     .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
       .setCustomId('valor').setLabel(campo.rotuloCampo)
       .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(10)
