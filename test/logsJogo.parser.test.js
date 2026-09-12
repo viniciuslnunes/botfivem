@@ -47,6 +47,19 @@ test('saída de jogador no formato do canal logs-painel', () => {
   assert.equal(r.categoria, 'conexao');
 });
 
+test('recrutamento do próprio jogo (canal logs-recrutamento)', () => {
+  const r = parseRegistro({
+    title: 'Recrutamento',
+    description: '#15277 Tiago Magrão recrutou #19465 Gelado Silva.',
+  });
+  assert.equal(r.acao, 'jogador_recrutou');
+  assert.equal(r.atorNome, 'Tiago Magrão');
+  assert.equal(r.atorIdFivem, '15277');
+  assert.equal(r.alvoNome, 'Gelado Silva');
+  assert.equal(r.alvoIdFivem, '19465');
+  assert.equal(r.categoria, 'recrutamento');
+});
+
 test('formato desconhecido é mantido, com IDs e valor extraídos', () => {
   const r = parseRegistro({
     title: 'Registro de Atividade: Fulano',

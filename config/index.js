@@ -97,7 +97,9 @@ module.exports = {
   // Logs que o FiveM publica por webhook. Os canais continuam como estão;
   // o bot só lê, grava para filtros/estatísticas e dispara alertas.
   logsJogo: {
-    canais: ['1461544673825783929', '1531478268975251496'], // logs-liderança, logs-painel (entrada/saída)
+    // logs-liderança, logs-painel (entrada/saída), logs de recrutamento do
+    // próprio jogo ("fulano recrutou beltrano" — soma em SÓCIOS SETADOS)
+    canais: ['1461544673825783929', '1531478268975251496', '1439061028515090524'],
     canalAlertas: '1490536504748150925',
     mencionarAlertas: [cargos.presidente, cargos.vicePresidente, cargos.velhaGuarda, cargos.diretoria, cargos.recrutador],
     // Canal do painel fixo de estatísticas. null = painel desligado.
