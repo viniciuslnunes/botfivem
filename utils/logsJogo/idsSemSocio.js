@@ -308,9 +308,9 @@ async function atualizarIdsSemSocio(client) {
   const idsNovos = [];
 
   for (let i = 0; i < embeds.length; i++) {
-    // Botões só na última mensagem — no fim da listagem, não interrompendo
-    // a leitura da primeira página.
-    const payload = { embeds: [embeds[i]], components: i === embeds.length - 1 ? [linhaBotoesGerenciar()] : [], allowedMentions: { parse: [] } };
+    // Botões só na primeira mensagem — no topo do canal, não escondidos lá
+    // embaixo depois de várias páginas de lista.
+    const payload = { embeds: [embeds[i]], components: i === 0 ? [linhaBotoesGerenciar()] : [], allowedMentions: { parse: [] } };
     const idAntigo = idsAntigos[i];
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
