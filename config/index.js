@@ -114,6 +114,13 @@ module.exports = {
     // um salto direto pra 238h+ (aí sim é sessão presa, não sessão real) — 24h
     // sobra folga pra sessão longa de verdade sem deixar fantasma "online".
     presencaSessaoMaxHoras: 24,
+    // Saída seguida de entrada do MESMO jogador em até tantos minutos conta
+    // como a mesma sessão continuando (queda de conexão, loading screen),
+    // não como duas visitas. Calibrado pela distribuição real de reconexões
+    // (2026-09-12): reconexão de verdade é rara e rápida (130 em 5.998 levam
+    // menos de 2 min); a esmagadora maioria fica na casa das horas — 2 min
+    // nunca funde duas visitas de fato distintas.
+    presencaReconexaoFolgaMin: 2,
     inatividadeDias: 7,
     novatoSemRecrutamentoDias: 3, // alerta quem entrou no jogo e não pediu recrutamento após N dias
   },

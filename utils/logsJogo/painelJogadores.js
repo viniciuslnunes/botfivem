@@ -1,12 +1,26 @@
 const db = require('../db');
 const config = require('../../config/index.js');
+const { lerConfig } = require('../botConfig');
 const { montarEmbedJogadoresOnline } = require('./relatorios');
-const { linhaBotoesPresenca } = require('./presencaInteracoes');
+const { linhaBotoesPresenca, CONFIG_KEY_MANUAL } = require('./presencaInteracoes');
 
 // Painel fixo de jogadores online (quantos e quem, mais o pico de
 // simultâneos por período), editado periodicamente. Estado recalculável:
 // perder um ciclo num reinício não tem custo.
 const CONFIG_KEY = 'painel_jogadores_message_id';
+
+// Números batidos à mão pela liderança (botão EDITAR), pra comparar com o
+// painel/ranking do próprio jogo. Guardado em bot_config como JSON — não
+// derruba o painel se estiver ausente ou corrompido.
+async function lerManual() {
+  try {
+    const bruto = await lerConfig(CONFIG_KEY_MANUAL);
+    return bruto ? JSON.parse(bruto) : null;
+  } catch (err) {
+    console.error('[painel-jogadores] Erro ao ler dados manuais:', err);
+    return null;
+  }
+}
 
 // Sócios (cargo Discord), pra bater com o painel do próprio jogo. Falha em
 // buscar não derruba o painel — só sai sem esse número.
@@ -24,8 +38,8 @@ async function atualizarPainelJogadores(client) {
   const canal = await client.channels.fetch(config.logsJogo.canalPainelJogadores).catch(() => null);
   if (!canal) return;
 
-  const sociosCount = await contarSocios(canal.guild);
-  const embed = await montarEmbedJogadoresOnline(sociosCount);
+  const [sociosCount, manual] = await Promise.all([contarSocios(canal.guild), lerManual()]);
+  const embed = await montarEmbedJogadoresOnline(sociosCount, manual);
   const components = linhaBotoesPresenca();
   const res = await db.query('SELECT value FROM bot_config WHERE key = $1', [CONFIG_KEY]);
   const messageId = res.rows[0]?.value;

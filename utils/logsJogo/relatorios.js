@@ -7,7 +7,12 @@ const P = require('./presenca');
 
 const COR = 0x000000;
 const RODAPE = 'Com base nos logs do jogo recebidos pelo webhook';
+// O painel do jogo e o ranking do próprio jogo às vezes não batem com o que o
+// webhook registrou (ver picoHistoricoRegistrado) — avisar em vez de deixar
+// parecer que os números deveriam ser idênticos.
+const AVISO_DIVERGENCIA = 'os números podem divergir do painel e do jogo por causa de inconsistências nos logs';
 const LIMITE_SESSAO_MS = config.logsJogo.presencaSessaoMaxHoras * 60 * 60 * 1000;
+const FOLGA_RECONEXAO_MS = config.logsJogo.presencaReconexaoFolgaMin * 60 * 1000;
 
 function listaTop(linhas, formatar) {
   if (!linhas.length) return '*Sem dados no período.*';
@@ -162,11 +167,13 @@ async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = 
     repo.eventosConexao(inicio, periodo.fim),
     repo.jogadoresDistintosNoPeriodo(inicio, periodo.fim),
   ]);
-  // Sessão sem saída em até LIMITE_SESSAO_MS se fecha sozinha, senão uma
-  // queda de conexão sem log deixaria o jogador "online" indefinidamente e
-  // inflaria pico e tempo jogado.
+  // Reconexão rápida (queda de conexão, o webhook engasgando) não é uma
+  // visita nova — funde antes de qualquer outro cálculo. Sessão sem saída em
+  // até LIMITE_SESSAO_MS depois disso se fecha sozinha, senão uma queda de
+  // conexão sem log nenhum deixaria o jogador "online" indefinidamente.
+  const eventosUnificados = P.unificarReconexoesRapidas(eventos, FOLGA_RECONEXAO_MS);
   const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, inicio);
-  const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventos, LIMITE_SESSAO_MS, periodo.fim);
+  const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventosUnificados, LIMITE_SESSAO_MS, periodo.fim);
 
   const idsNoInicio = P.idsOnline(baseline);
   const hora = granularidade === 'hora';
@@ -216,8 +223,9 @@ async function picoHistoricoRegistrado() {
     repo.estadoDosJogadores(new Date(0)),
     repo.eventosConexao(new Date(0), fim),
   ]);
+  const eventosUnificados = P.unificarReconexoesRapidas(eventos, FOLGA_RECONEXAO_MS);
   const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, new Date(0));
-  const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventos, LIMITE_SESSAO_MS, fim);
+  const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventosUnificados, LIMITE_SESSAO_MS, fim);
   const serie = P.serieDeOcupacao([], eventosAjustados, [{ chave: 'tudo', fim: fim.getTime() }]);
   return P.picoDoPeriodo([], serie);
 }
@@ -226,7 +234,11 @@ async function picoHistoricoRegistrado() {
 // registrado). O detalhe por período (lista de quem está online, pico e
 // tempo jogado de hoje/semana/mês/ontem/...) fica nos botões — cada um abre
 // só pra quem clicou, com montarEmbedPresenca.
-async function montarEmbedJogadoresOnline(sociosCount, agora = new Date()) {
+//
+// `manual` são os números batidos à mão a partir do painel/ranking do
+// próprio jogo (botão EDITAR, só pra liderança) — ficam fixos ao lado dos
+// automáticos, sem entrar na conta de ninguém, só pra comparação.
+async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = new Date()) {
   const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
   const pico = await picoHistoricoRegistrado();
@@ -237,11 +249,13 @@ async function montarEmbedJogadoresOnline(sociosCount, agora = new Date()) {
     description: [
       `**Online agora:** ${E.formatarNumero(online.length)}`,
       sociosCount != null ? `**Sócios:** ${E.formatarNumero(sociosCount)}` : null,
+      manual?.sociosJogo != null ? `**Sócios (painel do jogo):** ${E.formatarNumero(manual.sociosJogo)}` : null,
       `**Maior pico já registrado nos logs:** ${E.formatarNumero(pico)}`,
+      manual?.picoJogo != null ? `**Maior pico (painel/ranking do jogo):** ${E.formatarNumero(manual.picoJogo)}` : null,
       '',
       '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
     ].filter(l => l !== null).join('\n'),
-    footer: { text: `${RODAPE} · canal logs-painel` },
+    footer: { text: `${RODAPE} · ${AVISO_DIVERGENCIA} · canal logs-painel` },
     timestamp: new Date().toISOString(),
   };
 }

@@ -59,6 +59,39 @@ function comFechamentosAutomaticos(baselineEstado, eventos, limiteMs, fimPeriodo
   return eventosAjustados;
 }
 
+// Reconexão rápida (queda de conexão, loading screen, o webhook "engasgando")
+// não é uma sessão nova — é a mesma sessão continuando. Se uma saída é
+// seguida por uma entrada do MESMO ID em até `folgaMs`, as duas somem: pro
+// resto do cálculo é como se o jogador nunca tivesse saído. Sem isso, cada
+// blip vira um pedaço de sessão a mais nos rankings e um vaivém desnecessário
+// no pico. Calibrado com dados reais (2026-09-12): reconexão de verdade é
+// rara (130 em 5.998 no histórico levam menos de 2 min) — a maioria fica na
+// casa das horas, então isso nunca funde duas visitas realmente distintas.
+function unificarReconexoesRapidas(eventos, folgaMs) {
+  const saidaPendente = new Map(); // id -> índice em `resultado` da saída ainda não confirmada
+  const resultado = [];
+  for (const ev of eventos) {
+    if (ev.acao === 'jogador_saiu') {
+      saidaPendente.set(ev.id, resultado.length);
+      resultado.push(ev);
+      continue;
+    }
+    // jogador_entrou
+    const idx = saidaPendente.get(ev.id);
+    if (idx != null) {
+      saidaPendente.delete(ev.id);
+      const saida = resultado[idx];
+      const gap = new Date(ev.ocorrido_em).getTime() - new Date(saida.ocorrido_em).getTime();
+      if (gap <= folgaMs) {
+        resultado[idx] = null; // cancela a saída: a sessão nunca foi interrompida
+        continue; // e a entrada nem entra na lista — nada aconteceu
+      }
+    }
+    resultado.push(ev);
+  }
+  return resultado.filter(Boolean);
+}
+
 function totalOnline(estado) {
   return estado.filter(e => e.acao === 'jogador_entrou').length;
 }
@@ -149,6 +182,7 @@ function tempoJogadoPorPeriodo(baselineEstado, eventos, inicioPeriodo, fimPeriod
 
 module.exports = {
   estadoSemSessoesExpiradas,
+  unificarReconexoesRapidas,
   comFechamentosAutomaticos,
   totalOnline,
   listaOnline,

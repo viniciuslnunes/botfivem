@@ -14,6 +14,45 @@ test('total e lista de online a partir do estado (só quem entrou por último)',
   assert.deepEqual(P.idsOnline(estado), ['1', '3']);
 });
 
+test('reconexão rápida (mesmo ID) funde as duas visitas numa sessão só', () => {
+  const eventos = [
+    { id: 'a', nome: 'Ana', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T10:00:00Z' },
+    { id: 'a', nome: 'Ana', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T10:30:00Z' },
+    { id: 'a', nome: 'Ana', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T10:31:00Z' }, // 1min depois: queda de conexão
+    { id: 'a', nome: 'Ana', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T12:00:00Z' },
+  ];
+  const unificado = P.unificarReconexoesRapidas(eventos, 2 * 60 * 1000);
+  assert.deepEqual(unificado.map(e => e.acao), ['jogador_entrou', 'jogador_saiu']);
+  assert.equal(unificado[0].ocorrido_em, '2026-09-11T10:00:00Z');
+  assert.equal(unificado[1].ocorrido_em, '2026-09-11T12:00:00Z');
+});
+
+test('reconexão fora da folga continua como duas visitas distintas', () => {
+  const eventos = [
+    { id: 'a', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T10:00:00Z' },
+    { id: 'a', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T10:30:00Z' },
+    { id: 'a', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T14:00:00Z' }, // 3h30 depois: visita de verdade
+    { id: 'a', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T15:00:00Z' },
+  ];
+  const unificado = P.unificarReconexoesRapidas(eventos, 2 * 60 * 1000);
+  assert.equal(unificado.length, 4);
+});
+
+test('reconexão rápida não confunde jogadores diferentes intercalados', () => {
+  const eventos = [
+    { id: 'a', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T10:00:00Z' },
+    { id: 'b', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T10:05:00Z' },
+    { id: 'a', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T10:10:00Z' },
+    { id: 'a', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T10:11:00Z' }, // reconexão do "a", não do "b"
+    { id: 'b', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T11:00:00Z' },
+    { id: 'a', acao: 'jogador_saiu', ocorrido_em: '2026-09-11T12:00:00Z' },
+  ];
+  const unificado = P.unificarReconexoesRapidas(eventos, 2 * 60 * 1000);
+  assert.deepEqual(unificado.map(e => `${e.id}:${e.acao}`), [
+    'a:jogador_entrou', 'b:jogador_entrou', 'b:jogador_saiu', 'a:jogador_saiu',
+  ]);
+});
+
 test('série de ocupação acompanha entradas e saídas dentro dos baldes', () => {
   const eventos = [
     { id: 'a', acao: 'jogador_entrou', ocorrido_em: '2026-09-11T00:30:00-03:00' }, // balde 0h
