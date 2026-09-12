@@ -15,8 +15,11 @@ const PERIODOS = {
 
 const PERIODO_CHOICES = [
   { name: 'Hoje', value: 'hoje' },
+  { name: 'Ontem', value: 'ontem' },
   { name: 'Últimos 7 dias', value: '7d' },
+  { name: 'Semana passada', value: 'semana_passada' },
   { name: 'Últimos 30 dias', value: '30d' },
+  { name: 'Mês passado', value: 'mes_passado' },
   { name: 'Últimos 90 dias', value: '90d' },
   { name: 'Todo o histórico', value: 'tudo' },
 ];
@@ -58,8 +61,30 @@ function gerarBaldes(inicio, fim, passoMs, chaveFn, inicioBaldeFn) {
   return baldes;
 }
 
+// Períodos "civis" fechados: o dia/semana/mês anterior por completo, não uma
+// janela rolante. São o par de "hoje"/"últimos 7 dias"/"últimos 30 dias" —
+// dá pra comparar "essa semana" com "a semana passada" de verdade.
+const PERIODOS_FECHADOS = {
+  ontem: (agora) => {
+    const fim = inicioDoDiaSP(agora);
+    return { rotulo: 'ONTEM', inicio: new Date(fim.getTime() - DIA_MS), fim };
+  },
+  semana_passada: (agora) => {
+    const atual = resolverPeriodo('7d', agora);
+    return { rotulo: 'SEMANA PASSADA', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
+  },
+  mes_passado: (agora) => {
+    const atual = resolverPeriodo('30d', agora);
+    return { rotulo: 'MÊS PASSADO', inicio: atual.anteriorInicio, fim: atual.anteriorFim };
+  },
+};
+
 // Janela atual e a anterior de mesma duração, para comparar sem distorção
 function resolverPeriodo(chave = '7d', agora = new Date()) {
+  if (PERIODOS_FECHADOS[chave]) {
+    const { rotulo, inicio, fim } = PERIODOS_FECHADOS[chave](agora);
+    return { chave, rotulo, inicio, fim, anteriorInicio: null, anteriorFim: null };
+  }
   const valida = PERIODOS[chave] ? chave : '7d';
   const def = PERIODOS[valida];
   const fim = new Date(agora);

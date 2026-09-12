@@ -14,28 +14,37 @@ function listaOnline(estado) {
     .sort((a, b) => new Date(a.desde) - new Date(b.desde));
 }
 
-// Reconstrói a ocupação simultânea dentro do período: parte da contagem no
-// início do período (baseline, calculada fora daqui) e vai somando/subtraindo
-// cada entrada/saída, guardando o pico de cada balde de tempo (hora, dia...).
-// Saída sem entrada correspondente (log perdido, bot reiniciado) nunca deixa
-// o contador ficar negativo.
-function serieDeOcupacao(baseline, eventos, baldes) {
-  let atual = baseline;
+// IDs online no início do período (baseline), a partir do último evento de
+// cada jogador antes do início
+function idsOnline(estado) {
+  return estado.filter(e => e.acao === 'jogador_entrou').map(e => e.id);
+}
+
+// Reconstrói QUEM está online ao longo do período (um Set de IDs, não um
+// contador) e guarda o pico de cada balde de tempo (hora, dia...).
+// Importante fazer por ID, e não por um número só: uma saída sem entrada
+// correspondente (queda de conexão, histórico começando no meio de uma
+// sessão) não pode derrubar a contagem de quem realmente está online — ela
+// só é ignorada para aquele ID. E uma segunda entrada sem saída no meio
+// (reconexão rápida, log duplicado) não conta o mesmo jogador duas vezes.
+function serieDeOcupacao(idsNoInicio, eventos, baldes) {
+  const online = new Set(idsNoInicio);
   let idx = 0;
   return baldes.map(balde => {
-    let pico = atual;
+    let pico = online.size;
     while (idx < eventos.length && new Date(eventos[idx].ocorrido_em).getTime() < balde.fim) {
-      atual += eventos[idx].acao === 'jogador_entrou' ? 1 : -1;
-      if (atual < 0) atual = 0;
-      pico = Math.max(pico, atual);
+      const evento = eventos[idx];
+      if (evento.acao === 'jogador_entrou') online.add(evento.id);
+      else online.delete(evento.id);
+      pico = Math.max(pico, online.size);
       idx++;
     }
     return { chave: balde.chave, pico };
   });
 }
 
-function picoDoPeriodo(baseline, serie) {
-  return Math.max(baseline, ...serie.map(b => b.pico));
+function picoDoPeriodo(idsNoInicio, serie) {
+  return Math.max(idsNoInicio.length, ...serie.map(b => b.pico));
 }
 
-module.exports = { totalOnline, listaOnline, serieDeOcupacao, picoDoPeriodo };
+module.exports = { totalOnline, listaOnline, idsOnline, serieDeOcupacao, picoDoPeriodo };

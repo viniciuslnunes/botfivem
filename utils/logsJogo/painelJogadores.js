@@ -13,7 +13,7 @@ async function atualizarPainelJogadores(client) {
   if (!canal) return;
 
   const embed = await montarEmbedJogadoresOnline();
-  const components = [linhaBotoesPresenca()];
+  const components = linhaBotoesPresenca();
   const res = await db.query('SELECT value FROM bot_config WHERE key = $1', [CONFIG_KEY]);
   const messageId = res.rows[0]?.value;
 

@@ -157,7 +157,7 @@ async function blocoOcupacao(rotulo, periodo, granularidade) {
     repo.eventosConexao(inicio, periodo.fim),
     repo.jogadoresDistintosNoPeriodo(inicio, periodo.fim),
   ]);
-  const baseline = P.totalOnline(baselineEstado);
+  const idsNoInicio = P.idsOnline(baselineEstado);
   const hora = granularidade === 'hora';
   const baldes = E.gerarBaldes(
     inicio, periodo.fim,
@@ -165,8 +165,8 @@ async function blocoOcupacao(rotulo, periodo, granularidade) {
     hora ? E.chaveHora : E.chaveDia,
     hora ? E.inicioDaHoraSP : E.inicioDoDiaSP
   );
-  const serie = P.serieDeOcupacao(baseline, eventos, baldes);
-  const pico = P.picoDoPeriodo(baseline, serie);
+  const serie = P.serieDeOcupacao(idsNoInicio, eventos, baldes);
+  const pico = P.picoDoPeriodo(idsNoInicio, serie);
 
   const linhas = [
     `**Pico de simultâneos:** ${E.formatarNumero(pico)}`,
@@ -238,7 +238,7 @@ async function montarEmbedPresenca(periodo, agora = new Date()) {
   const estadoAgora = await repo.estadoDosJogadores(agora);
   const online = P.listaOnline(estadoAgora);
 
-  const granularidade = periodo.chave === 'hoje' ? 'hora' : 'dia';
+  const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
   const rotuloBloco = granularidade === 'hora' ? 'POR HORA' : 'POR DIA';
   const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade);
 

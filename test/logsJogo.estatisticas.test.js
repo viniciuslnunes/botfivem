@@ -15,6 +15,25 @@ test('período de 7 dias e janela anterior de mesma duração', () => {
   assert.equal(p.anteriorFim.getTime(), p.inicio.getTime() + (agora.getTime() - p.inicio.getTime()) - 7 * 86400000);
 });
 
+test('períodos civis fechados: ontem, semana passada e mês passado', () => {
+  const agora = new Date('2026-09-11T15:00:00Z'); // sexta, 12h em SP
+
+  const ontem = E.resolverPeriodo('ontem', agora);
+  assert.equal(ontem.inicio.toISOString(), '2026-09-10T03:00:00.000Z');
+  assert.equal(ontem.fim.toISOString(), '2026-09-11T03:00:00.000Z');
+
+  const semana = E.resolverPeriodo('semana_passada', agora);
+  const semanaAtual = E.resolverPeriodo('7d', agora);
+  assert.equal(semana.inicio.getTime(), semanaAtual.anteriorInicio.getTime());
+  assert.equal(semana.fim.getTime(), semanaAtual.anteriorFim.getTime());
+  assert.ok(semana.fim.getTime() <= semanaAtual.inicio.getTime(), 'semana passada não pode se sobrepor à semana atual');
+
+  const mes = E.resolverPeriodo('mes_passado', agora);
+  const mesAtual = E.resolverPeriodo('30d', agora);
+  assert.equal(mes.inicio.getTime(), mesAtual.anteriorInicio.getTime());
+  assert.equal(mes.fim.getTime(), mesAtual.anteriorFim.getTime());
+});
+
 test('período inválido cai em 7 dias; "tudo" não tem janela anterior', () => {
   assert.equal(E.resolverPeriodo('xyz').chave, '7d');
   const tudo = E.resolverPeriodo('tudo');
