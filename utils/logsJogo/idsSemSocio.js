@@ -1,6 +1,6 @@
 const {
   ChannelType, PermissionFlagsBits: P, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
-  ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, UserSelectMenuBuilder,
+  StringSelectMenuBuilder, UserSelectMenuBuilder,
   escapeMarkdown,
 } = require('discord.js');
 const config = require('../../config/index.js');
@@ -334,8 +334,7 @@ function montarEmbeds(candidatos) {
 
 function linhaBotoesGerenciar() {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('idsemsocio:resolver').setLabel('RESOLVER PENDENTE').setEmoji('🔎').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('idsemsocio:buscarpendente').setLabel('BUSCAR PENDENTE').setEmoji('🔍').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('idsemsocio:resolver').setLabel('VER PENDENTES').setEmoji('🔎').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('idsemsocio:verignorados').setLabel('VER IGNORADOS').setEmoji('🗂️').setStyle(ButtonStyle.Secondary)
   );
 }
@@ -369,8 +368,7 @@ function payloadMsgBotoes() {
     .setTitle('GERENCIAR IDS PENDENTES - GAVIÕES DA FIEL - FIVEM')
     .setDescription(
       'Clique em um dos botões abaixo:\n' +
-      '**RESOLVER PENDENTE** — só quem já tem sugestão automática de nome parecido.\n' +
-      '**BUSCAR PENDENTE** — qualquer ID pendente, com ou sem sugestão (busque por nome ou ID).\n' +
+      '**VER PENDENTES** — todo ID pendente, com sugestão automática de nome parecido primeiro.\n' +
       '**VER IGNORADOS** — reverter um ID já ignorado/associado.'
     );
   return { content: null, embeds: [embed], components: [linhaBotoesGerenciar()] };
@@ -402,7 +400,38 @@ async function garantirMsgBotoes(canalGerenciar, canalListagem) {
   return msg.id;
 }
 
+// Execução única por vez: sem isso, uma rajada de aprovações seguidas (cada
+// uma agendando uma atualização reativa 30s depois) podia empilhar duas
+// chamadas de atualizarIdsSemSocioImpl concorrentes — e como cada uma faz
+// várias operações assíncronas (fetch de membros, N consultas de bloqueio,
+// leitura/escrita de mensagens), não tem garantia de que a que começou
+// DEPOIS termine DEPOIS. Se a mais lenta (ex.: pegou um retry de rate limit
+// no fetch de membros) terminasse por último, ela sobrescrevia
+// `ultimosCandidatos` com um resultado mais velho — foi isso que fez
+// RESOLVER PENDENTE mostrar "104 com sugestão" e, minutos depois, "nenhuma
+// associação possível", sem nada ter mudado de verdade nos bastidores.
+// Chamada extra enquanto uma já roda não é descartada: fica marcada pra
+// rodar de novo assim que a atual terminar, garantindo que o resultado final
+// sempre reflita o último pedido.
+let atualizacaoEmAndamento = null;
+let reexecutarAoTerminar = false;
+
 async function atualizarIdsSemSocio(client) {
+  if (atualizacaoEmAndamento) {
+    reexecutarAoTerminar = true;
+    return atualizacaoEmAndamento;
+  }
+  atualizacaoEmAndamento = atualizarIdsSemSocioImpl(client).finally(async () => {
+    atualizacaoEmAndamento = null;
+    if (reexecutarAoTerminar) {
+      reexecutarAoTerminar = false;
+      await atualizarIdsSemSocio(client);
+    }
+  });
+  return atualizacaoEmAndamento;
+}
+
+async function atualizarIdsSemSocioImpl(client) {
   const guild = await client.guilds.fetch(config.guildId);
   const canal = await garantirCanal(guild);
   const canalGerenciar = await garantirCanalGerenciar(guild, canal);
@@ -453,30 +482,12 @@ function agendarAtualizacaoReativa(client) {
   }, DEBOUNCE_MS);
 }
 
-// ── Interação: RESOLVER PENDENTE / BUSCAR PENDENTE / VER IGNORADOS ──────
-// RESOLVER PENDENTE não precisa de busca: já filtra pra só quem tem
-// sugestão de correlação (normalmente uma fração da lista toda) e mostra
-// direto num select paginado — botão → select, sem passo de busca no meio.
-// BUSCAR PENDENTE e VER IGNORADOS podem crescer bastante com o tempo (e o
-// primeiro cobre TODO pendente, com ou sem sugestão — sem ele não existia
-// jeito de associar manualmente quem o nome não bateu automaticamente),
-// então seguem o padrão botão → modal de busca → select (não cabe botão por
-// linha). Em todos, a escolha no select mostra a ficha do candidato com os
-// botões de ação cabíveis (aprovar/reprovar sugestão, ignorar, reativar).
-
-function modalBuscar(customId, titulo) {
-  return new ModalBuilder()
-    .setCustomId(customId)
-    .setTitle(titulo)
-    .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-      .setCustomId('termo').setLabel('NOME OU ID').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(50)));
-}
-
-function buscarEmLista(lista, termoBruto) {
-  const termo = normalizarNome(termoBruto);
-  const porId = termoBruto.trim();
-  return lista.filter(e => normalizarNome(e.nome).includes(termo) || String(e.id).includes(porId));
-}
+// ── Interação: VER PENDENTES / VER IGNORADOS ────────────────────────────
+// Os dois botões seguem o mesmo padrão: botão → select paginado direto, sem
+// passo de busca no meio (nenhuma das duas listas costuma crescer a ponto de
+// precisar de um campo de busca — e uma paginação de 25 por página já cobre
+// bem). A escolha no select mostra a ficha do candidato com os botões de
+// ação cabíveis (aprovar/reprovar sugestão, ignorar, reativar).
 
 function selectDeResultado(customId, entradas, descricaoFn) {
   const select = new StringSelectMenuBuilder()
@@ -490,24 +501,26 @@ function selectDeResultado(customId, entradas, descricaoFn) {
   return new ActionRowBuilder().addComponents(select);
 }
 
-// Só os candidatos com sugestão de correlação — é o que RESOLVER PENDENTE
-// mostra direto, sem precisar buscar nada. Ordenado pela similaridade
-// (mais parecido primeiro), assim os casos mais óbvios aparecem antes.
+// TODO pendente, com sugestão de correlação por nome ou não — antes só quem
+// tinha sugestão aparecia aqui (o resto não tinha jeito nenhum de ser
+// associado na mão), agora a lista é completa, só ordenada pra colocar os
+// casos óbvios (sugestão, mais parecido primeiro) na frente de quem precisa
+// de busca manual (sem sugestão, no fim).
 const POR_PAGINA_RESOLVER = 25;
-function candidatosComSugestao() {
-  return ultimosCandidatos.filter(c => c.sugestao).sort((a, b) => b.sugestao.score - a.sugestao.score);
+function todosPendentesOrdenados() {
+  return [...ultimosCandidatos].sort((a, b) => (b.sugestao?.score ?? -1) - (a.sugestao?.score ?? -1));
 }
 
 function renderizarPaginaResolver(pagina) {
-  const sugeridos = candidatosComSugestao();
-  if (!sugeridos.length) {
-    return { content: '🎉 NENHUMA ASSOCIAÇÃO POSSÍVEL NO MOMENTO — TODO NOME COM CORRELAÇÃO JÁ FOI RESOLVIDO OU NENHUM BATEU AINDA.', components: [] };
+  const pendentes = todosPendentesOrdenados();
+  if (!pendentes.length) {
+    return { content: '🎉 NENHUM ID PENDENTE NO MOMENTO — TODO ID FREQUENTE JÁ TEM ALGUÉM NO DISCORD.', components: [] };
   }
-  const totalPaginas = Math.max(1, Math.ceil(sugeridos.length / POR_PAGINA_RESOLVER));
+  const totalPaginas = Math.max(1, Math.ceil(pendentes.length / POR_PAGINA_RESOLVER));
   const atual = Math.min(Math.max(0, pagina), totalPaginas - 1);
-  const fatia = sugeridos.slice(atual * POR_PAGINA_RESOLVER, (atual + 1) * POR_PAGINA_RESOLVER);
+  const fatia = pendentes.slice(atual * POR_PAGINA_RESOLVER, (atual + 1) * POR_PAGINA_RESOLVER);
   const selectRow = selectDeResultado('idsemsocio:selpendente', fatia,
-    e => `${e.total}x · ${Math.round(e.sugestao.score * 100)}% parecido`);
+    e => e.sugestao ? `${e.total}x · ${Math.round(e.sugestao.score * 100)}% parecido` : `${e.total}x · sem sugestão automática`);
   const temAnterior = atual > 0;
   const temProxima = atual < totalPaginas - 1;
   const botoesPag = new ActionRowBuilder().addComponents(
@@ -516,7 +529,34 @@ function renderizarPaginaResolver(pagina) {
   );
   const components = totalPaginas > 1 ? [selectRow, botoesPag] : [selectRow];
   return {
-    content: `🔎 **ASSOCIAÇÕES POSSÍVEIS** (${sugeridos.length}${totalPaginas > 1 ? ` · Página ${atual + 1}/${totalPaginas}` : ''}) — ESCOLHA UMA PRA APROVAR OU REPROVAR:`,
+    content: `🔎 **IDS PENDENTES** (${pendentes.length}${totalPaginas > 1 ? ` · Página ${atual + 1}/${totalPaginas}` : ''}) — ESCOLHA UM PRA APROVAR, REPROVAR OU IGNORAR:`,
+    components,
+  };
+}
+
+// Mesmo padrão de VER PENDENTES (paginado, sem passo de busca no meio) — só
+// que lendo de CONFIG_KEY_IGNORADOS em vez de `ultimosCandidatos`, por isso
+// assíncrono. Antes VER IGNORADOS abria um modal pra buscar por nome/ID; sem
+// necessidade real de busca (a lista não costuma ficar gigante), o mesmo
+// fluxo direto de VER PENDENTES é mais simples de usar.
+async function renderizarPaginaIgnorados(pagina) {
+  const ignorados = await lerIgnorados();
+  if (!ignorados.length) {
+    return { content: '📭 NENHUM ID IGNORADO NO MOMENTO.', components: [] };
+  }
+  const totalPaginas = Math.max(1, Math.ceil(ignorados.length / POR_PAGINA_RESOLVER));
+  const atual = Math.min(Math.max(0, pagina), totalPaginas - 1);
+  const fatia = ignorados.slice(atual * POR_PAGINA_RESOLVER, (atual + 1) * POR_PAGINA_RESOLVER);
+  const selectRow = selectDeResultado('idsemsocio:selignorado', fatia, e => e.motivo ?? 'ignorado');
+  const temAnterior = atual > 0;
+  const temProxima = atual < totalPaginas - 1;
+  const botoesPag = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`idsemsocio:verignorados:${atual - 1}`).setLabel('◀ ANTERIOR').setStyle(ButtonStyle.Secondary).setDisabled(!temAnterior),
+    new ButtonBuilder().setCustomId(`idsemsocio:verignorados:${atual + 1}`).setLabel('PRÓXIMA ▶').setStyle(ButtonStyle.Secondary).setDisabled(!temProxima)
+  );
+  const components = totalPaginas > 1 ? [selectRow, botoesPag] : [selectRow];
+  return {
+    content: `🗂️ **IDS IGNORADOS** (${ignorados.length}${totalPaginas > 1 ? ` · Página ${atual + 1}/${totalPaginas}` : ''}) — ESCOLHA UM PRA VER DETALHES OU REATIVAR:`,
     components,
   };
 }
@@ -590,39 +630,12 @@ registrarModulo('idsemsocio', async interaction => {
     return a == null ? interaction.reply({ ...resposta, flags: 64 }) : interaction.update(resposta);
   }
 
-  // Cobre quem RESOLVER PENDENTE não alcança: candidatos sem sugestão
-  // automática (nome não bateu os 72% de similaridade, ou a pessoa nem está
-  // no Discord ainda com um nick parecido) — sem isso não existia jeito
-  // nenhum de associar esse tipo de pendente na mão, só os que a sugestão
-  // automática pegava.
-  if (interaction.isButton() && acao === 'buscarpendente') {
-    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    return interaction.showModal(modalBuscar('idsemsocio:pendentemodal', 'BUSCAR ID PENDENTE'));
-  }
-
-  if (interaction.isModalSubmit() && acao === 'pendentemodal') {
-    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    const termo = interaction.fields.getTextInputValue('termo');
-    const encontrados = buscarEmLista(ultimosCandidatos, termo);
-    if (!encontrados.length) return interaction.reply({ content: `❌ NENHUM ID PENDENTE ENCONTRADO PARA \`${termo}\`.`, flags: 64 });
-    const selectRow = selectDeResultado('idsemsocio:selpendente', encontrados,
-      e => e.sugestao ? `${e.total}x · ${Math.round(e.sugestao.score * 100)}% parecido` : `${e.total}x · sem sugestão automática`);
-    return interaction.reply({ content: `🔍 BUSCA POR \`${termo}\`:`, components: [selectRow], flags: 64 });
-  }
-
   if (interaction.isButton() && acao === 'verignorados') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    return interaction.showModal(modalBuscar('idsemsocio:ignoradosmodal', 'BUSCAR ID IGNORADO'));
-  }
-
-  if (interaction.isModalSubmit() && acao === 'ignoradosmodal') {
-    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    const termo = interaction.fields.getTextInputValue('termo');
-    const ignorados = await lerIgnorados();
-    const encontrados = buscarEmLista(ignorados, termo);
-    if (!encontrados.length) return interaction.reply({ content: `❌ NENHUM ID IGNORADO ENCONTRADO PARA \`${termo}\`.`, flags: 64 });
-    const selectRow = selectDeResultado('idsemsocio:selignorado', encontrados, e => e.motivo ?? 'ignorado');
-    return interaction.reply({ content: `🗂️ BUSCA POR \`${termo}\`:`, components: [selectRow], flags: 64 });
+    const resposta = await renderizarPaginaIgnorados(Number(a) || 0);
+    // Mesma lógica do RESOLVER/VER PENDENTES: primeiro clique é reply novo,
+    // paginação edita a mesma mensagem ephemeral.
+    return a == null ? interaction.reply({ ...resposta, flags: 64 }) : interaction.update(resposta);
   }
 
   if (interaction.isStringSelectMenu() && acao === 'selpendente') {
