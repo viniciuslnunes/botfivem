@@ -15,6 +15,7 @@ const CONFIG_KEY_MSGS = 'socios_sem_id_message_ids';
 const NOME_CANAL = '🆔・socio-sem-id';
 const INTERVALO_MIN = 15;
 const LIMITE_CONTEUDO = 2000; // limite do Discord pro `content` de uma mensagem
+const LIMITE_MENCOES = 100; // limite do Discord pro allowedMentions.users de uma mensagem
 
 const LER = [P.ViewChannel, P.ReadMessageHistory];
 const ESCREVER = [...LER, P.SendMessages, P.EmbedLinks];
@@ -72,19 +73,28 @@ function montarPaginas(sociosSemId) {
     `Entre em ${config.logsJogo.canalPainelJogadores ? `<#${config.logsJogo.canalPainelJogadores}>` : 'painel de jogadores'} ` +
     `e clique no botão **VINCULAR ID** pra resolver — ao vincular, sua menção some sozinha daqui.\n\n`;
 
-  if (!sociosSemId.length) return [`${cabecalho}*Ninguém pendente — todo mundo já vinculou o ID.* 🎉`];
+  if (!sociosSemId.length) return [{ content: `${cabecalho}*Ninguém pendente — todo mundo já vinculou o ID.* 🎉`, ids: [] }];
 
   const paginas = [];
   let atual = cabecalho;
+  let idsAtual = [];
   for (const membro of sociosSemId) {
     const linha = `<@${membro.id}> `;
-    if (atual.length + linha.length > LIMITE_CONTEUDO) {
-      paginas.push(atual.trimEnd());
+    // Quebra a página tanto por tamanho (limite de content) quanto por
+    // quantidade de menções — allowedMentions.users aceita no máximo 100
+    // IDs por mensagem; passar disso faz o Discord rejeitar o envio inteiro
+    // (era por isso que nenhuma mensagem saía: a lista tinha mais de 100
+    // sócios sem ID e o allowedMentions ia com todos de uma vez).
+    const estoura = idsAtual.length && (atual.length + linha.length > LIMITE_CONTEUDO || idsAtual.length >= LIMITE_MENCOES);
+    if (estoura) {
+      paginas.push({ content: atual.trimEnd(), ids: idsAtual });
       atual = '';
+      idsAtual = [];
     }
     atual += linha;
+    idsAtual.push(membro.id);
   }
-  if (atual.trim()) paginas.push(atual.trimEnd());
+  if (idsAtual.length) paginas.push({ content: atual.trimEnd(), ids: idsAtual });
   return paginas;
 }
 
@@ -105,11 +115,10 @@ async function atualizarPainelSociosSemId(client) {
   const sociosSemId = await buscarSociosSemId(guild);
   const paginas = montarPaginas(sociosSemId);
   const idsAntigos = await lerMsgIds();
-  const allowedMentions = { users: sociosSemId.map(m => m.id) };
   const idsNovos = [];
 
   for (let i = 0; i < paginas.length; i++) {
-    const conteudo = { content: paginas[i], allowedMentions };
+    const conteudo = { content: paginas[i].content, allowedMentions: { users: paginas[i].ids } };
     const idAntigo = idsAntigos[i];
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
