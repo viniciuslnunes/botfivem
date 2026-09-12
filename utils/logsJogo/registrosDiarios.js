@@ -142,7 +142,11 @@ function montarEmbedsRegistro(dia, dados) {
 // as mensagens antigas por posição, cria as que faltarem e apaga o excesso
 // (lista encolheu, o que não deveria acontecer, mas fecha o ciclo).
 async function atualizarRegistroDoDia(canal, dia, periodo, agora, idsAntigos = []) {
-  const dados = await relatorios.montarDadosPresenca(periodo, {}, agora);
+  // listaCumulativa: um registro arquivado é sempre "quem jogou no dia",
+  // ranking por tempo — nunca "quem está online agora" (que é o que o
+  // período 'hoje' passaria a mostrar por padrão, pensado pro botão AGORA
+  // do painel ao vivo, não pra um acervo).
+  const dados = await relatorios.montarDadosPresenca(periodo, { listaCumulativa: true }, agora);
   const embeds = montarEmbedsRegistro(dia, dados);
   const idsNovos = [];
 

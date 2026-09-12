@@ -410,9 +410,16 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
 // vem de quem chama (presencaInteracoes.js tem acesso à guild e ao config
 // manual), pra repetir os mesmos 3 números fixos aqui embaixo da linha de
 // "Online agora"/período, e não só na mensagem principal do painel.
+// `contexto.listaCumulativa` (registros-diários, o dia em andamento): o
+// período "hoje" é o mesmo, mas a lista não pode ser "quem está online
+// agora" (só quem nunca desconectou hoje, tempo = só a sessão atual) — um
+// registro arquivado precisa de "quem jogou hoje" por inteiro, ranking
+// acumulado, igual ao dia fechado. Sem essa flag, um dia com muita gente
+// entrando/saindo mostrava só um punhado de nomes (quem seguia online no
+// instante em que o ciclo rodou) em vez do dia inteiro.
 async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
   const comPresente = PERIODOS_COM_PRESENTE.has(periodo.chave);
-  const ehAgora = periodo.chave === 'hoje';
+  const ehAgora = periodo.chave === 'hoje' && !contexto.listaCumulativa;
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
   // O rótulo do bloco não pode dizer "POR DIA"/"POR HORA": pico e distintos
   // são do PERÍODO inteiro, não um valor por unidade de tempo — só o
