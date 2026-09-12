@@ -323,6 +323,46 @@ async function montarDadosPresenca(periodo, agora = new Date()) {
   };
 }
 
+// Períodos fechados/rolantes mostrados na ficha cross-período de um jogador
+// buscado pelo painel fixo (botão "BUSCAR JOGADOR"). "Agora" fica de fora
+// daqui: vira `sessaoAtual` abaixo, igual ao botão AGORA — sessão inteira,
+// sem cortar na virada do dia.
+const PERIODOS_FICHA = ['7d', '30d', 'ontem', 'semana_passada', 'mes_passado'];
+
+// Tempo jogado por UM ID específico em cada período de PERIODOS_FICHA, mais a
+// sessão atual (se estiver online agora) — usado pela busca direta de
+// jogador no painel fixo (sem passar por nenhum período antes). Reusa as
+// mesmas primitivas de blocoOcupacao (reconexão rápida, fechamento
+// automático de sessão), só que escopadas a um ID só e a partir de UMA busca
+// no histórico inteiro de conexão, não uma consulta por período.
+async function montarFichaCompletaJogador(idFivem, agora = new Date()) {
+  const eventosDoId = (await repo.eventosConexao(new Date(0), agora)).filter(e => e.id === idFivem);
+  const eventos = P.unificarReconexoesRapidas(eventosDoId, FOLGA_RECONEXAO_MS);
+
+  const ultimo = eventos[eventos.length - 1] ?? null;
+  const nome = ultimo?.nome ?? null;
+  let sessaoAtual = null;
+  if (ultimo?.acao === 'jogador_entrou' && agora.getTime() - new Date(ultimo.ocorrido_em).getTime() <= LIMITE_SESSAO_MS) {
+    sessaoAtual = { desde: ultimo.ocorrido_em, ms: agora.getTime() - new Date(ultimo.ocorrido_em).getTime() };
+  }
+
+  const porPeriodo = PERIODOS_FICHA.map(chave => {
+    const periodo = E.resolverPeriodo(chave, agora);
+    const inicio = periodo.inicio ?? new Date(0);
+    const baselineBruto = eventos.filter(e => new Date(e.ocorrido_em).getTime() < inicio.getTime()).slice(-1);
+    const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, inicio);
+    const eventosNoPeriodo = eventos.filter(e => {
+      const t = new Date(e.ocorrido_em).getTime();
+      return t >= inicio.getTime() && t < periodo.fim.getTime();
+    });
+    const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventosNoPeriodo, LIMITE_SESSAO_MS, periodo.fim);
+    const mapa = P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim);
+    return { chave, rotulo: periodo.rotulo, ms: mapa.get(idFivem)?.ms ?? 0 };
+  });
+
+  return { idFivem, nome, sessaoAtual, porPeriodo };
+}
+
 module.exports = {
   montarEmbedTorcida,
   montarEmbedMembro,
@@ -330,4 +370,5 @@ module.exports = {
   montarEmbedInativos,
   montarEmbedJogadoresOnline,
   montarDadosPresenca,
+  montarFichaCompletaJogador,
 };

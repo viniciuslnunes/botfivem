@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle,
-  StringSelectMenuBuilder,
+  StringSelectMenuBuilder, UserSelectMenuBuilder,
 } = require('discord.js');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
@@ -24,28 +24,34 @@ const CAMPOS_MANUAIS = [
   { chave: 'pico', rotuloSelect: 'Maior bonde mensal', rotuloCampo: 'MAIOR BONDE MENSAL' },
 ];
 
-// Botões do painel fixo de jogadores: cada um abre, só pra quem clicou, uma
-// consulta paginada (mesmo padrão do /logs) já filtrada num período. Duas
-// linhas: janela rolante (a partir de agora) e período civil fechado (o
-// anterior).
-const LINHA_ROLANTE = [
+// Botões do painel fixo de jogadores viraram um select (eram 6 botões — 2
+// linhas cheias só pra escolher um período, poluição visual). Janela rolante
+// (a partir de agora) e período civil fechado (o anterior), na mesma lista.
+const PERIODOS_PRESENCA = [
   { chave: 'hoje', label: 'AGORA' },
   { chave: '7d', label: 'ÚLTIMOS 7 DIAS' },
   { chave: '30d', label: 'ÚLTIMOS 30 DIAS' },
-];
-const LINHA_FECHADA = [
   { chave: 'ontem', label: 'ONTEM' },
   { chave: 'semana_passada', label: 'SEMANA PASSADA' },
   { chave: 'mes_passado', label: 'MÊS PASSADO' },
 ];
 
-function linhaDeBotoes(botoes) {
-  return new ActionRowBuilder().addComponents(
-    ...botoes.map(b => new ButtonBuilder()
-      .setCustomId(`presenca:ver:${b.chave}`)
-      .setLabel(b.label)
-      .setStyle(ButtonStyle.Secondary))
-  );
+function selectPeriodo() {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('presenca:selperiodo')
+    .setPlaceholder('ESCOLHA UM PERÍODO')
+    .addOptions(PERIODOS_PRESENCA.map(p => ({ label: p.label, value: p.chave })));
+  return new ActionRowBuilder().addComponents(select);
+}
+
+// Select nativo do Discord (busca com autocomplete pelos membros do
+// servidor) pra abrir a ficha de um jogador direto, sem escolher período
+// antes — resolve o ID do jogo a partir do apelido (padrão "... - 1234").
+function selectBuscarJogador() {
+  const select = new UserSelectMenuBuilder()
+    .setCustomId('presenca:buscarjogador')
+    .setPlaceholder('🔎 BUSCAR JOGADOR (DISCORD)');
+  return new ActionRowBuilder().addComponents(select);
 }
 
 // Botão à parte pra abrir a edição dos números manuais (painel/ranking do
@@ -61,7 +67,7 @@ function linhaBotaoEditar() {
 }
 
 function linhaBotoesPresenca() {
-  return [linhaDeBotoes(LINHA_ROLANTE), linhaDeBotoes(LINHA_FECHADA), linhaBotaoEditar()];
+  return [selectPeriodo(), selectBuscarJogador(), linhaBotaoEditar()];
 }
 
 // Passo 1 (ephemeral, só quem clicou EDITAR vê): qual campo alterar.
@@ -130,20 +136,36 @@ function linhaDaEntrada(entrada, indice, ehAgora) {
   return `${indice + 1}. **${nome}** \`${entrada.id}\` — ${E.formatarDuracao(entrada.ms)}`;
 }
 
-// Select entre a lista e os botões de página: filtra por ID dentro das até
-// 25 entradas DESTA página (o próprio limite do select do Discord já bate
-// com o tamanho da página) e mostra só o registro daquele jogador.
-function selectFiltrarPagina(consultaId, fatiaEntradas, ehAgora) {
-  if (!fatiaEntradas.length) return null;
+// Select que lista até 25 entradas (label + descrição com o ID) e, ao
+// escolher uma, mostra a ficha daquele jogador — usado tanto pro filtro da
+// página atual quanto pro resultado da busca (que cobre a consulta inteira).
+function selectDeEntradas(consultaId, entradas, ehAgora, placeholder) {
+  if (!entradas.length) return null;
   const select = new StringSelectMenuBuilder()
     .setCustomId(`presenca:sel:${consultaId}`)
-    .setPlaceholder('FILTRAR UM JOGADOR DESTA PÁGINA POR ID')
-    .addOptions(fatiaEntradas.map(e => ({
+    .setPlaceholder(placeholder)
+    .addOptions(entradas.slice(0, 25).map(e => ({
       label: (e.nome ?? '?').slice(0, 100),
       value: e.id,
       description: (ehAgora ? `ID ${e.id} · online há ${E.formatarDuracao(e.ms)}` : `ID ${e.id} · ${E.formatarDuracao(e.ms)}`).slice(0, 100),
     })));
   return new ActionRowBuilder().addComponents(select);
+}
+
+// Filtra por nome (contém, sem diferenciar maiúsc./acento) ou ID (contém os
+// dígitos digitados) em TODAS as entradas da consulta, não só na página
+// atual — é o que resolve buscar entre os 256 jogadores, não só os 25
+// visíveis na tela.
+function normalizar(texto) {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function buscarEntradas(consulta, termoBruto) {
+  const termo = normalizar(termoBruto.trim());
+  if (!termo) return [];
+  return consulta.entradas.filter(e =>
+    normalizar(e.nome ?? '').includes(termo) || String(e.id).includes(termo)
+  );
 }
 
 function renderizarPagina(consultaId, consulta, pagina) {
@@ -163,7 +185,7 @@ function renderizarPagina(consultaId, consulta, pagina) {
     ],
     footer: { text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel · Página ${atual + 1}/${totalPaginas}` },
   };
-  const selectRow = selectFiltrarPagina(consultaId, fatia, consulta.ehAgora);
+  const selectRow = selectDeEntradas(consultaId, fatia, consulta.ehAgora, 'FILTRAR UM JOGADOR DESTA PÁGINA POR ID');
   const botoes = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`presenca:pag:${consultaId}:${atual - 1}`)
@@ -174,7 +196,11 @@ function renderizarPagina(consultaId, consulta, pagina) {
       .setCustomId(`presenca:pag:${consultaId}:${atual + 1}`)
       .setLabel('PRÓXIMA ▶')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual >= totalPaginas - 1)
+      .setDisabled(atual >= totalPaginas - 1),
+    new ButtonBuilder()
+      .setCustomId(`presenca:buscar:${consultaId}`)
+      .setLabel('🔎 BUSCAR')
+      .setStyle(ButtonStyle.Secondary)
   );
   return { embeds: [embed], components: selectRow ? [selectRow, botoes] : [botoes], allowedMentions: { parse: [] } };
 }
@@ -198,6 +224,36 @@ function embedFichaJogador(consulta, entrada) {
   };
 }
 
+// Ficha de um jogador buscado direto pelo select de membro do painel fixo
+// (sem passar por nenhum período antes): tempo jogado nos mesmos 6 períodos
+// dos botões antigos, tudo junto — dado bruto vem de relatorios.js
+// (montarFichaCompletaJogador).
+function embedFichaCompleta(membro, ficha) {
+  const linhas = [`**ID do jogo:** \`${ficha.idFivem}\``];
+  linhas.push(ficha.sessaoAtual
+    ? `**AGORA:** online desde <t:${Math.floor(new Date(ficha.sessaoAtual.desde).getTime() / 1000)}:R> — ${E.formatarDuracao(ficha.sessaoAtual.ms)}`
+    : '**AGORA:** offline');
+  for (const p of ficha.porPeriodo) {
+    linhas.push(`**${p.rotulo}:** ${E.formatarDuracao(p.ms)}`);
+  }
+  return {
+    color: 0x000000,
+    title: `🎮 ${membro.displayName ?? ficha.nome ?? '?'}`,
+    description: linhas.join('\n'),
+    footer: { text: 'Com base nos logs do jogo recebidos pelo webhook · canal logs-painel' },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function modalBuscarJogador(consultaId) {
+  return new ModalBuilder()
+    .setCustomId(`presenca:buscarmodal:${consultaId}`)
+    .setTitle('BUSCAR JOGADOR')
+    .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
+      .setCustomId('termo').setLabel('NOME OU ID DO JOGADOR')
+      .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(50)));
+}
+
 async function abrirPresenca(interaction, periodo) {
   limparExpiradas();
   const dados = await relatorios.montarDadosPresenca(periodo);
@@ -210,10 +266,27 @@ async function abrirPresenca(interaction, periodo) {
 registrarModulo('presenca', async interaction => {
   const [, acao, a, b] = interaction.customId.split(':');
 
-  if (interaction.isButton() && acao === 'ver') {
+  if (interaction.isStringSelectMenu() && acao === 'selperiodo') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     await interaction.deferReply({ flags: 64 });
-    await abrirPresenca(interaction, E.resolverPeriodo(a));
+    await abrirPresenca(interaction, E.resolverPeriodo(interaction.values[0]));
+    return;
+  }
+
+  if (interaction.isUserSelectMenu() && acao === 'buscarjogador') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    const membro = interaction.members.first();
+    const idFivem = E.idFivemDoNick(membro?.nickname ?? membro?.displayName);
+    if (!idFivem) {
+      return interaction.reply({
+        content: `❌ ${membro ?? 'ESSE MEMBRO'} NÃO TEM ID DO JOGO NO APELIDO (PADRÃO "... - 1234").`,
+        flags: 64,
+        allowedMentions: { parse: [] },
+      });
+    }
+    await interaction.deferReply({ flags: 64 });
+    const ficha = await relatorios.montarFichaCompletaJogador(idFivem);
+    await interaction.editReply({ embeds: [embedFichaCompleta(membro, ficha)] });
     return;
   }
 
@@ -228,6 +301,37 @@ registrarModulo('presenca', async interaction => {
     await interaction.deferUpdate();
     await interaction.editReply(renderizarPagina(a, consulta, Number(b) || 0));
     return;
+  }
+
+  if (interaction.isButton() && acao === 'buscar') {
+    const consulta = consultas.get(a);
+    if (!consulta || Date.now() - consulta.criadoEm > TTL_MS) {
+      return interaction.reply({ content: '⌛ ESTA CONSULTA EXPIROU. CLIQUE NO PERÍODO DE NOVO.', flags: 64 });
+    }
+    if (consulta.userId !== interaction.user.id) {
+      return interaction.reply({ content: '❌ ESSA CONSULTA NÃO É SUA.', flags: 64 });
+    }
+    return interaction.showModal(modalBuscarJogador(a));
+  }
+
+  if (interaction.isModalSubmit() && acao === 'buscarmodal') {
+    const consulta = consultas.get(a);
+    if (!consulta || Date.now() - consulta.criadoEm > TTL_MS) {
+      return interaction.reply({ content: '⌛ ESTA CONSULTA EXPIROU. CLIQUE NO PERÍODO DE NOVO.', flags: 64 });
+    }
+    if (consulta.userId !== interaction.user.id) {
+      return interaction.reply({ content: '❌ ESSA CONSULTA NÃO É SUA.', flags: 64 });
+    }
+    const termo = interaction.fields.getTextInputValue('termo');
+    const encontradas = buscarEntradas(consulta, termo);
+    if (!encontradas.length) {
+      return interaction.reply({ content: `❌ NENHUM JOGADOR ENCONTRADO PARA \`${termo}\`.`, flags: 64 });
+    }
+    const placeholder = encontradas.length > 25
+      ? `RESULTADO DA BUSCA (${encontradas.length}, MOSTRANDO 25) — ESCOLHA O JOGADOR`
+      : `RESULTADO DA BUSCA (${encontradas.length}) — ESCOLHA O JOGADOR`;
+    const selectRow = selectDeEntradas(a, encontradas, consulta.ehAgora, placeholder);
+    return interaction.reply({ content: `🔎 BUSCA POR \`${termo}\`:`, components: [selectRow], flags: 64 });
   }
 
   if (interaction.isStringSelectMenu() && acao === 'sel') {
@@ -245,7 +349,7 @@ registrarModulo('presenca', async interaction => {
 
   if (interaction.isButton() && acao === 'editar') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    return interaction.reply({ content: '✏️ QUAL CAMPO VOCÊ QUER EDITAR?', components: [selectCampoManual()], flags: 64 });
+    return interaction.reply({ components: [selectCampoManual()], flags: 64 });
   }
 
   if (interaction.isStringSelectMenu() && acao === 'editarcampo') {
