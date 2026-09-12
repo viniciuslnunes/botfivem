@@ -440,7 +440,7 @@ function botoesPendente(c) {
   const botoes = [];
   if (c.sugestao) {
     botoes.push(
-      new ButtonBuilder().setCustomId(`idsemsocio:confirmar:${c.id}:${c.sugestao.discordId}`).setLabel('É ELE — IGNORAR ESTE ID').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`idsemsocio:confirmar:${c.id}:${c.sugestao.discordId}`).setLabel('É ELE — ASSOCIAR AO USUÁRIO').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`idsemsocio:rejeitarsugestao:${c.id}:${c.sugestao.discordId}`).setLabel('NÃO É ELE').setEmoji('❌').setStyle(ButtonStyle.Secondary)
     );
   }
@@ -518,9 +518,9 @@ registrarModulo('idsemsocio', async interaction => {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     const c = ultimosCandidatos.find(e => String(e.id) === a);
     if (!c) return interaction.reply({ content: '❌ ESSE ID NÃO ESTÁ MAIS PENDENTE (A LISTA JÁ ATUALIZOU).', flags: 64 });
-    await ignorarId(c, `correlacionado com <@${b}> (season anterior)`, interaction.user.id);
+    await ignorarId(c, `associado a <@${b}> (season anterior)`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
-    return interaction.reply({ content: `✅ ID \`${a}\` MARCADO COMO <@${b}> — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   // Correção manual: a liderança busca e escolhe direto no select nativo do
@@ -534,9 +534,9 @@ registrarModulo('idsemsocio', async interaction => {
     if (!c) return interaction.reply({ content: '❌ ESSE ID NÃO ESTÁ MAIS PENDENTE (A LISTA JÁ ATUALIZOU).', flags: 64 });
     const membro = interaction.members.first();
     if (!membro) return interaction.reply({ content: '❌ MEMBRO NÃO ENCONTRADO.', flags: 64 });
-    await ignorarId(c, `correlacionado manualmente com ${membro} por <@${interaction.user.id}>`, interaction.user.id);
+    await ignorarId(c, `associado manualmente a ${membro} por <@${interaction.user.id}>`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
-    return interaction.reply({ content: `✅ ID \`${a}\` MARCADO COMO ${membro} — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   if (interaction.isButton() && acao === 'rejeitarsugestao') {
