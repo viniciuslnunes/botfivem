@@ -1,55 +1,24 @@
 // Handler de eventos: messageCreate
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-
-const CANAL_LOGS_LIDERANCA  = '1461544673825783929';
-const CANAL_ALERTA_NOVATOS  = '1490536504748150925';
-
-// Cargos acima de sócio — serão mencionados no alerta
-const CARGOS_MENCIONAR = [
-  '1198743169081295021', // GDF • PRESIDENTE
-  '1198743169081295020', // GDF • VICE PRESIDENTE
-  '1380046518157054013', // GDF • VELHA GUARDA
-  '1198743169081295019', // GDF • DIRETORIA
-  '1198743169030951010', // EQUIPE RECRUTAMENTO
-];
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const config = require('../config/index.js');
+const { ehMensagemDeLog, registrosDaMensagem, gravarRegistros } = require('../utils/logsJogo/ingestao');
+const { avaliarAlertas } = require('../utils/logsJogo/alertas');
 
 module.exports = (client) => {
   client.on('messageCreate', async message => {
-    // ── Alerta de novato via logs-liderança ──────────────────────────────────
-    if (message.channelId === CANAL_LOGS_LIDERANCA && message.author.bot) {
-      const embed = message.embeds?.[0];
-      if (!embed) return;
-
-      const descricao = embed.description ?? '';
-      const isNovato = /novato/i.test(descricao) && /entrou na sua torcida/i.test(descricao);
-      if (!isNovato) return;
-
-      // Extrair nome e ID da descrição — suporta com e sem markdown bold e espaços extras
-      // Formato real:  "O Novato Rarin Dimarolla (ID: 8914 ) entrou..."
-      // Formato mock:  "O Novato **Rarin Dimarolla** (ID: **8914**) entrou..."
-      const nomeMatch = descricao.match(/O Novato \*?\*?(.+?)\*?\*?\s*\(ID:/i);
-      const idMatch   = descricao.match(/\(ID:\s*\*?\*?(\d+)\*?\*?\s*\)/i);
-      const nome = nomeMatch?.[1]?.trim() ?? 'Desconhecido';
-      const id   = idMatch?.[1]   ?? 'N/A';
-
-      const alerta = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle('🆕 NOVO NOVATO DETECTADO')
-        .setDescription(`Um novo jogador entrou na torcida como **Novato** no jogo.\nRecrute-o para o servidor do Discord!`)
-        .addFields(
-          { name: '👤 Nome no Jogo', value: nome, inline: true },
-          { name: '🆔 ID FiveM',     value: id,   inline: true }
-        )
-        .setFooter({ text: `Detectado automaticamente via logs-liderança` })
-        .setTimestamp();
-
+    // ── Logs do jogo (webhook do FiveM) ──────────────────────────────────────
+    // O log continua no canal; o bot grava para filtros/estatísticas e avalia
+    // os alertas (o de novato é o primeiro deles).
+    if (ehMensagemDeLog(message)) {
+      const registros = registrosDaMensagem(message);
+      let novos = registros;
       try {
-        const canalAlerta = await client.channels.fetch(CANAL_ALERTA_NOVATOS);
-        const mencoes = CARGOS_MENCIONAR.map(id => `<@&${id}>`).join(' ');
-        await canalAlerta.send({ content: mencoes, embeds: [alerta] });
+        novos = await gravarRegistros(registros);
       } catch (err) {
-        console.error('[novato] Erro ao enviar alerta:', err);
+        // Banco fora do ar não pode calar o alerta: avalia com o que chegou
+        console.error('[logs-jogo] Erro ao gravar log:', err);
       }
+      await avaliarAlertas(client, novos).catch(err => console.error('[logs-jogo] Erro nos alertas:', err));
       return;
     }
     // ────────────────────────────────────────────────────────────────────────
@@ -111,7 +80,7 @@ module.exports = (client) => {
       });
     }
     // Botão para validar ID no canal 📝・validar-id
-    if (message.channelId === '1487943479710580756' && !message.author.bot) {
+    if (message.channelId === config.canais.validarId && !message.author.bot) {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('abrir_validarid')
@@ -121,14 +90,18 @@ module.exports = (client) => {
       message.reply({ content: 'Clique para validar um ID:', components: [row] });
     }
     // Botão para abrir formulário de bloqueio no canal ❌・nao-recrutar
-    if (message.channelId === '1487943419203551313' && !message.author.bot) {
+    if (message.channelId === config.canais.naoRecrutar && !message.author.bot) {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('abrir_bloquearid')
           .setLabel('Bloquear novo ID')
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId('abrir_desbloquearid')
+          .setLabel('Remover ID bloqueado')
+          .setStyle(ButtonStyle.Secondary)
       );
-      message.reply({ content: 'Clique para bloquear um novo ID:', components: [row] });
+      message.reply({ content: 'Clique para bloquear ou remover um ID:', components: [row] });
     }
   });
 };

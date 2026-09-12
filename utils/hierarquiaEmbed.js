@@ -1,17 +1,12 @@
 const path = require('path');
 const db = require('./db');
+const config = require('../config/index.js');
 
 const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
-const CANAL_HIERARQUIA = '1198743170972926110';
+const CANAL_HIERARQUIA = config.canais.hierarquia;
 const CONFIG_KEY = 'hierarquia_message_id';
 
-const HIERARQUIA = [
-  { id: '1198743169081295021', label: 'GDF • PRESIDENTE' },
-  { id: '1198743169081295020', label: 'GDF • VICE PRESIDENTE' },
-  { id: '1380046518157054013', label: 'GDF • VELHA GUARDA' },
-  { id: '1198743169081295019', label: 'GDF • DIRETORIA' },
-  { id: '1198743169030951010', label: 'EQUIPE RECRUTAMENTO 🦅' },
-];
+const HIERARQUIA = config.hierarquia;
 
 async function getHierarquiaMessageId() {
   const res = await db.query('SELECT value FROM bot_config WHERE key = $1', [CONFIG_KEY]);

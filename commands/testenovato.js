@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const config = require('../config/index.js');
 
-const CANAL_LOGS_LIDERANCA = '1461544673825783929';
+const CANAL_LOGS_LIDERANCA = config.canais.logsLideranca;
 
 module.exports = {
   data: new SlashCommandBuilder()

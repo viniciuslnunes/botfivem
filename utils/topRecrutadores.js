@@ -1,6 +1,7 @@
 const db = require('./db');
+const config = require('../config/index.js');
 
-const CANAL_TOP = '1444861031598784673';
+const CANAL_TOP = config.canais.topRecrutadores;
 const CONFIG_KEY = 'top_recrutadores_message_id';
 
 async function getTopMessageId() {

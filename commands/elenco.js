@@ -1,11 +1,12 @@
 const { SlashCommandBuilder } = require('discord.js');
+const config = require('../config/index.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('elenco')
     .setDescription('Lista todos os membros do elenco [R.S.J] com o cargo específico.'),
   async execute(interaction) {
-    const cargoRsj = '1489461786511020285'; // [R.S.J] RUA SÃO JORGE
+    const cargoRsj = config.cargos.elenco; // [R.S.J] RUA SÃO JORGE
 
     // Adia imediatamente para evitar expiração da interação
     await interaction.deferReply();

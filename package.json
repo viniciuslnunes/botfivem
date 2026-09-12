@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "deploy": "node deploy-commands.js",
+    "test": "node --test",
+    "test:integracao": "node integracao/modulos.js && node integracao/rifas.js",
     "lint": "eslint ."
   },
   "keywords": [],
@@ -16,5 +18,8 @@
     "discord.js": "^14.25.1",
     "dotenv": "^17.3.1",
     "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.16"
   }
 }

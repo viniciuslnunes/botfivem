@@ -1,4 +1,5 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, SlashCommandBuilder } = require('discord.js');
+const config = require('../config/index.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -6,7 +7,7 @@ module.exports = {
     .setDescription('Adiciona um novo ID à lista de não recrutar'),
   async execute(interaction) {
     // Só permitir no canal correto
-    if (interaction.channelId !== '1487943419203551313') {
+    if (interaction.channelId !== config.canais.naoRecrutar) {
       return interaction.reply({ content: 'Use este comando apenas no canal ❌・nao-recrutar.', flags: 64 });
     }
     const modal = new ModalBuilder()

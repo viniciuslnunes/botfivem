@@ -4,7 +4,16 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-const config = require('./config');
+
+const faltando = ['DISCORD_TOKEN', 'DATABASE_URL'].filter(nome => !process.env[nome]);
+if (faltando.length) {
+  console.error(`Faltam variáveis de ambiente: ${faltando.join(', ')}. Veja o .env.example.`);
+  process.exit(1);
+}
+
+// Caminho explícito: sem o "/index.js", require('./config') pegaria o
+// config.js legado da raiz (removido) em vez do diretório config/.
+const config = require('./config/index.js');
 const utils = require('./utils/formatarNick');
 
 const client = new Client({

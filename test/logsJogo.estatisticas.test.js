@@ -1,0 +1,57 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const E = require('../utils/logsJogo/estatisticas');
+
+test('dia civil é o de São Paulo, não o UTC', () => {
+  assert.equal(E.chaveDia('2026-09-11T02:00:00Z'), '2026-09-10');
+  assert.equal(E.inicioDoDiaSP('2026-09-11T02:00:00Z').toISOString(), '2026-09-10T03:00:00.000Z');
+});
+
+test('período de 7 dias e janela anterior de mesma duração', () => {
+  const agora = new Date('2026-09-11T15:00:00Z');
+  const p = E.resolverPeriodo('7d', agora);
+  assert.equal(p.inicio.toISOString(), '2026-09-05T03:00:00.000Z');
+  assert.equal(p.fim.getTime() - p.inicio.getTime(), p.anteriorFim.getTime() - p.anteriorInicio.getTime());
+  assert.equal(p.anteriorFim.getTime(), p.inicio.getTime() + (agora.getTime() - p.inicio.getTime()) - 7 * 86400000);
+});
+
+test('período inválido cai em 7 dias; "tudo" não tem janela anterior', () => {
+  assert.equal(E.resolverPeriodo('xyz').chave, '7d');
+  const tudo = E.resolverPeriodo('tudo');
+  assert.equal(tudo.inicio, null);
+  assert.equal(tudo.anteriorInicio, null);
+});
+
+test('série diária preenche dias sem registro com zero', () => {
+  const serie = E.serieDiaria(
+    [{ dia: '2026-09-08', total: 3 }, { dia: '2026-09-10', total: 1 }],
+    new Date('2026-09-08T12:00:00Z'),
+    new Date('2026-09-10T12:00:00Z')
+  );
+  assert.deepEqual(serie, [
+    { dia: '2026-09-08', total: 3 },
+    { dia: '2026-09-09', total: 0 },
+    { dia: '2026-09-10', total: 1 },
+  ]);
+});
+
+test('sparkline escala pelo máximo e não inventa barra em zero', () => {
+  assert.equal(E.sparkline([0, 0, 0]), '▁▁▁');
+  assert.equal(E.sparkline([0, 7]), '▁█');
+  assert.equal(E.sparkline(new Array(90).fill(1)).length, 30);
+});
+
+test('variação contra o período anterior', () => {
+  assert.equal(E.variacao(12, 10), '▲ 20% vs período anterior');
+  assert.equal(E.variacao(5, 10), '▼ 50% vs período anterior');
+  assert.equal(E.variacao(0, 0), '= igual ao período anterior');
+  assert.equal(E.variacao(3, 0), '▲ período anterior sem registros');
+  assert.equal(E.variacao(3, null), null);
+});
+
+test('ID FiveM do apelido padrão do recrutamento', () => {
+  assert.equal(E.idFivemDoNick('S GDF | Rarin - 8914'), '8914');
+  assert.equal(E.idFivemDoNick('S GDF | Nome Composto -8914 '), '8914');
+  assert.equal(E.idFivemDoNick('Visitante'), null);
+  assert.equal(E.idFivemDoNick(undefined), null);
+});

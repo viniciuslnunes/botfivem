@@ -2,6 +2,8 @@ const { SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
 const { gerarCarteirinha } = require('../utils/gerarCarteirinha');
 const { atualizarMural } = require('../utils/muralAssociados');
+const config = require('../config/index.js');
+const { situacaoCarteirinha, textoSituacao } = require('../utils/carteirinha/regras');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -9,6 +11,10 @@ module.exports = {
     .setDescription('Gera sua carteirinha de sócio dos Gaviões da Fiel - FiveM'),
   async execute(interaction) {
     await interaction.deferReply({ flags: 64 });
+
+    if (!interaction.member.roles.cache.has(config.cargos.socio)) {
+      return interaction.editReply({ content: '❌ A carteirinha é exclusiva para sócios aprovados.' });
+    }
 
     const discordId = interaction.user.id;
     const membro = interaction.member;
@@ -60,8 +66,9 @@ module.exports = {
       return interaction.editReply({ content: '❌ Erro ao gerar a carteirinha. Tente novamente.' });
     }
 
+    const situacao = situacaoCarteirinha(row.validade, new Date(), config.carteirinha.vencendoDias);
     await interaction.editReply({
-      content: `🏆 Sua carteirinha de sócio nº **${String(row.numero_socio).padStart(4, '0')}**!`,
+      content: `🏆 Sua carteirinha de sócio nº **${String(row.numero_socio).padStart(4, '0')}**!\n${textoSituacao(situacao)}${situacao.situacao === 'VENCIDA' ? ' — procure a diretoria para renovar.' : ''}`,
       files: [{ attachment: buffer, name: 'carteirinha.png' }]
     });
   }

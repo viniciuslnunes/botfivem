@@ -1,10 +1,11 @@
 const { PermissionFlagsBits } = require('discord.js');
 const path = require('path');
+const config = require('../config/index.js');
 
-const CATEGORIA_TICKETS = '1442240177228746772';
-const CANAL_LOGS = '1442240418744897637';
+const CATEGORIA_TICKETS = config.categorias.tickets;
+const CANAL_LOGS = config.canais.logsTicket;
 const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
-const CARGO_DIRETOR = '1198743169081295019';
+const CARGO_DIRETOR = config.cargos.diretoria;
 
 const CATEGORIAS = {
   parceria:          { label: '🤝 PARCERIA',           emoji: '🤝', cor: 0x000000 },
