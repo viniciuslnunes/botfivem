@@ -5,6 +5,22 @@ const { CHAVE_CANAL_LOGS_GESTAO } = require('../logGestao');
 const { CHAVE_CANAL: CHAVE_CANAL_QUADRO } = require('./quadro');
 const { listarDepartamentos, salvarDepartamento } = require('./repositorio');
 const { nomesDosCargos, nomeDoCanal } = require('./regras');
+const { garantirMensagemFixa } = require('../mensagemFixa');
+const { linhaBotoesArea } = require('./interacoes');
+
+function mensagemApresentacaoArea(area, cargoMembroId, cargoGestorId) {
+  return {
+    embeds: [{
+      color: 0x000000,
+      title: `${area.emoji} ${area.nome.toUpperCase()}`,
+      description: area.descricao ?? null,
+      fields: [{ name: 'QUEM PARTICIPA', value: `<@&${cargoMembroId}> · Gestor: <@&${cargoGestorId}>`, inline: false }],
+      footer: { text: 'Incluir/remover é da presidência ou do gestor desta área — pelos botões abaixo' },
+    }],
+    components: [linhaBotoesArea(area.slug)],
+    allowedMentions: { parse: [] },
+  };
+}
 
 // Cria o que falta da estrutura das áreas e reaproveita o que já existe.
 // Pode rodar de novo a qualquer momento.
@@ -73,7 +89,14 @@ async function montarEstruturaDepartamentos(guild) {
       cargoGestorId: gestor.cargo.id,
       canalId: canal.canal.id,
     });
-    const criados = [membro.criado && 'cargo membro', gestor.criado && 'cargo gestor', canal.criado && 'canal'].filter(Boolean);
+    const intro = await garantirMensagemFixa(
+      canal.canal,
+      `intro_departamento_${area.slug}`,
+      () => mensagemApresentacaoArea(area, membro.cargo.id, gestor.cargo.id)
+    );
+    const criados = [
+      membro.criado && 'cargo membro', gestor.criado && 'cargo gestor', canal.criado && 'canal', intro.criada && 'mensagem de apresentação',
+    ].filter(Boolean);
     resumo.push(`${area.emoji} ${area.nome}: ${criados.length ? `criado ${criados.join(', ')}` : 'já existia'}`);
   }
 

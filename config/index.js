@@ -66,16 +66,16 @@ module.exports = {
   // /departamentos setup e guardados no banco. A Diretoria não entra aqui: já
   // existe como cargo GDF • DIRETORIA e aparece no embed de hierarquia.
   departamentos: [
-    { slug: 'financeiro', nome: 'Financeiro', emoji: '💰' },
-    { slug: 'social', nome: 'Social e Eventos', emoji: '🎉' },
-    { slug: 'loja', nome: 'Materiais e Loja', emoji: '🛍️' },
-    { slug: 'comunicacao', nome: 'Comunicação', emoji: '📣' },
-    { slug: 'patrimonio', nome: 'Patrimônio', emoji: '🗃️' },
-    { slug: 'bandeiras', nome: 'Bandeiras', emoji: '🚩' },
-    { slug: 'bateria', nome: 'Bateria', emoji: '🥁' },
-    { slug: 'caravanas', nome: 'Caravanas', emoji: '🚌' },
-    { slug: 'feminino', nome: 'Feminino', emoji: '🌹' },
-    { slug: 'carnaval', nome: 'Carnaval', emoji: '🎭' },
+    { slug: 'financeiro', nome: 'Financeiro', emoji: '💰', descricao: 'Controla o caixa da torcida: mensalidade, loja, eventos e rifas — tudo em dinheiro do jogo.' },
+    { slug: 'social', nome: 'Social e Eventos', emoji: '🎉', descricao: 'Organiza eventos e festas da torcida, e cuida das rifas.' },
+    { slug: 'loja', nome: 'Materiais e Loja', emoji: '🛍️', descricao: 'Cuida do catálogo, do estoque e do atendimento dos pedidos da loja.' },
+    { slug: 'comunicacao', nome: 'Comunicação', emoji: '📣', descricao: 'Cuida dos avisos oficiais e modera os registros da memória da torcida.' },
+    { slug: 'patrimonio', nome: 'Patrimônio', emoji: '🗃️', descricao: 'Inventário da torcida: material de jogo, eletrônicos e mobiliário.' },
+    { slug: 'bandeiras', nome: 'Bandeiras', emoji: '🚩', descricao: 'Cuida das bandeiras, faixas e mastros da torcida.' },
+    { slug: 'bateria', nome: 'Bateria', emoji: '🥁', descricao: 'Organiza os ensaios e cuida dos instrumentos da bateria.' },
+    { slug: 'caravanas', nome: 'Caravanas', emoji: '🚌', descricao: 'Organiza as viagens para jogos fora: veículos, vagas e embarque.' },
+    { slug: 'feminino', nome: 'Feminino', emoji: '🌹', descricao: 'Espaço e organização do departamento feminino da torcida.' },
+    { slug: 'carnaval', nome: 'Carnaval', emoji: '🎭', descricao: 'Organiza a participação da torcida no carnaval.' },
   ],
 
   eventos: {
