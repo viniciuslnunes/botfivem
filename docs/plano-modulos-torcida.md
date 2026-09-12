@@ -382,6 +382,29 @@ Em aberto:
 canal logs-painel na primeira sincronização (pode demorar se o canal for
 grande) e o painel passa a ser criado/atualizado sozinho.
 
+**Auditoria da fonte (2026-09-12).** Varredura completa dos 12.625 registros
+do canal logs-painel, não só dos formatos que os testes cobrem:
+- 100% batem em `Entrada`/`Saída` — zero `desconhecido`, zero sem ID, zero
+  mensagem com mais de um embed. O parser não perde nenhum formato do canal.
+- Entradas duplicadas em rajada (mesmo ID, <150ms de diferença, message_id do
+  Discord genuinamente distintos) — o próprio jogo reenviando o log de
+  conexão. Inofensivo: uma segunda entrada pro mesmo ID sem saída no meio já
+  é ignorada (presenca.js).
+- 7 de 426 IDs vistos nesse canal trocaram de nome ao longo do tempo. A
+  maioria parece troca de tag do mesmo jogador; pelo menos 2 (`3745`, `1582`)
+  têm nomes que não parecem ser a mesma pessoa — indício de ID de servidor
+  reciclado. Decisão: deixar como está (0,5% dos IDs; o ranking usa sempre o
+  nome mais recente, efeito prático mínimo).
+- 252 saídas sem nenhuma entrada correspondente em todo o histórico, espalhadas
+  ao longo do tempo (não só no início do rastreamento — só 8 caem nas
+  primeiras 48h). O webhook do próprio jogo perde mensagem de entrada um
+  pouco mais que de saída (desbalanço líquido: 6258 entradas x 6367 saídas,
+  ~0,9%). Fora do nosso alcance corrigir — é perda na origem, não na ingestão.
+- Teto de precisão conhecido: o "maior pico" calculado (93) fica abaixo do
+  "maior bonde" que o próprio jogo reporta (101) pela mesma razão — perda de
+  mensagem tende a ser maior justo nos picos (webhook do Discord limita taxa
+  quando muita gente entra/sai ao mesmo tempo).
+
 **Para ativar:** `npm run deploy` (registra os comandos novos) e reiniciar o bot.
 No start ele cria as tabelas, lê o histórico do canal de logs e reconcilia as
 carteirinhas. Painel fixo: preencher `logsJogo.canalPainel`. Advertência de
