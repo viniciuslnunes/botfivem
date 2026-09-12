@@ -8,7 +8,7 @@ const relatorios = require('./relatorios');
 // mesmo cálculo do /estatisticas online já filtrado num período. Duas linhas:
 // janela rolante (a partir de agora) e período civil fechado (o anterior).
 const LINHA_ROLANTE = [
-  { chave: 'hoje', label: 'HOJE (POR HORA)' },
+  { chave: 'hoje', label: 'AGORA' },
   { chave: '7d', label: 'ÚLTIMOS 7 DIAS' },
   { chave: '30d', label: 'ÚLTIMOS 30 DIAS' },
 ];
