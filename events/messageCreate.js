@@ -3,6 +3,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config/index.js');
 const { ehMensagemDeLog, registrosDaMensagem, gravarRegistros } = require('../utils/logsJogo/ingestao');
 const { avaliarAlertas } = require('../utils/logsJogo/alertas');
+const { agendarAtualizacaoReativa } = require('../utils/logsJogo/painelJogadores');
 
 module.exports = (client) => {
   client.on('messageCreate', async message => {
@@ -19,6 +20,9 @@ module.exports = (client) => {
         console.error('[logs-jogo] Erro ao gravar log:', err);
       }
       await avaliarAlertas(client, novos).catch(err => console.error('[logs-jogo] Erro nos alertas:', err));
+      // Entrada/saída de jogador: atualiza o painel de presença logo (em vez
+      // de esperar o próximo ciclo de tempo).
+      if (novos.some(r => r.categoria === 'conexao')) agendarAtualizacaoReativa(client);
       return;
     }
     // ────────────────────────────────────────────────────────────────────────

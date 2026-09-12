@@ -50,7 +50,26 @@ function iniciarPainelJogadores(client) {
   if (!config.logsJogo.canalPainelJogadores) return;
   const atualizar = () => atualizarPainelJogadores(client).catch(err => console.error('[painel-jogadores] Erro ao atualizar:', err));
   atualizar();
+  // O ciclo por tempo fica só como rede de segurança: a atualização de
+  // verdade é reativa (agendarAtualizacaoReativa), disparada a cada
+  // entrada/saída que chega.
   setInterval(atualizar, config.logsJogo.painelJogadoresIntervaloMin * 60 * 1000);
 }
 
-module.exports = { atualizarPainelJogadores, iniciarPainelJogadores };
+// Atualização reativa: dispara pouco depois de um evento de entrada/saída
+// chegar, em vez de esperar o próximo ciclo de tempo. Junta várias entradas/
+// saídas que cheguem em sequência (comum quando vários jogadores conectam
+// juntos) numa única atualização, pra não estourar o rate limit de edição de
+// mensagem do Discord.
+const DEBOUNCE_MS = 15 * 1000;
+let timerPendente = null;
+
+function agendarAtualizacaoReativa(client) {
+  if (!config.logsJogo.canalPainelJogadores || timerPendente) return;
+  timerPendente = setTimeout(() => {
+    timerPendente = null;
+    atualizarPainelJogadores(client).catch(err => console.error('[painel-jogadores] Erro ao atualizar (reativo):', err));
+  }, DEBOUNCE_MS);
+}
+
+module.exports = { atualizarPainelJogadores, iniciarPainelJogadores, agendarAtualizacaoReativa };

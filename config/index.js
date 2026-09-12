@@ -109,8 +109,11 @@ module.exports = {
     // Sem uma saída em até tantas horas depois de uma entrada, a sessão se
     // fecha sozinha (o jogo perde saída de vez em quando: queda de conexão,
     // crash, mensagem que não chegou — sem isso o jogador ficaria "online"
-    // pra sempre no cálculo).
-    presencaSessaoMaxHoras: 8,
+    // pra sempre no cálculo). Calibrado pela distribuição real de sessões
+    // completas do servidor (2026-09-12): mediana < 1h, p99 ~9,5h, e depois
+    // um salto direto pra 238h+ (aí sim é sessão presa, não sessão real) — 24h
+    // sobra folga pra sessão longa de verdade sem deixar fantasma "online".
+    presencaSessaoMaxHoras: 24,
     inatividadeDias: 7,
     novatoSemRecrutamentoDias: 3, // alerta quem entrou no jogo e não pediu recrutamento após N dias
   },
