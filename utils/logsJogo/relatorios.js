@@ -162,10 +162,9 @@ async function montarEmbedInativos(guild, dias) {
 // sessão-atual em vez de tempo-no-período.
 async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = null) {
   const inicio = periodo.inicio ?? new Date(0);
-  const [baselineBruto, eventos, distintos] = await Promise.all([
+  const [baselineBruto, eventos] = await Promise.all([
     repo.estadoDosJogadores(inicio),
     repo.eventosConexao(inicio, periodo.fim),
-    repo.jogadoresDistintosNoPeriodo(inicio, periodo.fim),
   ]);
   // Reconexão rápida (queda de conexão, o webhook engasgando) não é uma
   // visita nova — funde antes de qualquer outro cálculo. Sessão sem saída em
@@ -186,15 +185,28 @@ async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = 
   const serie = P.serieDeOcupacao(idsNoInicio, eventosAjustados, baldes);
   const pico = P.picoDoPeriodo(idsNoInicio, serie);
 
-  const ranking = topTempoOverride ?? [...P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim).entries()]
+  const tempoPorId = P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim);
+  const ranking = topTempoOverride ?? [...tempoPorId.entries()]
     .map(([id, v]) => ({ id, ...v }))
     .sort((a, b) => b.ms - a.ms);
+  // "Jogadores distintos" tem que bater com quem aparece na lista "MAIS
+  // TEMPO JOGADO" logo abaixo (o total entre parênteses no título dela) —
+  // contar direto na tabela de logs (jogadoresDistintosNoPeriodo, como era
+  // antes) incluía gente com só um evento órfão no período (ex.: uma "saída"
+  // sem "entrada" correspondente, log perdido), que não tem sessão pra
+  // calcular e por isso não entra no ranking. Pro botão AGORA
+  // (topTempoOverride = quem está online neste instante) esse número
+  // continuaria sendo só "quem tá online", então usa o cálculo de sessões do
+  // período inteiro (tempoPorId) mesmo nesse caso, não o override.
+  const distintos = tempoPorId.size;
 
   const linhas = [
     `**Pico de simultâneos:** ${E.formatarNumero(pico)}`,
     `**Jogadores distintos:** ${E.formatarNumero(distintos)}`,
   ];
-  if (serie.some(b => b.pico > 0)) linhas.push('', `\`${E.sparkline(serie.map(b => b.pico))}\``);
+  if (serie.some(b => b.pico > 0)) {
+    linhas.push('', `\`${E.sparkline(serie.map(b => b.pico))}\` *(variação ${hora ? 'por hora' : 'por dia'})*`);
+  }
   return { resumo: { name: rotulo, value: E.truncar(linhas.join('\n'), 1024), inline: false }, ranking };
 }
 
@@ -285,7 +297,11 @@ async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
   const comPresente = PERIODOS_COM_PRESENTE.has(periodo.chave);
   const ehAgora = periodo.chave === 'hoje';
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
-  const rotuloBloco = granularidade === 'hora' ? 'POR HORA' : 'POR DIA';
+  // O rótulo do bloco não pode dizer "POR DIA"/"POR HORA": pico e distintos
+  // são do PERÍODO inteiro, não um valor por unidade de tempo — só o
+  // sparkline é quebrado por hora/dia, e isso já fica na legenda dele (ver
+  // blocoOcupacao).
+  const rotuloBloco = 'OCUPAÇÃO NO PERÍODO';
 
   let online = null;
   let topTempoOverride = null;

@@ -54,9 +54,10 @@ function selectBuscarJogador() {
   return new ActionRowBuilder().addComponents(select);
 }
 
-// Botão pra abrir a edição dos números manuais (painel/ranking do jogo) e
-// botão pra ver o top 10 de tempo jogado de um período — os dois só a
-// liderança consegue usar, checado no handler.
+// Botão pra abrir a edição dos números manuais (painel/ranking do jogo),
+// botão pra ver o top 10 de tempo jogado de um período e botão pra vincular/
+// corrigir o ID FiveM de um membro no apelido — os três só a liderança
+// consegue usar, checado no handler.
 function linhaBotoesAcao() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -68,8 +69,49 @@ function linhaBotoesAcao() {
       .setCustomId('presenca:ranking')
       .setLabel('RANKING')
       .setEmoji('🏆')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('presenca:vincularid')
+      .setLabel('VINCULAR ID')
+      .setEmoji('🆔')
       .setStyle(ButtonStyle.Secondary)
   );
+}
+
+// Passo 1 do botão VINCULAR ID (ephemeral): qual membro. Select nativo do
+// Discord (mesmo tipo do buscarjogador), não depende de o membro já ter ID
+// no apelido — é exatamente quem não tem que esse fluxo resolve.
+function selectVincularIdUsuario() {
+  const select = new UserSelectMenuBuilder()
+    .setCustomId('presenca:vincularidusuario')
+    .setPlaceholder('SELECIONE O MEMBRO PARA VINCULAR/CORRIGIR O ID');
+  return new ActionRowBuilder().addComponents(select);
+}
+
+// Passo 2: modal com o ID atual (se já tiver um) já preenchido, pra edição
+// virar só trocar o número. Sem ID, o campo some vazio — replica exatamente
+// o que o fluxo de recrutamento faz no apelido ao aprovar (ver
+// events/interactionCreate.js, formatarNick), só que a partir de um membro
+// que já está no servidor.
+function modalVincularId(discordUserId, idAtual) {
+  return new ModalBuilder()
+    .setCustomId(`presenca:vincularidmodal:${discordUserId}`)
+    .setTitle(idAtual ? 'ALTERAR ID FIVEM' : 'VINCULAR ID FIVEM')
+    .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
+      .setCustomId('id').setLabel('ID FIVEM (APENAS NÚMEROS)')
+      .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(8)
+      .setValue(idAtual ?? '')));
+}
+
+// Troca só o "- 1234" no fim do apelido (ou acrescenta, se não tiver nenhum)
+// — mesma sintaxe que E.idFivemDoNick lê de volta. Corta o nome se precisar
+// pra caber no limite de 32 caracteres do Discord, igual formatarNick faz no
+// fluxo de recrutamento.
+function aplicarIdNoNick(nickAtual, novoId) {
+  const semId = String(nickAtual ?? '').replace(/\s*-\s*\d{1,8}\s*$/, '').trimEnd();
+  const sufixo = ` - ${novoId}`;
+  const base = semId || 'Sem nome';
+  return `${base.slice(0, Math.max(0, 32 - sufixo.length))}${sufixo}`;
 }
 
 // Passo 1 do botão RANKING (ephemeral, só quem clicou vê): qual período.
@@ -216,17 +258,22 @@ function renderizarPagina(consultaId, consulta, pagina) {
     footer: { text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel · Página ${atual + 1}/${totalPaginas}` },
   };
   const selectRow = selectFiltrarPorId(consultaId);
+  const temAnterior = atual > 0;
+  const temProxima = atual < totalPaginas - 1;
   const botoes = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`presenca:pag:${consultaId}:${atual - 1}`)
-      .setLabel('◀ ANTERIOR')
+      // Sem página anterior/seguinte, não tem número de destino válido pra
+      // mostrar (seria "página 0" ou "página totalPaginas+1") — legenda
+      // simples no botão desabilitado, número só quando ele leva a algum lugar.
+      .setLabel(temAnterior ? `◀ ANTERIOR (${atual}/${totalPaginas})` : '◀ ANTERIOR')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual === 0),
+      .setDisabled(!temAnterior),
     new ButtonBuilder()
       .setCustomId(`presenca:pag:${consultaId}:${atual + 1}`)
-      .setLabel('PRÓXIMA ▶')
+      .setLabel(temProxima ? `PRÓXIMA ▶ (${atual + 2}/${totalPaginas})` : 'PRÓXIMA ▶')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual >= totalPaginas - 1),
+      .setDisabled(!temProxima),
     new ButtonBuilder()
       .setCustomId(`presenca:buscar:${consultaId}`)
       .setLabel('🔎 BUSCAR')
@@ -456,6 +503,48 @@ registrarModulo('presenca', async interaction => {
     const entrada = consulta.entradas.find(e => e.id === interaction.values[0]);
     if (!entrada) return interaction.reply({ content: '❌ JOGADOR NÃO ENCONTRADO NESTA CONSULTA.', flags: 64 });
     return interaction.reply({ embeds: [embedFichaJogador(consulta, entrada)], flags: 64, allowedMentions: { parse: [] } });
+  }
+
+  if (interaction.isButton() && acao === 'vincularid') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    return interaction.reply({ components: [selectVincularIdUsuario()], flags: 64 });
+  }
+
+  if (interaction.isUserSelectMenu() && acao === 'vincularidusuario') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    const membro = interaction.members.first();
+    if (!membro) return interaction.reply({ content: '❌ MEMBRO NÃO ENCONTRADO.', flags: 64 });
+    const idAtual = E.idFivemDoNick(membro.nickname ?? membro.displayName);
+    return interaction.showModal(modalVincularId(membro.id, idAtual));
+  }
+
+  if (interaction.isModalSubmit() && acao === 'vincularidmodal') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    const idInformado = interaction.fields.getTextInputValue('id').trim();
+    if (!/^\d{1,8}$/.test(idInformado)) {
+      return interaction.reply({ content: '❌ O ID FIVEM DEVE CONTER APENAS NÚMEROS.', flags: 64 });
+    }
+    const membro = await interaction.guild.members.fetch(a).catch(() => null);
+    if (!membro) return interaction.reply({ content: '❌ ESSE MEMBRO NÃO ESTÁ MAIS NO SERVIDOR.', flags: 64 });
+
+    const nickAtual = membro.nickname ?? membro.displayName;
+    const idAtual = E.idFivemDoNick(nickAtual);
+    const novoNick = aplicarIdNoNick(nickAtual, idInformado);
+    try {
+      await membro.setNickname(novoNick);
+    } catch (err) {
+      return interaction.reply({
+        content: `❌ NÃO FOI POSSÍVEL ALTERAR O APELIDO DE ${membro} (SEM PERMISSÃO OU CARGO ACIMA DO BOT).\n\nERRO TÉCNICO: ${err.message}`,
+        flags: 64,
+        allowedMentions: { parse: [] },
+      });
+    }
+    const acaoTexto = idAtual ? `ID ALTERADO DE \`${idAtual}\` PARA \`${idInformado}\`` : `ID \`${idInformado}\` VINCULADO`;
+    return interaction.reply({
+      content: `✅ ${acaoTexto} EM ${membro} — NOVO APELIDO: \`${novoNick}\``,
+      flags: 64,
+      allowedMentions: { parse: [] },
+    });
   }
 
   if (interaction.isButton() && acao === 'editar') {
