@@ -1,6 +1,7 @@
 const {
   ChannelType, PermissionFlagsBits: P, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
   ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, UserSelectMenuBuilder,
+  escapeMarkdown,
 } = require('discord.js');
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
@@ -276,7 +277,9 @@ async function buscarIdsSemDiscord(client, guild) {
 // o botão 🔎 RESOLVER PENDENTE (filtra só quem tem sugestão).
 function linhaCandidato(entrada, indice) {
   const ultima = entrada.ultima ? new Date(entrada.ultima).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '?';
-  return `${indice + 1}. **${entrada.nome ?? '?'}** \`${entrada.id}\` — ${entrada.total}x · última: ${ultima}`;
+  // escapeMarkdown: apelido cru do jogo pode ter "**"/"||"/"`" e quebrar a
+  // formatação da linha (ver mesmo fix em registrosDiarios.js/presencaInteracoes.js).
+  return `${indice + 1}. **${escapeMarkdown(entrada.nome ?? '?')}** \`${entrada.id}\` — ${entrada.total}x · última: ${ultima}`;
 }
 
 // Mesmo motivo do registro diário: description em texto corrido, nunca

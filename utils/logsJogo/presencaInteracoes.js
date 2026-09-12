@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle,
-  StringSelectMenuBuilder, UserSelectMenuBuilder,
+  StringSelectMenuBuilder, UserSelectMenuBuilder, escapeMarkdown,
 } = require('discord.js');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
@@ -246,8 +246,12 @@ function limparExpiradas() {
 // Sessão atual (AGORA): nome + ID + "desde <tempo relativo>" (o Discord
 // mantém isso atualizado sozinho). Ranking de um período: posição + nome +
 // ID + duração formatada.
+// escapeMarkdown: apelido vem cru do jogo (webhook), sem sanitização — um
+// nome com "**", "||" ou "`" quebra a formatação da linha (ex.: "||" sem par
+// vira spoiler que engole o resto da lista até achar outro "||" mais abaixo,
+// sumindo com posições inteiras sem erro nenhum no log; ver registrosDiarios.js).
 function linhaDaEntrada(entrada, indice, ehAgora) {
-  const nome = entrada.nome ?? '?';
+  const nome = escapeMarkdown(entrada.nome ?? '?');
   if (ehAgora) {
     const desde = Math.floor(new Date(entrada.desde).getTime() / 1000);
     return `**${nome}** \`${entrada.id}\` · desde <t:${desde}:R>`;
@@ -371,7 +375,7 @@ function embedFichaJogador(consulta, entrada) {
   }
   return {
     color: 0x000000,
-    title: `🎮 ${entrada.nome ?? '?'} — ${consulta.titulo.replace('🎮 PRESENÇA DE JOGADORES — ', '')}`,
+    title: `🎮 ${escapeMarkdown(entrada.nome ?? '?')} — ${consulta.titulo.replace('🎮 PRESENÇA DE JOGADORES — ', '')}`,
     description: linhas.join('\n'),
   };
 }
@@ -387,7 +391,7 @@ function embedRanking(dados) {
   const ordenadas = dados.ehAgora ? [...dados.entradas].sort((a, b) => b.ms - a.ms) : dados.entradas;
   const top10 = ordenadas.slice(0, 10);
   const linhas = top10.map((e, i) =>
-    `${MEDALHAS[i] ?? `${i + 1}.`} **${e.nome ?? '?'}** \`${e.id}\` — ${E.formatarDuracao(e.ms)}`);
+    `${MEDALHAS[i] ?? `${i + 1}.`} **${escapeMarkdown(e.nome ?? '?')}** \`${e.id}\` — ${E.formatarDuracao(e.ms)}`);
   return {
     color: 0x000000,
     title: `🏆 RANKING — ${dados.titulo.replace('🎮 PRESENÇA DE JOGADORES — ', '')}`,

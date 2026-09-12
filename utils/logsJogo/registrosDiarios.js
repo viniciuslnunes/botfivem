@@ -1,4 +1,4 @@
-const { ChannelType, PermissionFlagsBits: P } = require('discord.js');
+const { ChannelType, PermissionFlagsBits: P, escapeMarkdown } = require('discord.js');
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const E = require('./estatisticas');
@@ -72,8 +72,15 @@ function tituloDia(dia) {
   return `${d}/${mes}/${ano}`;
 }
 
+// escapeMarkdown no nome: apelido vem cru do jogo (webhook), sem passar por
+// nenhuma sanitização — um nome com "**", "||" ou "`" quebra a formatação da
+// linha (ex.: "||" sem par vira spoiler que engole o resto da lista até achar
+// outro "||" nome abaixo, sumindo com posições inteiras, sem erro nenhum pro
+// log). `entrada.id` também escapado por segurança, mesmo sendo numérico hoje.
 function linhaJogador(entrada, indice) {
-  return `${indice + 1}. **${entrada.nome ?? '?'}** \`${entrada.id}\` — ${E.formatarDuracao(entrada.ms)}`;
+  const nome = escapeMarkdown(entrada.nome ?? '?');
+  const id = escapeMarkdown(String(entrada.id));
+  return `${indice + 1}. **${nome}** \`${id}\` — ${E.formatarDuracao(entrada.ms)}`;
 }
 
 // Quebra uma lista de linhas em pedaços que caibam num orçamento de
