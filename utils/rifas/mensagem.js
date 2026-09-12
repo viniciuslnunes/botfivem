@@ -107,7 +107,7 @@ function montarMensagemRifa(rifa, { reservados = 0, imagemUrl = null } = {}) {
 
   const botoes = [];
   if (vendendo) {
-    botoes.push(new ButtonBuilder().setCustomId(`rifa:comprar:${rifa.id}`).setLabel('COMPRAR NÚMEROS').setEmoji('🎟️').setStyle(ButtonStyle.Success));
+    botoes.push(new ButtonBuilder().setCustomId(`rifa:comprar:${rifa.id}`).setLabel('COMPRAR NÚMEROS').setEmoji('🎟️').setStyle(ButtonStyle.Secondary));
   }
   if (rifa.status !== 'CANCELADA') {
     botoes.push(new ButtonBuilder().setCustomId(`rifa:meus:${rifa.id}`).setLabel('MEUS NÚMEROS').setStyle(ButtonStyle.Secondary));
@@ -159,7 +159,7 @@ function montarMensagemPagamento({ compra, rifa, numeros, decisao = null }) {
     ],
   };
   const components = decisao ? [] : [new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`rifa:confirmar:${compra.id}`).setLabel('CONFIRMAR PAGAMENTO').setEmoji('🤝').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`rifa:confirmar:${compra.id}`).setLabel('CONFIRMAR PAGAMENTO').setEmoji('🤝').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`rifa:recusar:${compra.id}`).setLabel('NÃO RECEBI').setStyle(ButtonStyle.Danger)
   )];
   return { embeds: [embed], components, allowedMentions: { parse: [] } };

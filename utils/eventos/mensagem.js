@@ -63,11 +63,11 @@ function montarMensagemEvento(evento, inscricoes, agora = new Date()) {
   const components = cancelado ? [] : [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`evt:confirmar:${evento.id}`).setLabel('CONFIRMAR').setEmoji('✅')
-        .setStyle(ButtonStyle.Success).setDisabled(!abertas),
+        .setStyle(ButtonStyle.Secondary).setDisabled(!abertas),
       new ButtonBuilder().setCustomId(`evt:desistir:${evento.id}`).setLabel('DESISTIR')
         .setStyle(ButtonStyle.Secondary).setDisabled(!abertas),
       new ButtonBuilder().setCustomId(`evt:presenca:${evento.id}`).setLabel('PRESENÇA').setEmoji('📋')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Secondary)
     ),
   ];
   return { embeds: [embed], components, allowedMentions: { parse: [] } };

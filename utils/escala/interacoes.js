@@ -13,7 +13,7 @@ function montarConviteEscala(evento, funcao, convocadorId) {
   return {
     content: `🎖️ <@${convocadorId}> te convocou para trabalhar em **${evento.titulo}** (<t:${unix(evento.inicio_em)}:F>)${evento.local ? ` · 📍 ${evento.local}` : ''}.\nFunção: **${rotuloFuncao(funcao)}**. Você topa?`,
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`esc:aceitar:${evento.id}`).setLabel('ACEITAR').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`esc:aceitar:${evento.id}`).setLabel('ACEITAR').setEmoji('✅').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`esc:recusar:${evento.id}`).setLabel('NÃO POSSO').setStyle(ButtonStyle.Danger)
     )],
   };
