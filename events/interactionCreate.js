@@ -13,7 +13,7 @@ require('../utils/tarefas'); // registra os tipos de tarefa (vencimento de ADV, 
 const { buscarBloqueio, mensagensDoBloqueio, invalidarCacheBloqueios } = require('../utils/naoRecrutar');
 const { despacharInteracao } = require('../utils/modulos');
 const { decisaoEmAndamento, travarFicha, liberarFicha } = require('../utils/recrutamento/trava');
-const { abrirRecrutamento, abrirLaudoReprovacao, aplicarAreaNaAprovacao } = require('../utils/recrutamento/fluxo');
+const { abrirRecrutamento, abrirLaudoReprovacao } = require('../utils/recrutamento/fluxo');
 const { registrarFicha, decidirFicha } = require('../utils/recrutamento/fichas');
 const { situacaoCarteirinha, textoSituacao } = require('../utils/carteirinha/regras');
 const { registrarSinal } = require('../utils/confianca/servico');
@@ -814,9 +814,6 @@ module.exports = (client, _config, utils) => {
 
     // Handler para submissão do modal
     if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_recrutamento')) {
-      // Área pretendida é só preferência: vira cargo apenas se a ficha for aprovada
-      const areaSlug = interaction.customId.split(':')[1] || null;
-      const area = areaSlug ? config.departamentos.find(d => d.slug === areaSlug) ?? null : null;
       const nome = interaction.fields.getTextInputValue('nome');
       const idade = interaction.fields.getTextInputValue('idade');
       const id_fivem = interaction.fields.getTextInputValue('id_fivem');
@@ -864,7 +861,6 @@ module.exports = (client, _config, utils) => {
           { name: 'ID FIVEM', value: id_fivem, inline: false },
           { name: 'TELEFONE', value: telefone, inline: false },
           { name: 'RECRUTADOR', value: recrutador, inline: false },
-          ...(area ? [{ name: 'ÁREA PRETENDIDA', value: area.nome, inline: false }] : []),
           { name: 'ID | DISCORD', value: `${user.id} | <@${user.id}>`, inline: false }
         ]
       };
@@ -874,7 +870,7 @@ module.exports = (client, _config, utils) => {
       if (canalValidarSetagem) {
         const mensagemFicha = await canalValidarSetagem.send({ embeds: [embed], components: botoesRecrutamento() });
         await registrarFicha({
-          messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador, areaSlug: area?.slug ?? null,
+          messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador,
         }).catch(err => console.error('[recrutamento] Erro ao registrar ficha:', err));
       } else {
         console.error('Canal de validação de setagem não encontrado!');
@@ -904,8 +900,7 @@ module.exports = (client, _config, utils) => {
       }
     }
 
-    // Handler para botão de abrir recrutamento: confere a situação do candidato,
-    // pergunta a área pretendida (se houver áreas) e abre o formulário
+    // Handler para botão de abrir recrutamento: confere a situação do candidato e abre o formulário
     if (interaction.isButton() && interaction.customId === 'abrir_recrutamento') {
       await abrirRecrutamento(interaction);
       return;
@@ -952,7 +947,6 @@ module.exports = (client, _config, utils) => {
         }
         // Dar cargo de sócio, alterar nick e registrar aprovação no banco
         const db = require('../utils/db');
-        let areaAplicada = null;
         try {
           const guildMember = await interaction.guild.members.fetch(candidatoId);
           await guildMember.roles.add(config.cargos.socio);
@@ -969,9 +963,6 @@ module.exports = (client, _config, utils) => {
           // Registrar aprovação no banco
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
           atualizarTopRecrutadores(client).catch(err => console.error('[aprovar] Erro ao atualizar top recrutadores:', err));
-          // Área pretendida só vira cargo agora, depois de aprovado (preferência ≠ lotação)
-          areaAplicada = await aplicarAreaNaAprovacao(guildMember, fichaId, embed)
-            .catch(err => { console.error('[aprovar] Erro ao aplicar área pretendida:', err); return null; });
           await decidirFicha(fichaId, { status: 'APROVADO', decididoPorId: interaction.user.id }, embed)
             .catch(err => console.error('[aprovar] Erro ao registrar decisão da ficha:', err));
           await registrarSinal(client, { discordId: candidatoId, sinal: 'APROVACAO', origemTipo: 'ficha', origemId: fichaId })
@@ -991,7 +982,7 @@ module.exports = (client, _config, utils) => {
             ...embed.fields,
             {
               name: 'STATUS',
-              value: `🦅 APROVADO POR <@${interaction.user.id}>${areaAplicada ? `\n🏛️ ÁREA: ${areaAplicada.nome.toUpperCase()}` : ''}`,
+              value: `🦅 APROVADO POR <@${interaction.user.id}>`,
               inline: false
             }
           ],

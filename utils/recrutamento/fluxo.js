@@ -5,7 +5,6 @@ const config = require('../../config/index.js');
 const { registrarModulo } = require('../modulos');
 const fichas = require('./fichas');
 const regras = require('./regras');
-const { listarDepartamentos } = require('../departamentos/repositorio');
 const { decisaoEmAndamento, travarFicha, liberarFicha } = require('./trava');
 const { registrarSinal } = require('../confianca/servico');
 
@@ -22,9 +21,9 @@ function comPrazo(promessa, ms, reserva) {
   ]);
 }
 
-function montarModalRecrutamento(areaSlug) {
+function montarModalRecrutamento() {
   const modal = new ModalBuilder()
-    .setCustomId(`modal_recrutamento:${areaSlug ?? ''}`)
+    .setCustomId('modal_recrutamento')
     .setTitle('Formulário de Recrutamento');
   const nomeInput = new TextInputBuilder()
     .setCustomId('nome')
@@ -71,34 +70,17 @@ function montarModalRecrutamento(areaSlug) {
   return modal;
 }
 
-// Botão SOLICITAR RECRUTAMENTO: confere se pode abrir ficha e pergunta a área pretendida
+// Botão SOLICITAR RECRUTAMENTO: confere se pode abrir ficha e abre o formulário
 async function abrirRecrutamento(interaction) {
   if (interaction.member?.roles.cache.has(config.cargos.socio)) {
     return interaction.reply({ content: '🦅 VOCÊ JÁ É SÓCIO DA TORCIDA.', flags: 64 });
   }
 
-  const [situacao, areas] = await comPrazo(
-    Promise.all([fichas.situacaoDoCandidato(interaction.user.id), listarDepartamentos({ apenasAtivos: true })]),
-    1500,
-    [null, []]
-  );
+  const situacao = await comPrazo(fichas.situacaoDoCandidato(interaction.user.id), 1500, null);
   const avaliacao = regras.avaliarNovaSolicitacao(situacao);
   if (!avaliacao.ok) return interaction.reply({ content: avaliacao.mensagem, flags: 64 });
 
-  if (!areas.length) return interaction.showModal(montarModalRecrutamento(null));
-
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('recrut:area')
-    .setPlaceholder('SELECIONE A ÁREA EM QUE QUER ATUAR')
-    .addOptions([
-      ...areas.map(a => ({ label: `${a.emoji} ${a.nome.toUpperCase()}`, value: a.slug })),
-      { label: 'SEM ÁREA POR ENQUANTO', value: 'sem_area' },
-    ]);
-  return interaction.reply({
-    content: '**📋 RECRUTAMENTO** — EM QUAL ÁREA VOCÊ QUER ATUAR?\n> A área só é confirmada depois que a sua solicitação for aprovada.',
-    components: [new ActionRowBuilder().addComponents(select)],
-    flags: 64,
-  });
+  return interaction.showModal(montarModalRecrutamento());
 }
 
 // Botão REPROVAR: abre o laudo (categoria, reenvio e justificativa numa tela só)
@@ -242,29 +224,11 @@ async function processarReprovacao(interaction, fichaId) {
   }
 }
 
-// Na aprovação, a área pretendida vira cargo de membro da área
-async function aplicarAreaNaAprovacao(membro, fichaId, embed) {
-  const [ficha, areas] = await Promise.all([
-    fichas.buscarFicha(fichaId).catch(() => null),
-    listarDepartamentos({ apenasAtivos: true }),
-  ]);
-  const slug = ficha?.area_slug ?? regras.slugDaAreaNoEmbed(embed.fields, areas);
-  const area = areas.find(a => a.slug === slug);
-  if (!area) return null;
-  await membro.roles.add(area.cargo_membro_id, 'Área pretendida na admissão');
-  return area;
-}
-
 registrarModulo('recrut', async interaction => {
   const [, acao, alvo] = interaction.customId.split(':');
-  if (acao === 'area' && interaction.isStringSelectMenu()) {
-    const escolha = interaction.values[0];
-    const valida = config.departamentos.some(d => d.slug === escolha);
-    return interaction.showModal(montarModalRecrutamento(valida ? escolha : null));
-  }
   if (acao === 'reprovar' && interaction.isModalSubmit()) {
     return processarReprovacao(interaction, alvo);
   }
 });
 
-module.exports = { montarModalRecrutamento, abrirRecrutamento, abrirLaudoReprovacao, aplicarAreaNaAprovacao };
+module.exports = { montarModalRecrutamento, abrirRecrutamento, abrirLaudoReprovacao };
