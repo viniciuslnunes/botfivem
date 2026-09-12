@@ -11,13 +11,16 @@ const W = 700;
 const H = 280;
 const MARGEM = { topo: 34, baixo: 40, esquerda: 44, direita: 16 };
 
+// Paleta preto e branco — cores da torcida (Gaviões da Fiel), sem vermelho/
+// amarelo: fundo preto, cinza pras barras normais, branco só destacando o
+// maior pico do período.
 const COR_FUNDO = '#000000';
 const COR_GRADE = '#333333';
 const COR_TEXTO = '#FFFFFF';
 const COR_TEXTO_FRACO = '#999999';
-const COR_BARRA = '#E30613'; // vermelho Gaviões da Fiel
+const COR_BARRA = '#8C8C8C';
 const COR_BARRA_ZERO = '#3A3A3A';
-const COR_PICO = '#FFC400'; // amarelo — destaca a barra do maior pico do período
+const COR_PICO = '#FFFFFF'; // destaca a barra do maior pico do período
 const COR_MEDIA = '#7A7A7A';
 const COR_AGORA = '#FFFFFF';
 

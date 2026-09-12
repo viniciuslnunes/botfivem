@@ -370,7 +370,7 @@ async function picoHistoricoRegistrado() {
 function linhasContexto(sociosCount, manual, pico) {
   return [
     sociosCount != null ? `**SÓCIOS COM CARGO NO DISCORD:** ${E.formatarNumero(sociosCount)}` : null,
-    manual?.socios?.valor != null ? `**SÓCIOS SETADOS (CONFERIDO À MÃO):** ${E.formatarNumero(manual.socios.valor)}` : null,
+    manual?.socios?.valor != null ? `**SÓCIOS SETADOS:** ${E.formatarNumero(manual.socios.valor)}` : null,
     pico != null ? `**MAIOR BONDE JÁ REGISTRADO (WEBHOOK):** ${E.formatarNumero(pico)}` : null,
     manual?.pico?.valor != null ? `**MAIOR BONDE MENSAL (RANKING DO JOGO):** ${E.formatarNumero(manual.pico.valor)}` : null,
   ].filter(l => l !== null);

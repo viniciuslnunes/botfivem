@@ -8,6 +8,7 @@ const { removerTodasAsAreas } = require('../utils/departamentos/gestao');
 const { mapaCargosDepartamento } = require('../utils/departamentos/repositorio');
 const { agendarAtualizacaoQuadro } = require('../utils/departamentos/quadro');
 const { agendarAtualizacaoReativa: agendarSociosSemId } = require('../utils/logsJogo/painelSociosSemId');
+const { agendarAtualizacaoReativa: agendarIdsSemSocio } = require('../utils/logsJogo/idsSemSocio');
 const { idFivemDoNick } = require('../utils/logsJogo/estatisticas');
 
 const CARGO_IDS_HIERARQUIA = new Set(HIERARQUIA.map(c => c.id));
@@ -55,6 +56,13 @@ module.exports = (client) => {
     if (eraSocio || ehSocioAgora) {
       const idMudou = idFivemDoNick(oldMember.nickname ?? oldMember.displayName) !== idFivemDoNick(newMember.nickname ?? newMember.displayName);
       if (mudouSocio || idMudou) agendarSociosSemId(client);
+    }
+
+    // Canal "IDs sem Discord": aqui não importa o cargo SÓCIO, só se o ID
+    // vinculado ao apelido mudou — de qualquer membro (recém-vinculado some
+    // da lista, apelido trocado sem ID some junto).
+    if (idFivemDoNick(oldMember.nickname ?? oldMember.displayName) !== idFivemDoNick(newMember.nickname ?? newMember.displayName)) {
+      agendarIdsSemSocio(client);
     }
 
     const cargosDeArea = await mapaCargosDepartamento().catch(() => new Map());

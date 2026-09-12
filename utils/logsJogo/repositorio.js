@@ -212,6 +212,28 @@ async function historicoCargo(idFivem) {
   return res.rows;
 }
 
+// IDs do jogo com pelo menos `minimo` aparições em todo o histórico (como
+// ator OU alvo), pra achar quem interage de verdade com a torcida — usado
+// pelo canal "IDs sem Discord" pra saber quem orientar a entrar no
+// servidor. `nome` pega o apelido mais recente já visto pro ID (jogador
+// pode ter mudado de nome no meio do caminho).
+async function idsFrequentes(minimo) {
+  const res = await db.query(
+    `SELECT id, (array_agg(nome ORDER BY ocorrido_em DESC))[1] AS nome,
+            COUNT(*)::int AS total, MAX(ocorrido_em) AS ultima
+       FROM (
+         SELECT ator_id_fivem AS id, ator_nome AS nome, ocorrido_em FROM logs_jogo WHERE ator_id_fivem IS NOT NULL
+         UNION ALL
+         SELECT alvo_id_fivem AS id, alvo_nome AS nome, ocorrido_em FROM logs_jogo WHERE alvo_id_fivem IS NOT NULL
+       ) t
+      GROUP BY id
+     HAVING COUNT(*) >= $1
+      ORDER BY total DESC`,
+    [minimo]
+  );
+  return res.rows;
+}
+
 // Último evento de qualquer uma das ações dadas — usado pro módulo de
 // segurança descobrir o estado atual de uma fechadura (o último "trancou"/
 // "destrancou" registrado, qual dos dois foi por último é que decide).
@@ -278,6 +300,7 @@ module.exports = {
   categoriasDistintas: prefixo => valoresDistintos('categoria', prefixo),
   acoesDistintas: prefixo => valoresDistintos('acao', prefixo),
   ultimaAtividadePorIds,
+  idsFrequentes,
   estadoDosJogadores,
   eventosConexao,
   ultimoEvento,

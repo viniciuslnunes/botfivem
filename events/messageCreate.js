@@ -5,6 +5,7 @@ const { ehMensagemDeLog, registrosDaMensagem, gravarRegistros } = require('../ut
 const { avaliarAlertas } = require('../utils/logsJogo/alertas');
 const { agendarAtualizacaoReativa, atualizarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
 const { agendarAtualizacaoReativa: agendarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
+const { agendarAtualizacaoReativa: agendarIdsSemSocio } = require('../utils/logsJogo/idsSemSocio');
 const { incrementarSociosManual } = require('../utils/logsJogo/presencaInteracoes');
 
 module.exports = (client) => {
@@ -28,6 +29,11 @@ module.exports = (client) => {
       if (novos.some(r => r.categoria === 'conexao')) {
         agendarAtualizacaoReativa(client);
         agendarRegistrosDiarios(client);
+      }
+      // ID do jogo novo nos logs: pode passar a bater (ou deixar de bater)
+      // com o filtro de frequência do canal de IDs sem Discord.
+      if (novos.some(r => r.atorIdFivem || r.alvoIdFivem)) {
+        agendarIdsSemSocio(client);
       }
       // "Fulano recrutou beltrano" no log do próprio jogo: soma 1 em SÓCIOS
       // SETADOS por recrutamento novo (só os que `gravarRegistros` não tinha

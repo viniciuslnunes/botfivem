@@ -21,7 +21,14 @@ const CONFIG_KEY_MANUAL = 'painel_jogadores_manual';
 // pra replicar em outro painel — não inventar um fluxo novo por módulo.
 // Cada entrada aqui vira uma opção do select e um modal de um campo só.
 const CAMPOS_MANUAIS = [
-  { chave: 'socios', rotuloSelect: 'Sócios setados', rotuloCampo: 'SÓCIOS SETADOS' },
+  {
+    chave: 'socios', rotuloSelect: 'Sócios setados', rotuloCampo: 'SÓCIOS SETADOS',
+    // Também soma sozinho, na hora, a cada recrutamento que o próprio jogo
+    // loga no webhook (ver incrementarSociosManual, chamado por
+    // events/messageCreate.js) — editar aqui só ajusta o número na mão por
+    // cima disso, não substitui a soma automática.
+    descricaoSelect: 'Some sozinho a cada recrutamento do webhook — editar aqui só ajusta por cima',
+  },
   { chave: 'pico', rotuloSelect: 'Maior bonde mensal', rotuloCampo: 'MAIOR BONDE MENSAL' },
 ];
 
@@ -145,7 +152,7 @@ function selectCampoManual() {
   const select = new StringSelectMenuBuilder()
     .setCustomId('presenca:editarcampo')
     .setPlaceholder('SELECIONE O CAMPO PARA EDITAR')
-    .addOptions(CAMPOS_MANUAIS.map(c => ({ label: c.rotuloSelect, value: c.chave })));
+    .addOptions(CAMPOS_MANUAIS.map(c => ({ label: c.rotuloSelect, value: c.chave, description: c.descricaoSelect })));
   return new ActionRowBuilder().addComponents(select);
 }
 

@@ -8,6 +8,7 @@ const { iniciarPainelLogs } = require('../utils/logsJogo/painel');
 const { iniciarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
 const { iniciarPainelSociosSemId } = require('../utils/logsJogo/painelSociosSemId');
 const { iniciarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
+const { iniciarIdsSemSocio } = require('../utils/logsJogo/idsSemSocio');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
@@ -33,6 +34,7 @@ module.exports = (client) => {
         iniciarPainelJogadores(client);
         iniciarPainelSociosSemId(client);
         iniciarRegistrosDiarios(client);
+        iniciarIdsSemSocio(client);
       });
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
