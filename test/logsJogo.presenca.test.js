@@ -81,6 +81,46 @@ test('período maior nunca tem pico menor que um período menor contido nele (se
   assert.ok(picoMes >= picoDia, `pico do mês (${picoMes}) não pode ser menor que o do dia contido nele (${picoDia})`);
 });
 
+const HORA_MS = 60 * 60 * 1000;
+
+test('sessão sem saída há mais tempo que o limite não aparece como online (caso real: "há um mês")', () => {
+  const estado = [
+    { id: 'arthurzin', nome: 'Arthurzin', acao: 'jogador_entrou', ocorrido_em: '2026-07-28T20:17:32.032Z' },
+    { id: 'ativo', nome: 'Ativo', acao: 'jogador_entrou', ocorrido_em: '2026-09-12T02:00:00.000Z' },
+  ];
+  const agora = new Date('2026-09-12T03:00:00.000Z'); // Arthurzin: ~45 dias parado; Ativo: 1h
+  const filtrado = P.estadoSemSessoesExpiradas(estado, 8 * HORA_MS, agora);
+  assert.deepEqual(filtrado.map(e => e.id), ['ativo']);
+});
+
+test('fecha sozinha uma sessão do baseline que expira no meio do período, sem afetar quem entrou depois', () => {
+  const baseline = [{ id: 'preso', nome: 'Preso', acao: 'jogador_entrou', ocorrido_em: '2026-09-01T00:00:00-03:00' }];
+  const eventos = [{ id: 'novo', nome: 'Novo', acao: 'jogador_entrou', ocorrido_em: '2026-09-01T20:00:00-03:00' }];
+  const limiteMs = 8 * HORA_MS;
+  const fimPeriodo = new Date('2026-09-02T00:00:00-03:00');
+
+  const ajustados = P.comFechamentosAutomaticos(baseline, eventos, limiteMs, fimPeriodo);
+  // "preso" ganha uma saída sintética 8h depois do início (00:00 + 8h = 08:00)
+  const saidaSintetica = ajustados.find(e => e.id === 'preso' && e.acao === 'jogador_saiu');
+  assert.ok(saidaSintetica, 'deveria ter fechado a sessão presa sozinha');
+  assert.equal(new Date(saidaSintetica.ocorrido_em).toISOString(), new Date('2026-09-01T08:00:00-03:00').toISOString());
+
+  const baldes = E.gerarBaldes(new Date('2026-09-01T00:00:00-03:00'), fimPeriodo, HORA_MS, E.chaveHora, E.inicioDaHoraSP);
+  const serie = P.serieDeOcupacao(['preso'], ajustados, baldes);
+  // Pico nunca passa de 2 (preso + novo ao mesmo tempo não ocorre: preso já fechou às 8h, novo só entra às 20h)
+  assert.ok(Math.max(...serie.map(b => b.pico)) <= 1, 'preso e novo não podem ter se sobreposto');
+});
+
+test('tempo jogado de uma sessão presa também é limitado pelo fechamento automático', () => {
+  const baseline = [{ id: 'preso', nome: 'Preso', acao: 'jogador_entrou', ocorrido_em: '2026-09-01T00:00:00-03:00' }];
+  const limiteMs = 8 * HORA_MS;
+  const inicio = new Date('2026-09-01T00:00:00-03:00');
+  const fim = new Date('2026-09-05T00:00:00-03:00'); // 4 dias depois, sem nunca ter saído
+  const ajustados = P.comFechamentosAutomaticos(baseline, [], limiteMs, fim);
+  const tempo = P.tempoJogadoPorPeriodo(baseline, ajustados, inicio, fim);
+  assert.equal(tempo.get('preso').ms, limiteMs); // e não 4 dias inteiros
+});
+
 test('balde de hora e dia no fuso de São Paulo', () => {
   assert.equal(E.chaveHora('2026-09-11T02:30:00Z'), '2026-09-10 23h');
   assert.equal(E.inicioDaHoraSP('2026-09-11T02:30:00Z').toISOString(), '2026-09-11T02:00:00.000Z');

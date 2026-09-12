@@ -163,6 +163,18 @@ function formatarDinheiro(n) {
   return `$ ${formatadorDinheiro.format(Number(n) || 0)}`;
 }
 
+// Duração em ms → "45min", "3h20min", "2d5h" (unidade zerada não aparece)
+function formatarDuracao(ms) {
+  const min = Math.round(Math.max(0, ms) / 60000);
+  if (min < 60) return `${min}min`;
+  const horas = Math.floor(min / 60);
+  const restoMin = min % 60;
+  if (horas < 24) return restoMin ? `${horas}h${restoMin}min` : `${horas}h`;
+  const dias = Math.floor(horas / 24);
+  const restoHoras = horas % 24;
+  return restoHoras ? `${dias}d${restoHoras}h` : `${dias}d`;
+}
+
 function formatarDiaCurto(chave) {
   const [, mes, dia] = String(chave).split('-');
   return `${dia}/${mes}`;

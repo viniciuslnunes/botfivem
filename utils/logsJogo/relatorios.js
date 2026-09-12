@@ -7,6 +7,7 @@ const P = require('./presenca');
 
 const COR = 0x000000;
 const RODAPE = 'Com base nos logs do jogo recebidos pelo webhook';
+const LIMITE_SESSAO_MS = config.logsJogo.presencaSessaoMaxHoras * 60 * 60 * 1000;
 
 function listaTop(linhas, formatar) {
   if (!linhas.length) return '*Sem dados no período.*';
@@ -152,12 +153,18 @@ async function montarEmbedInativos(guild, dias) {
 // semana/mês por dia). "Tudo" (sem início) usa a época como início efetivo.
 async function blocoOcupacao(rotulo, periodo, granularidade) {
   const inicio = periodo.inicio ?? new Date(0);
-  const [baselineEstado, eventos, distintos] = await Promise.all([
+  const [baselineBruto, eventos, distintos] = await Promise.all([
     repo.estadoDosJogadores(inicio),
     repo.eventosConexao(inicio, periodo.fim),
     repo.jogadoresDistintosNoPeriodo(inicio, periodo.fim),
   ]);
-  const idsNoInicio = P.idsOnline(baselineEstado);
+  // Sessão sem saída em até LIMITE_SESSAO_MS se fecha sozinha, senão uma
+  // queda de conexão sem log deixaria o jogador "online" indefinidamente e
+  // inflaria pico e tempo jogado.
+  const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, inicio);
+  const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventos, LIMITE_SESSAO_MS, periodo.fim);
+
+  const idsNoInicio = P.idsOnline(baseline);
   const hora = granularidade === 'hora';
   const baldes = E.gerarBaldes(
     inicio, periodo.fim,
@@ -165,15 +172,24 @@ async function blocoOcupacao(rotulo, periodo, granularidade) {
     hora ? E.chaveHora : E.chaveDia,
     hora ? E.inicioDaHoraSP : E.inicioDoDiaSP
   );
-  const serie = P.serieDeOcupacao(idsNoInicio, eventos, baldes);
+  const serie = P.serieDeOcupacao(idsNoInicio, eventosAjustados, baldes);
   const pico = P.picoDoPeriodo(idsNoInicio, serie);
+
+  const topTempo = [...P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim).entries()]
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => b.ms - a.ms)
+    .slice(0, 5);
 
   const linhas = [
     `**Pico de simultâneos:** ${E.formatarNumero(pico)}`,
     `**Jogadores distintos:** ${E.formatarNumero(distintos)}`,
   ];
   if (serie.some(b => b.pico > 0)) linhas.push('', `\`${E.sparkline(serie.map(b => b.pico))}\``);
-  return { name: rotulo, value: linhas.join('\n'), inline: false };
+  if (topTempo.length) {
+    linhas.push('', '**Mais tempo jogado:**',
+      ...topTempo.map((t, i) => `${i + 1}. ${t.nome ?? '?'} \`${t.id}\` — ${E.formatarDuracao(t.ms)}`));
+  }
+  return { name: rotulo, value: E.truncar(linhas.join('\n'), 1024), inline: false };
 }
 
 // Uma linha por jogador, em ordem alfabética, com o tempo de sessão que o
@@ -212,7 +228,7 @@ function camposOnline(online) {
 // Painel de presença: quem está online agora + pico de simultâneos por
 // hora (hoje), por dia (semana e mês)
 async function montarEmbedJogadoresOnline(agora = new Date()) {
-  const estadoAgora = await repo.estadoDosJogadores(agora);
+  const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
 
   const [hoje, semana, mes] = await Promise.all([
@@ -235,7 +251,7 @@ async function montarEmbedJogadoresOnline(agora = new Date()) {
 // + um único bloco de pico/distintos para o período escolhido. "Hoje" quebra
 // por hora; qualquer período maior quebra por dia.
 async function montarEmbedPresenca(periodo, agora = new Date()) {
-  const estadoAgora = await repo.estadoDosJogadores(agora);
+  const estadoAgora = P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora);
   const online = P.listaOnline(estadoAgora);
 
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';

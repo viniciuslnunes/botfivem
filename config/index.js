@@ -106,6 +106,11 @@ module.exports = {
     // Canal do painel fixo de jogadores online (entrada/saída do logs-painel).
     canalPainelJogadores: '1548201757820059688', // 📊・painel-jogadores
     painelJogadoresIntervaloMin: 5,
+    // Sem uma saída em até tantas horas depois de uma entrada, a sessão se
+    // fecha sozinha (o jogo perde saída de vez em quando: queda de conexão,
+    // crash, mensagem que não chegou — sem isso o jogador ficaria "online"
+    // pra sempre no cálculo).
+    presencaSessaoMaxHoras: 8,
     inatividadeDias: 7,
     novatoSemRecrutamentoDias: 3, // alerta quem entrou no jogo e não pediu recrutamento após N dias
   },
