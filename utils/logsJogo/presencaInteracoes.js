@@ -169,6 +169,19 @@ async function lerManualAtual() {
   }
 }
 
+// Único jeito de mexer em "SÓCIOS SETADOS" que não passa pelo botão EDITAR
+// (select→modal, CAMPOS_MANUAIS): o log de "fulano recrutou beltrano" do
+// canal logsJogo.canalRecrutamentoJogo chama isso direto (ver
+// events/messageCreate.js), somando 1 por recrutamento novo. Preserva
+// quem/quando da última edição manual — só o valor muda.
+async function incrementarSociosManual(incremento) {
+  if (!incremento) return;
+  const manual = await lerManualAtual();
+  const atual = manual.socios?.valor ?? 0;
+  manual.socios = { ...manual.socios, valor: atual + incremento };
+  await gravarConfig(CONFIG_KEY_MANUAL, JSON.stringify(manual));
+}
+
 // Consulta paginada: a lista inteira (quem está online, ou o ranking de
 // tempo jogado) fica em memória, identificada no customId dos botões — uma
 // lista de centenas de jogadores não cabe num embed só.
@@ -599,4 +612,4 @@ registrarModulo('presenca', async interaction => {
   }
 });
 
-module.exports = { linhaBotoesPresenca, abrirPresenca, CONFIG_KEY_MANUAL };
+module.exports = { linhaBotoesPresenca, abrirPresenca, CONFIG_KEY_MANUAL, incrementarSociosManual };

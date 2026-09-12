@@ -64,6 +64,24 @@ const REGRAS = [
       return { atorIdFivem: m?.[1] ?? null, atorNome: m?.[2]?.trim() ?? null, categoria: 'conexao' };
     },
   },
+  {
+    acao: 'jogador_recrutou',
+    // "#15277 Tiago Magrão recrutou #19465 Gelado Silva." (canal do sistema
+    // de recrutamento do próprio jogo — nada a ver com o /recrutamento do
+    // Discord). Cada recrutamento novo soma 1 em SÓCIOS SETADOS (CONFERIDO À
+    // MÃO) no painel de jogadores — ver events/messageCreate.js.
+    teste: d => /^#\d+\s+.+\brecrutou\b\s+#\d+/i.test(d),
+    extrair: d => {
+      const m = d.match(/^#(\d+)\s+(.+?)\s+recrutou\s+#(\d+)\s+(.+?)\.?\s*$/i);
+      return {
+        atorIdFivem: m?.[1] ?? null,
+        atorNome: m?.[2]?.trim() ?? null,
+        alvoIdFivem: m?.[3] ?? null,
+        alvoNome: m?.[4]?.trim() ?? null,
+        categoria: 'recrutamento',
+      };
+    },
+  },
 ];
 
 function parseRegistro(embed) {

@@ -3,7 +3,8 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config/index.js');
 const { ehMensagemDeLog, registrosDaMensagem, gravarRegistros } = require('../utils/logsJogo/ingestao');
 const { avaliarAlertas } = require('../utils/logsJogo/alertas');
-const { agendarAtualizacaoReativa } = require('../utils/logsJogo/painelJogadores');
+const { agendarAtualizacaoReativa, atualizarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
+const { incrementarSociosManual } = require('../utils/logsJogo/presencaInteracoes');
 
 module.exports = (client) => {
   client.on('messageCreate', async message => {
@@ -23,6 +24,15 @@ module.exports = (client) => {
       // Entrada/saída de jogador: atualiza o painel de presença logo (em vez
       // de esperar o próximo ciclo de tempo).
       if (novos.some(r => r.categoria === 'conexao')) agendarAtualizacaoReativa(client);
+      // "Fulano recrutou beltrano" no log do próprio jogo: soma 1 em SÓCIOS
+      // SETADOS por recrutamento novo (só os que `gravarRegistros` não tinha
+      // visto ainda — reprocessar um log antigo não conta de novo) e
+      // atualiza o painel na hora, sem esperar o botão EDITAR.
+      const recrutamentos = novos.filter(r => r.acao === 'jogador_recrutou').length;
+      if (recrutamentos > 0) {
+        await incrementarSociosManual(recrutamentos).catch(err => console.error('[logs-jogo] Erro ao somar sócios setados:', err));
+        await atualizarPainelJogadores(client).catch(err => console.error('[logs-jogo] Erro ao atualizar painel após recrutamento:', err));
+      }
       return;
     }
     // ────────────────────────────────────────────────────────────────────────
