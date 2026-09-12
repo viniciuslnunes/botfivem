@@ -27,7 +27,7 @@ function atualizarPublica(client, rifaId) {
 
 function botoesReserva(compraId) {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`rifa:paguei:${compraId}`).setLabel(`JÁ PAGUEI · #${compraId}`).setEmoji('💵').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`rifa:paguei:${compraId}`).setLabel(`JÁ PAGUEI · #${compraId}`).setEmoji('💵').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`rifa:desistir:${compraId}`).setLabel('DESISTIR').setStyle(ButtonStyle.Danger)
   );
 }
@@ -66,7 +66,7 @@ async function abrirCompra(interaction, rifaId) {
       `Você pode levar até **${podeLevar}** número${podeLevar !== 1 ? 's' : ''} nesta compra${meus.length ? ` (já tem ${meus.length})` : ''}.`,
     ].join('\n'),
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`rifa:escolher:${rifa.id}`).setLabel('ESCOLHER NÚMEROS').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`rifa:escolher:${rifa.id}`).setLabel('ESCOLHER NÚMEROS').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`rifa:aleatorio:${rifa.id}`).setLabel('NÚMEROS ALEATÓRIOS').setEmoji('🎲').setStyle(ButtonStyle.Secondary)
     )],
     flags: 64,
@@ -243,7 +243,7 @@ async function decidirPagamento(interaction, compraId, confirmar) {
     rifa,
     numeros,
     decisao: confirmar
-      ? { texto: `✅ Confirmado por <@${interaction.user.id}> <t:${agora}:R>`, cor: 0x2ECC71 }
+      ? { texto: `✅ Confirmado por <@${interaction.user.id}> <t:${agora}:R>`, cor: 0x000000 }
       : { texto: `❌ Recusado por <@${interaction.user.id}> <t:${agora}:R> — números devolvidos à venda`, cor: 0xFF0000 },
   }));
   atualizarPublica(interaction.client, rifa.id);
@@ -267,7 +267,7 @@ async function decidirPagamento(interaction, compraId, confirmar) {
   await registrarLogGestao(interaction.client, {
     titulo: `🎟️ RIFA #${rifa.id} — PAGAMENTO ${confirmar ? 'CONFIRMADO' : 'RECUSADO'}`,
     ator: interaction.user.id,
-    cor: confirmar ? 0x2ECC71 : 0xFF0000,
+    cor: confirmar ? 0x000000 : 0xFF0000,
     campos: [
       { name: 'COMPRADOR', value: `<@${compra.discord_id}>`, inline: true },
       { name: 'TOTAL', value: formatarDinheiro(compra.total), inline: true },

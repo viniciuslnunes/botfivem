@@ -52,7 +52,7 @@ async function mostrarProduto(interaction, produtoId) {
   };
   const componente = disponiveis.length === 1 && disponiveis[0] === regras.TAMANHO_UNICO
     ? new ActionRowBuilder().addComponents(new ButtonBuilder()
-      .setCustomId(`loja:comprar:${produto.id}:${regras.TAMANHO_UNICO}`).setLabel('COMPRAR').setEmoji('🛒').setStyle(ButtonStyle.Primary))
+      .setCustomId(`loja:comprar:${produto.id}:${regras.TAMANHO_UNICO}`).setLabel('COMPRAR').setEmoji('🛒').setStyle(ButtonStyle.Secondary))
     : new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
       .setCustomId(`loja:tamanho:${produto.id}`)
       .setPlaceholder('SELECIONE O TAMANHO')
@@ -98,7 +98,7 @@ function montarMensagemPedido(pedido) {
       },
     ],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`loja:confirmar:${pedido.id}`).setLabel('CONFIRMAR PAGAMENTO').setEmoji('🤝').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`loja:confirmar:${pedido.id}`).setLabel('CONFIRMAR PAGAMENTO').setEmoji('🤝').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`loja:cancelar:${pedido.id}`).setLabel('CANCELAR PEDIDO').setStyle(ButtonStyle.Danger)
     )],
     allowedMentions: { users: [pedido.discord_id] },
@@ -194,7 +194,7 @@ async function decidir(interaction, pedidoId, status) {
   await registrarLogGestao(interaction.client, {
     titulo: `🛒 PEDIDO #${r.pedido.id} ${confirmado ? 'CONFIRMADO' : 'CANCELADO'}`,
     ator: interaction.user.id,
-    cor: confirmado ? 0x2ECC71 : 0xFF0000,
+    cor: confirmado ? 0x000000 : 0xFF0000,
     campos: [
       { name: 'COMPRADOR', value: `<@${r.pedido.discord_id}>`, inline: true },
       { name: 'ITEM', value: `${r.pedido.quantidade}× ${r.pedido.produto_nome} (${regras.rotuloTamanho(r.pedido.tamanho)})`, inline: true },

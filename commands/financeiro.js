@@ -44,7 +44,7 @@ async function lancar(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: `💰 LANÇAMENTO #${l.id} — ${l.tipo}`,
     ator: interaction.user.id,
-    cor: l.tipo === 'RECEITA' ? 0x2ECC71 : 0xFF0000,
+    cor: 0x000000,
     campos: [
       { name: 'VALOR', value: formatarDinheiro(l.valor), inline: true },
       { name: 'CATEGORIA', value: regras.rotuloCategoria(l.categoria), inline: true },

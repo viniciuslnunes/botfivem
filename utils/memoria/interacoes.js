@@ -22,7 +22,7 @@ function montarCartaoAprovacao(fato) {
       fields: [{ name: 'AUTOR', value: `<@${fato.autor_id}>`, inline: true }, { name: 'FATO', value: `#${fato.id}`, inline: true }],
     }],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`mem:aprovar:${fato.id}`).setLabel('APROVAR').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`mem:aprovar:${fato.id}`).setLabel('APROVAR').setEmoji('✅').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`mem:rejeitar:${fato.id}`).setLabel('REJEITAR').setStyle(ButtonStyle.Danger)
     )],
     allowedMentions: { parse: [] },
