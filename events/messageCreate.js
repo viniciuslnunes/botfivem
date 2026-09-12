@@ -4,6 +4,7 @@ const config = require('../config/index.js');
 const { ehMensagemDeLog, registrosDaMensagem, gravarRegistros } = require('../utils/logsJogo/ingestao');
 const { avaliarAlertas } = require('../utils/logsJogo/alertas');
 const { agendarAtualizacaoReativa, atualizarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
+const { agendarAtualizacaoReativa: agendarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
 const { incrementarSociosManual } = require('../utils/logsJogo/presencaInteracoes');
 
 module.exports = (client) => {
@@ -21,9 +22,13 @@ module.exports = (client) => {
         console.error('[logs-jogo] Erro ao gravar log:', err);
       }
       await avaliarAlertas(client, novos).catch(err => console.error('[logs-jogo] Erro nos alertas:', err));
-      // Entrada/saída de jogador: atualiza o painel de presença logo (em vez
-      // de esperar o próximo ciclo de tempo).
-      if (novos.some(r => r.categoria === 'conexao')) agendarAtualizacaoReativa(client);
+      // Entrada/saída de jogador: atualiza o painel de presença e o registro
+      // diário do dia em andamento logo (em vez de esperar o próximo ciclo
+      // de tempo — 5min e 6h, respectivamente).
+      if (novos.some(r => r.categoria === 'conexao')) {
+        agendarAtualizacaoReativa(client);
+        agendarRegistrosDiarios(client);
+      }
       // "Fulano recrutou beltrano" no log do próprio jogo: soma 1 em SÓCIOS
       // SETADOS por recrutamento novo (só os que `gravarRegistros` não tinha
       // visto ainda — reprocessar um log antigo não conta de novo) e

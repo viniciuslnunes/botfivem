@@ -202,7 +202,27 @@ async function atualizarRegistrosDiarios(client) {
 function iniciarRegistrosDiarios(client) {
   const atualizar = () => atualizarRegistrosDiarios(client).catch(err => console.error('[registros-diarios] Erro ao atualizar:', err));
   atualizar();
+  // O ciclo por tempo fica só como rede de segurança (mesmo padrão do painel
+  // de jogadores — ver painelJogadores.js): a atualização de verdade é
+  // reativa, disparada a cada entrada/saída que chega.
   setInterval(atualizar, INTERVALO_HORAS * 60 * 60 * 1000);
 }
 
-module.exports = { iniciarRegistrosDiarios, atualizarRegistrosDiarios };
+// Atualização reativa: dispara pouco depois de um evento de entrada/saída
+// chegar, em vez de esperar o próximo ciclo de tempo. Debounce maior que o
+// do painel de jogadores (15s) porque aqui uma atualização pode editar até
+// 6 mensagens (lista grande quebrada em campos) — juntar uma rajada de
+// entradas/saídas seguidas numa única atualização evita martelar a edição
+// de várias mensagens repetidas vezes em poucos segundos.
+const DEBOUNCE_MS = 45 * 1000;
+let timerPendente = null;
+
+function agendarAtualizacaoReativa(client) {
+  if (timerPendente) return;
+  timerPendente = setTimeout(() => {
+    timerPendente = null;
+    atualizarRegistrosDiarios(client).catch(err => console.error('[registros-diarios] Erro ao atualizar (reativo):', err));
+  }, DEBOUNCE_MS);
+}
+
+module.exports = { iniciarRegistrosDiarios, atualizarRegistrosDiarios, agendarAtualizacaoReativa };
