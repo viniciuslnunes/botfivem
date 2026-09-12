@@ -85,17 +85,22 @@ function construirEmbed(rowsPagina, atual, totalPaginas, totalSocios) {
 }
 
 function linhaBotoesPaginacao(atual, totalPaginas) {
+  const temAnterior = atual > 0;
+  const temProxima = atual < totalPaginas - 1;
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`mural:pag:${atual - 1}`)
-      .setLabel(`◀ ANTERIOR (${atual}/${totalPaginas})`)
+      // Sem página anterior/seguinte, não tem número de destino válido pra
+      // mostrar (seria "página 0" ou "página totalPaginas+1") — legenda
+      // simples no botão desabilitado, número só quando ele leva a algum lugar.
+      .setLabel(temAnterior ? `◀ ANTERIOR (${atual}/${totalPaginas})` : '◀ ANTERIOR')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual === 0),
+      .setDisabled(!temAnterior),
     new ButtonBuilder()
       .setCustomId(`mural:pag:${atual + 1}`)
-      .setLabel(`PRÓXIMA ▶ (${atual + 2}/${totalPaginas})`)
+      .setLabel(temProxima ? `PRÓXIMA ▶ (${atual + 2}/${totalPaginas})` : 'PRÓXIMA ▶')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual >= totalPaginas - 1)
+      .setDisabled(!temProxima)
   );
 }
 
@@ -135,8 +140,12 @@ async function atualizarMural(client) {
 registrarModulo('mural', async interaction => {
   const [, acao, paginaStr] = interaction.customId.split(':');
   if (interaction.isButton() && acao === 'pag') {
+    // deferUpdate ANTES de consultar o banco: sem isso, uma consulta que
+    // passe de 3s estoura o prazo da interação e o Discord mostra "BOT não
+    // respondeu a tempo" mesmo o clique tendo funcionado.
+    await interaction.deferUpdate();
     const { embed, components } = await renderizarPagina(Number(paginaStr) || 0);
-    await interaction.update({ embeds: [embed], components });
+    await interaction.editReply({ embeds: [embed], components });
   }
 });
 

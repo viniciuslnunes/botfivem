@@ -258,17 +258,22 @@ function renderizarPagina(consultaId, consulta, pagina) {
     footer: { text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel · Página ${atual + 1}/${totalPaginas}` },
   };
   const selectRow = selectFiltrarPorId(consultaId);
+  const temAnterior = atual > 0;
+  const temProxima = atual < totalPaginas - 1;
   const botoes = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`presenca:pag:${consultaId}:${atual - 1}`)
-      .setLabel(`◀ ANTERIOR (${atual}/${totalPaginas})`)
+      // Sem página anterior/seguinte, não tem número de destino válido pra
+      // mostrar (seria "página 0" ou "página totalPaginas+1") — legenda
+      // simples no botão desabilitado, número só quando ele leva a algum lugar.
+      .setLabel(temAnterior ? `◀ ANTERIOR (${atual}/${totalPaginas})` : '◀ ANTERIOR')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual === 0),
+      .setDisabled(!temAnterior),
     new ButtonBuilder()
       .setCustomId(`presenca:pag:${consultaId}:${atual + 1}`)
-      .setLabel(`PRÓXIMA ▶ (${atual + 2}/${totalPaginas})`)
+      .setLabel(temProxima ? `PRÓXIMA ▶ (${atual + 2}/${totalPaginas})` : 'PRÓXIMA ▶')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(atual >= totalPaginas - 1),
+      .setDisabled(!temProxima),
     new ButtonBuilder()
       .setCustomId(`presenca:buscar:${consultaId}`)
       .setLabel('🔎 BUSCAR')
