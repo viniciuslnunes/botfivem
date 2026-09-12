@@ -136,9 +136,22 @@ function linhaDaEntrada(entrada, indice, ehAgora) {
   return `${indice + 1}. **${nome}** \`${entrada.id}\` — ${E.formatarDuracao(entrada.ms)}`;
 }
 
+// Select nativo do Discord (mesmo tipo do buscarjogador) pra filtrar um
+// jogador desta página direto pelo membro do Discord — reativo pela busca
+// nativa do cliente entre TODOS os membros do servidor, não só os 25 da
+// página. Resolve o ID do jogo pelo apelido (padrão "... - 1234").
+function selectFiltrarPorId(consultaId) {
+  const select = new UserSelectMenuBuilder()
+    .setCustomId(`presenca:selusuario:${consultaId}`)
+    .setPlaceholder('FILTRAR UM JOGADOR DESTA PÁGINA POR ID');
+  return new ActionRowBuilder().addComponents(select);
+}
+
 // Select que lista até 25 entradas (label + descrição com o ID) e, ao
-// escolher uma, mostra a ficha daquele jogador — usado tanto pro filtro da
-// página atual quanto pro resultado da busca (que cobre a consulta inteira).
+// escolher uma, mostra a ficha daquele jogador — usado no resultado da busca
+// por nome/ID (modal), que cobre a consulta inteira e pode incluir jogador
+// que já nem está mais no servidor Discord (por isso StringSelect, não
+// UserSelect: esse aqui não depende de o jogador ser membro).
 function selectDeEntradas(consultaId, entradas, ehAgora, placeholder) {
   if (!entradas.length) return null;
   const select = new StringSelectMenuBuilder()
@@ -185,7 +198,7 @@ function renderizarPagina(consultaId, consulta, pagina) {
     ],
     footer: { text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel · Página ${atual + 1}/${totalPaginas}` },
   };
-  const selectRow = selectDeEntradas(consultaId, fatia, consulta.ehAgora, 'FILTRAR UM JOGADOR DESTA PÁGINA POR ID');
+  const selectRow = selectFiltrarPorId(consultaId);
   const botoes = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`presenca:pag:${consultaId}:${atual - 1}`)
@@ -202,7 +215,7 @@ function renderizarPagina(consultaId, consulta, pagina) {
       .setLabel('🔎 BUSCAR')
       .setStyle(ButtonStyle.Secondary)
   );
-  return { embeds: [embed], components: selectRow ? [selectRow, botoes] : [botoes], allowedMentions: { parse: [] } };
+  return { embeds: [embed], components: [selectRow, botoes], allowedMentions: { parse: [] } };
 }
 
 // Ficha de um jogador só, a partir do ID escolhido no select — busca na
@@ -254,6 +267,19 @@ function modalBuscarJogador(consultaId) {
       .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(50)));
 }
 
+// Devolve o painel fixo (o do canal, não a consulta ephemeral) pro estado
+// limpo depois de escolher um período ou buscar um jogador — os dois
+// selects moram na mesma mensagem, então sem isso a opção escolhida fica
+// "presa" visualmente no componente, parecendo (errado) que os dois
+// filtros estão combinados. Debounced (agendarAtualizacaoReativa), então
+// vários cliques em sequência viram uma edição só. Requerido aqui dentro
+// (não no topo do arquivo) pra evitar ciclo de require com
+// painelJogadores.js, que importa este módulo pelos botões.
+function resetarPainelFixo(client) {
+  const { agendarAtualizacaoReativa } = require('./painelJogadores');
+  agendarAtualizacaoReativa(client);
+}
+
 async function abrirPresenca(interaction, periodo) {
   limparExpiradas();
   const dados = await relatorios.montarDadosPresenca(periodo);
@@ -270,6 +296,11 @@ registrarModulo('presenca', async interaction => {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     await interaction.deferReply({ flags: 64 });
     await abrirPresenca(interaction, E.resolverPeriodo(interaction.values[0]));
+    // O select de período e o de buscar jogador vivem no mesmo painel fixo,
+    // mas são buscas avulsas — sem isso, o Discord deixa a opção escolhida
+    // "presa" no componente pra sempre (até o próximo ciclo/evento
+    // atualizar o painel), parecendo que os dois selects estão combinados.
+    resetarPainelFixo(interaction.client);
     return;
   }
 
@@ -278,6 +309,7 @@ registrarModulo('presenca', async interaction => {
     const membro = interaction.members.first();
     const idFivem = E.idFivemDoNick(membro?.nickname ?? membro?.displayName);
     if (!idFivem) {
+      resetarPainelFixo(interaction.client);
       return interaction.reply({
         content: `❌ ${membro ?? 'ESSE MEMBRO'} NÃO TEM ID DO JOGO NO APELIDO (PADRÃO "... - 1234").`,
         flags: 64,
@@ -287,6 +319,7 @@ registrarModulo('presenca', async interaction => {
     await interaction.deferReply({ flags: 64 });
     const ficha = await relatorios.montarFichaCompletaJogador(idFivem);
     await interaction.editReply({ embeds: [embedFichaCompleta(membro, ficha)] });
+    resetarPainelFixo(interaction.client);
     return;
   }
 
@@ -334,6 +367,29 @@ registrarModulo('presenca', async interaction => {
     return interaction.reply({ content: `🔎 BUSCA POR \`${termo}\`:`, components: [selectRow], flags: 64 });
   }
 
+  if (interaction.isUserSelectMenu() && acao === 'selusuario') {
+    const consulta = consultas.get(a);
+    if (!consulta || Date.now() - consulta.criadoEm > TTL_MS) {
+      return interaction.reply({ content: '⌛ ESTA CONSULTA EXPIROU. CLIQUE NO PERÍODO DE NOVO.', flags: 64 });
+    }
+    if (consulta.userId !== interaction.user.id) {
+      return interaction.reply({ content: '❌ ESSA CONSULTA NÃO É SUA.', flags: 64 });
+    }
+    const membro = interaction.members.first();
+    const idFivem = E.idFivemDoNick(membro?.nickname ?? membro?.displayName);
+    const entrada = idFivem ? consulta.entradas.find(e => e.id === idFivem) : null;
+    if (!entrada) {
+      return interaction.reply({
+        content: `❌ ${membro ?? 'ESSE MEMBRO'} NÃO ESTÁ NESTA CONSULTA (OU NÃO TEM ID DO JOGO NO APELIDO). USE O 🔎 BUSCAR PRA PROCURAR POR NOME OU ID.`,
+        flags: 64,
+        allowedMentions: { parse: [] },
+      });
+    }
+    return interaction.reply({ embeds: [embedFichaJogador(consulta, entrada)], flags: 64, allowedMentions: { parse: [] } });
+  }
+
+  // "sel" continua tratado aqui só pelo resultado da busca por nome/ID
+  // (modal), que ainda usa StringSelect — ver selectDeEntradas.
   if (interaction.isStringSelectMenu() && acao === 'sel') {
     const consulta = consultas.get(a);
     if (!consulta || Date.now() - consulta.criadoEm > TTL_MS) {
