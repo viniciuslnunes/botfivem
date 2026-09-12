@@ -20,8 +20,7 @@ const CONFIG_KEY_CANAL = 'canal_registros_diarios';
 const CONFIG_KEY_ESTADO = 'registros_diarios_estado';
 const NOME_CANAL = '📅・registros-diarios';
 const INTERVALO_HORAS = 6;
-const LIMITE_EMBED = 5500; // margem abaixo do limite de 6000 do Discord (título+descrição+campos)
-const LIMITE_CAMPO = 1000; // margem abaixo do limite de 1024 por campo
+const LIMITE_DESCRICAO = 3900; // margem abaixo do limite de 4096 caracteres da description do Discord
 
 function permissoesCanal(guild, botId) {
   return [
@@ -77,67 +76,58 @@ function linhaJogador(entrada, indice) {
   return `${indice + 1}. **${entrada.nome ?? '?'}** \`${entrada.id}\` — ${E.formatarDuracao(entrada.ms)}`;
 }
 
-// Quebra uma lista de linhas em grupos que caibam num campo de embed
-// (LIMITE_CAMPO cada) — mesma ideia do `content` paginado do canal de
-// sócios sem ID, só que por campo em vez de por mensagem inteira.
-function agruparLinhas(linhas, limite) {
+// Quebra uma lista de linhas em pedaços que caibam num orçamento de
+// caracteres cada — o primeiro pedaço tem orçamento menor (sobra menos
+// espaço, porque a description da primeira mensagem também carrega
+// linhaTopo + o cabeçalho "JOGADORES (N)"), os seguintes usam o orçamento
+// cheio. Usado pra montar a description de cada mensagem, nunca `fields`:
+// um field do Discord sempre reserva uma linha de nome, mesmo com nome
+// vazio — isso abria um respiro estranho no meio da lista numerada (ver
+// print do usuário, posição 26→27 e 51→52). Texto corrido na description
+// não tem essa quebra.
+function agruparPorOrcamento(linhas, orcamentoPrimeiro, orcamentoDemais) {
   const grupos = [];
   let atual = [];
   let tamanho = 0;
+  let orcamento = orcamentoPrimeiro;
   for (const linha of linhas) {
     const acrescimo = linha.length + 1;
-    if (atual.length && tamanho + acrescimo > limite) {
+    if (atual.length && tamanho + acrescimo > orcamento) {
       grupos.push(atual);
       atual = [];
       tamanho = 0;
+      orcamento = orcamentoDemais;
     }
     atual.push(linha);
     tamanho += acrescimo;
   }
-  if (atual.length) grupos.push(atual);
+  grupos.push(atual); // sempre pelo menos um grupo, mesmo vazio (dia sem ninguém online)
   return grupos;
 }
 
-// Um dia normalmente cabe num embed só (resumo + lista de jogadores). Se a
-// lista for grande demais pro limite de 6000 caracteres do Discord, quebra
-// em mais de um embed — cada um vira uma mensagem separada no canal,
-// mantendo a ordem (resumo só no primeiro).
+// Um dia normalmente cabe numa mensagem só (resumo + lista de jogadores
+// inteira na description). Se a lista for grande demais pro limite de 4096
+// caracteres da description, quebra em mais de uma mensagem — cada uma
+// continua a mesma coluna vertical, sem repetir cabeçalho no meio.
 function montarEmbedsRegistro(dia, dados) {
   const linhas = dados.entradas.map((e, i) => linhaJogador(e, i));
-  const gruposLinhas = agruparLinhas(linhas, LIMITE_CAMPO);
-  // É UMA lista só (só quebrada em campos porque cada campo do Discord tem
-  // limite de 1024 caracteres) — repetir "JOGADORES" com numeração de parte
-  // a cada pedaço dava a impressão de várias listas soltas. Nome só no
-  // primeiro campo; os campos seguintes usam um espaço de largura zero como
-  // nome (Discord não aceita campo sem nome) pra não repetir nada e a lista
-  // continuar direto, como se fosse um texto só.
-  const camposLista = gruposLinhas.map((grupo, i) => ({
-    name: i === 0 ? `JOGADORES (${dados.entradas.length})` : '​',
-    value: grupo.join('\n'),
-    inline: false,
-  }));
+  const cabecalhoLista = `**JOGADORES (${dados.entradas.length})**\n`;
+  const cabecalhoPrimeira = `${dados.linhaTopo}\n\n${cabecalhoLista}`;
+  const orcamentoPrimeira = Math.max(500, LIMITE_DESCRICAO - cabecalhoPrimeira.length);
+  const grupos = dados.entradas.length
+    ? agruparPorOrcamento(linhas, orcamentoPrimeira, LIMITE_DESCRICAO)
+    : [[]];
 
-  const paginas = [];
-  let atual = { primeira: true, fields: [dados.resumo], tamanho: dados.resumo.name.length + dados.resumo.value.length };
-  for (const campo of camposLista) {
-    const custo = campo.name.length + campo.value.length;
-    if (atual.fields.length >= 24 || atual.tamanho + custo > LIMITE_EMBED) {
-      paginas.push(atual);
-      atual = { primeira: false, fields: [], tamanho: 0 };
-    }
-    atual.fields.push(campo);
-    atual.tamanho += custo;
-  }
-  paginas.push(atual);
-
-  return paginas.map((p, i) => ({
+  return grupos.map((grupo, i) => ({
     color: 0x000000,
-    title: p.primeira ? `📅 REGISTRO DIÁRIO — ${tituloDia(dia)}` : null,
-    description: p.primeira ? dados.linhaTopo : `*(continuação — ${tituloDia(dia)})*`,
-    fields: p.fields,
+    title: i === 0 ? `📅 REGISTRO DIÁRIO — ${tituloDia(dia)}` : null,
+    description: i === 0
+      ? `${cabecalhoPrimeira}${grupo.join('\n') || '*Ninguém online registrado.*'}`
+      : `*(continuação — ${tituloDia(dia)})*\n\n${grupo.join('\n')}`,
+    fields: i === 0 ? [dados.resumo] : [],
     footer: {
       text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel`
-        + (paginas.length > 1 ? ` · Página ${i + 1}/${paginas.length}` : ''),
+        + (grupos.length > 1 ? ` · Página ${i + 1}/${grupos.length}` : ''),
     },
     timestamp: new Date().toISOString(),
   }));
@@ -200,6 +190,39 @@ async function atualizarRegistrosDiarios(client) {
   estado[diaHoje] = { messageIds: idsHoje, finalizado: false };
 
   await gravarEstado(estado);
+}
+
+// Reconstrói o período de UM dia já fechado (chave "YYYY-MM-DD"), fora do
+// ciclo normal (que só sabe falar de "ontem"/"hoje"). `chave: 'ontem'` é só
+// pra herdar a granularidade por hora do sparkline — os campos que
+// realmente importam pra montarDadosPresenca são inicio/fim.
+function periodoDoDia(dia) {
+  const inicio = new Date(`${dia}T00:00:00-03:00`);
+  return { chave: 'ontem', rotulo: tituloDia(dia), inicio, fim: new Date(inicio.getTime() + E.DIA_MS) };
+}
+
+// Reprocessamento único: reedita a FORMATAÇÃO de dias já `finalizado: true`
+// (rótulo, numeração das listas etc.) sem recalcular nada que mudaria o
+// resultado — um dia fechado não recebe log novo, então os números saem
+// idênticos, só a apresentação muda. Existe só pra corrigir o acervo depois
+// de um ajuste visual em montarEmbedsRegistro/linhasContexto; não é chamado
+// no ciclo normal (ver atualizarRegistrosDiarios, que só reprocessa "ontem"
+// e "hoje"). Devolve quantos dias foram reeditados.
+async function reprocessarFormatacaoDiasFechados(client) {
+  const guild = await client.guilds.fetch(config.guildId);
+  const canal = await garantirCanal(guild);
+  const estado = await lerEstado();
+  const agora = new Date();
+
+  let reeditados = 0;
+  for (const dia of Object.keys(estado)) {
+    if (!estado[dia]?.finalizado) continue;
+    const idsNovos = await atualizarRegistroDoDia(canal, dia, periodoDoDia(dia), agora, estado[dia].messageIds);
+    estado[dia] = { messageIds: idsNovos, finalizado: true };
+    reeditados++;
+  }
+  await gravarEstado(estado);
+  return reeditados;
 }
 
 function iniciarRegistrosDiarios(client) {
