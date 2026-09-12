@@ -1,0 +1,138 @@
+// Cálculos puros das estatísticas dos logs (sem Discord nem banco).
+
+const FUSO = 'America/Sao_Paulo';
+const DIA_MS = 24 * 60 * 60 * 1000;
+const BLOCOS = '▁▂▃▄▅▆▇█';
+
+const PERIODOS = {
+  hoje: { dias: 1, rotulo: 'HOJE' },
+  '7d': { dias: 7, rotulo: 'ÚLTIMOS 7 DIAS' },
+  '30d': { dias: 30, rotulo: 'ÚLTIMOS 30 DIAS' },
+  '90d': { dias: 90, rotulo: 'ÚLTIMOS 90 DIAS' },
+  tudo: { dias: null, rotulo: 'TODO O HISTÓRICO' },
+};
+
+const PERIODO_CHOICES = [
+  { name: 'Hoje', value: 'hoje' },
+  { name: 'Últimos 7 dias', value: '7d' },
+  { name: 'Últimos 30 dias', value: '30d' },
+  { name: 'Últimos 90 dias', value: '90d' },
+  { name: 'Todo o histórico', value: 'tudo' },
+];
+
+const formatadorDia = new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+// Dia civil em São Paulo, "YYYY-MM-DD"
+function chaveDia(data) {
+  return formatadorDia.format(new Date(data));
+}
+
+// São Paulo é UTC-3 fixo (sem horário de verão desde 2019)
+function inicioDoDiaSP(data) {
+  return new Date(`${chaveDia(data)}T00:00:00-03:00`);
+}
+
+// Janela atual e a anterior de mesma duração, para comparar sem distorção
+function resolverPeriodo(chave = '7d', agora = new Date()) {
+  const valida = PERIODOS[chave] ? chave : '7d';
+  const def = PERIODOS[valida];
+  const fim = new Date(agora);
+  if (!def.dias) {
+    return { chave: valida, rotulo: def.rotulo, inicio: null, fim, anteriorInicio: null, anteriorFim: null };
+  }
+  const inicio = new Date(inicioDoDiaSP(agora).getTime() - (def.dias - 1) * DIA_MS);
+  const deslocamento = def.dias * DIA_MS;
+  return {
+    chave: valida,
+    rotulo: def.rotulo,
+    inicio,
+    fim,
+    anteriorInicio: new Date(inicio.getTime() - deslocamento),
+    anteriorFim: new Date(fim.getTime() - deslocamento),
+  };
+}
+
+// Preenche com zero os dias sem registro, do início ao fim (inclusive)
+function serieDiaria(linhas, inicio, fim) {
+  const porDia = new Map(linhas.map(l => [l.dia, Number(l.total)]));
+  const ultimo = chaveDia(fim);
+  const serie = [];
+  let cursor = inicioDoDiaSP(inicio).getTime();
+  for (let i = 0; i < 3660; i++) {
+    const dia = chaveDia(cursor);
+    serie.push({ dia, total: porDia.get(dia) ?? 0 });
+    if (dia >= ultimo) break;
+    cursor += DIA_MS;
+  }
+  return serie;
+}
+
+function agruparEmBaldes(valores, largura) {
+  if (valores.length <= largura) return valores.slice();
+  const tamanho = Math.ceil(valores.length / largura);
+  const baldes = [];
+  for (let i = 0; i < valores.length; i += tamanho) {
+    baldes.push(valores.slice(i, i + tamanho).reduce((a, b) => a + b, 0));
+  }
+  return baldes;
+}
+
+function sparkline(valores, largura = 30) {
+  if (!valores.length) return '';
+  const baldes = agruparEmBaldes(valores, largura);
+  const max = Math.max(...baldes);
+  if (max === 0) return BLOCOS[0].repeat(baldes.length);
+  return baldes
+    .map(v => (v === 0 ? BLOCOS[0] : BLOCOS[Math.max(1, Math.round((v / max) * (BLOCOS.length - 1)))]))
+    .join('');
+}
+
+function variacao(atual, anterior) {
+  if (anterior == null) return null;
+  if (anterior === 0) return atual === 0 ? '= igual ao período anterior' : '▲ período anterior sem registros';
+  const pct = Math.round(((atual - anterior) / anterior) * 100);
+  if (pct === 0) return '= igual ao período anterior';
+  return `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs período anterior`;
+}
+
+// Nick padrão do recrutamento: "S GDF | Nome - 1234"
+function idFivemDoNick(nick) {
+  const m = String(nick ?? '').match(/-\s*(\d{1,8})\s*$/);
+  return m ? m[1] : null;
+}
+
+const formatadorNumero = new Intl.NumberFormat('pt-BR');
+const formatadorDinheiro = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+
+function formatarNumero(n) {
+  return formatadorNumero.format(Number(n) || 0);
+}
+
+function formatarDinheiro(n) {
+  return `$ ${formatadorDinheiro.format(Number(n) || 0)}`;
+}
+
+function formatarDiaCurto(chave) {
+  const [, mes, dia] = String(chave).split('-');
+  return `${dia}/${mes}`;
+}
+
+function truncar(texto, max) {
+  const s = String(texto ?? '');
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+module.exports = {
+  PERIODO_CHOICES,
+  chaveDia,
+  inicioDoDiaSP,
+  resolverPeriodo,
+  serieDiaria,
+  sparkline,
+  variacao,
+  idFivemDoNick,
+  formatarNumero,
+  formatarDinheiro,
+  formatarDiaCurto,
+  truncar,
+};

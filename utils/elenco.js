@@ -1,10 +1,11 @@
 const path = require('path');
 const db = require('./db');
+const config = require('../config/index.js');
 
 const IMG_PATH = path.join(__dirname, '../img/ruasaojorge.png');
-const CANAL_ELENCO = '1489462740149080125';
+const CANAL_ELENCO = config.canais.elenco;
 const CONFIG_KEY = 'elenco_message_id';
-const CARGO_ELENCO = '1489461786511020285';
+const CARGO_ELENCO = config.cargos.elenco;
 
 async function getElencoMessageId() {
   const res = await db.query('SELECT value FROM bot_config WHERE key = $1', [CONFIG_KEY]);

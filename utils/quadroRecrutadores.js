@@ -1,10 +1,11 @@
 const path = require('path');
 const db = require('./db');
+const config = require('../config/index.js');
 
 const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
-const CANAL_QUADRO = '1326966898134482955';
+const CANAL_QUADRO = config.canais.quadroRecrutadores;
 const CONFIG_KEY = 'quadro_recrutadores_message_id';
-const CARGO_RECRUTADOR = '1198743169030951010';
+const CARGO_RECRUTADOR = config.cargos.recrutador;
 
 async function getQuadroMessageId() {
   const res = await db.query('SELECT value FROM bot_config WHERE key = $1', [CONFIG_KEY]);

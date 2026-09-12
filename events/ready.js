@@ -1,10 +1,41 @@
 // Handler de eventos: ready
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config/index.js');
+const { executarMigracoes } = require('../utils/migracoes');
+const { iniciarAgendador } = require('../utils/agendador');
+const { sincronizarCanaisDeLog } = require('../utils/logsJogo/ingestao');
+const { iniciarPainelLogs } = require('../utils/logsJogo/painel');
+const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
+const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
+const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
+const { atualizarQuadroDepartamentos } = require('../utils/departamentos/quadro');
 
 module.exports = (client) => {
   client.once('clientReady', async () => {
     console.log(`Bot online como ${client.user.tag}`);
+
+    // Estrutura do banco antes de qualquer rotina que dependa dela
+    await executarMigracoes();
+    iniciarAgendador(client);
+
+    // Recupera logs do jogo que chegaram com o bot desligado
+    sincronizarCanaisDeLog(client)
+      .then(resultados => console.log('[logs-jogo] Sincronização inicial:', resultados))
+      .catch(err => console.error('[logs-jogo] Erro na sincronização inicial:', err));
+    iniciarPainelLogs(client);
+
+    // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
+    reconciliarCarteirinhas(client)
+      .then(alteradas => { if (alteradas) console.log(`[carteirinha] ${alteradas} carteirinha(s) reconciliada(s).`); })
+      .catch(err => console.error('[carteirinha] Erro na reconciliação:', err));
+    // Aviso por DM de carteirinha vencendo/vencida (a cada 6h)
+    iniciarVerificacaoVencimentos(client);
+    // Novatos do jogo que não pediram recrutamento no Discord (a cada 6h)
+    iniciarAlertaNovatos(client);
+    // Quadro de departamentos em dia com quem entrou/saiu das áreas com o bot desligado
+    atualizarQuadroDepartamentos(client)
+      .catch(err => console.error('[departamentos] Erro ao atualizar quadro:', err));
+
     // Enviar mensagem fixa de recrutamento no canal de análise (somente se não existir)
     try {
       const canalRecrutamento = await client.channels.fetch(config.canais.recrutamento);
@@ -36,7 +67,7 @@ module.exports = (client) => {
 
     // Enviar mensagem fixa de ticket (somente se não existir)
     try {
-      const canalTicket = await client.channels.fetch('1442247874808385797');
+      const canalTicket = await client.channels.fetch(config.canais.ticket);
       if (canalTicket) {
         const msgs = await canalTicket.messages.fetch({ limit: 20 });
         const jaExiste = msgs.some(m => m.author.id === client.user.id && m.components.length > 0);

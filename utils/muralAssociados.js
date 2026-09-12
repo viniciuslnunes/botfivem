@@ -1,5 +1,6 @@
 const db = require('./db');
 const path = require('path');
+const config = require('../config/index.js');
 
 const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
 const LOGO_FILE = { attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' };
@@ -7,7 +8,7 @@ const LOGO_FILE = { attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }
 const CAPA_PATH = path.join(__dirname, '../img/capa.png');
 const CAPA_FILE = { attachment: CAPA_PATH, name: 'capa.png' };
 
-const CANAL_MURAL = '1489521960533626930';
+const CANAL_MURAL = config.canais.mural;
 const CONFIG_KEY = 'mural_associados_message_id';
 
 async function getMuralMessageId() {
@@ -51,7 +52,8 @@ function construirEmbed(rows) {
 
 async function atualizarMural(client) {
   const res = await db.query(
-    'SELECT numero_socio, nome FROM socios ORDER BY numero_socio ASC'
+    // Carteirinha revogada (sócio desligado) não aparece no mural
+    'SELECT numero_socio, nome FROM socios WHERE revogada_em IS NULL ORDER BY numero_socio ASC'
   );
   const rows = res.rows;
   const embed = construirEmbed(rows);

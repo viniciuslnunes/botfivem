@@ -1,17 +1,43 @@
 // Handler de eventos: interactionCreate
 // (Aqui você pode migrar toda a lógica de recrutamento, aprovação, etc)
 
-const recrutamentoButtons = require('../utils/recrutamentoButtons');
+const { botoesRecrutamento } = require('../utils/recrutamentoButtons');
 const config = require('../config/index.js');
 const db = require('../utils/db');
 const { gerarCarteirinha } = require('../utils/gerarCarteirinha');
 const { atualizarMural } = require('../utils/muralAssociados');
 const { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH, CATEGORIAS } = require('../utils/ticket');
 const { atualizarTopRecrutadores } = require('../utils/topRecrutadores');
+const { agendar } = require('../utils/agendador');
+require('../utils/tarefas'); // registra os tipos de tarefa (vencimento de ADV, remoção de cargo)
+const { buscarBloqueio, mensagensDoBloqueio, invalidarCacheBloqueios } = require('../utils/naoRecrutar');
+const { despacharInteracao } = require('../utils/modulos');
+const { decisaoEmAndamento, travarFicha, liberarFicha } = require('../utils/recrutamento/trava');
+const { abrirRecrutamento, abrirLaudoReprovacao, aplicarAreaNaAprovacao } = require('../utils/recrutamento/fluxo');
+const { registrarFicha, decidirFicha } = require('../utils/recrutamento/fichas');
+const { situacaoCarteirinha, textoSituacao } = require('../utils/carteirinha/regras');
+const { registrarSinal } = require('../utils/confianca/servico');
+const { mapearSociosPorIdFivem } = require('../utils/recrutamento/funil');
+
+// Advertência de recrutador tem cargos próprios; reusar os de sócio escalaria as duas juntas.
+const advRecConfigurada = () =>
+  Array.isArray(config.cargos.advRec) && config.cargos.advRec.length === 3 && config.cargos.advRec.every(Boolean);
+const MSG_ADV_REC_SEM_CARGOS = '⚠️ CARGOS DE ADVERTÊNCIA DE RECRUTADOR NÃO CONFIGURADOS. PEÇA A UM ADMINISTRADOR PARA PREENCHER `cargos.advRec` NA CONFIGURAÇÃO DO BOT.';
 
 module.exports = (client, _config, utils) => {
   client.on('interactionCreate', async interaction => {
     try {
+    if (interaction.isAutocomplete()) {
+      const command = client.commands.get(interaction.commandName);
+      if (command?.autocomplete) {
+        await command.autocomplete(interaction).catch(err => console.error('[autocomplete] Erro:', err));
+      }
+      return;
+    }
+
+    // Módulos novos (customId "<modulo>:...") resolvem aqui
+    if (await despacharInteracao(interaction)) return;
+
     // Handler para botão de abrir ticket → mostra select de categoria
     if (interaction.isButton() && interaction.customId === 'abrir_ticket') {
       const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
@@ -109,6 +135,10 @@ module.exports = (client, _config, utils) => {
     if (interaction.isButton() && interaction.customId === 'solicitar_carteirinha') {
       await interaction.deferReply({ flags: 64 });
 
+      if (!interaction.member.roles.cache.has(config.cargos.socio)) {
+        return interaction.editReply({ content: '❌ A CARTEIRINHA É EXCLUSIVA PARA SÓCIOS APROVADOS.' });
+      }
+
       const discordId = interaction.user.id;
       const membro = interaction.member;
       const nome = membro.nickname || interaction.user.displayName || interaction.user.username;
@@ -144,8 +174,9 @@ module.exports = (client, _config, utils) => {
         return interaction.editReply({ content: '❌ ERRO AO GERAR A CARTEIRINHA. TENTE NOVAMENTE.' });
       }
 
+      const situacao = situacaoCarteirinha(row.validade, new Date(), config.carteirinha.vencendoDias);
       await interaction.editReply({
-        content: `🏆 SUA CARTEIRINHA DE SÓCIO Nº **${String(row.numero_socio).padStart(4, '0')}**!`,
+        content: `🏆 SUA CARTEIRINHA DE SÓCIO Nº **${String(row.numero_socio).padStart(4, '0')}**!\n${textoSituacao(situacao)}${situacao.situacao === 'VENCIDA' ? ' — PROCURE A DIRETORIA PARA RENOVAR.' : ''}`,
         files: [{ attachment: buffer, name: 'carteirinha.png' }]
       });
 
@@ -185,6 +216,33 @@ module.exports = (client, _config, utils) => {
         new ActionRowBuilder().addComponents(idInput),
         new ActionRowBuilder().addComponents(motivoInput),
         new ActionRowBuilder().addComponents(provaInput)
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+    // Handler para botão de abrir modal de remoção de ID bloqueado
+    if (interaction.isButton() && interaction.customId === 'abrir_desbloquearid') {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const modal = new ModalBuilder()
+        .setCustomId('modal_desbloquearid')
+        .setTitle('REMOVER ID BLOQUEADO — NÃO RECRUTAR');
+      const idInput = new TextInputBuilder()
+        .setCustomId('id')
+        .setLabel('ID FIVEM PARA DESBLOQUEAR')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(8);
+      const motivoInput = new TextInputBuilder()
+        .setCustomId('motivo')
+        .setLabel('MOTIVO DA REMOÇÃO')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMinLength(3)
+        .setMaxLength(100);
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(idInput),
+        new ActionRowBuilder().addComponents(motivoInput)
       );
       await interaction.showModal(modal);
       return;
@@ -294,36 +352,24 @@ module.exports = (client, _config, utils) => {
 
     // Handler para submissão do modal de validação de ID
     if (interaction.isModalSubmit() && interaction.customId === 'modal_validarid') {
-      const id_fivem = interaction.fields.getTextInputValue('id_fivem');
-      // Buscar IDs bloqueados no canal de histórico-nao-recrutar
-      const canalHistorico = interaction.guild.channels.cache.get('1487943943680163890');
-      let bloqueado = null;
-      if (canalHistorico && canalHistorico.isTextBased()) {
-        try {
-          const msgs = await canalHistorico.messages.fetch({ limit: 100 });
-          msgs.forEach(msg => {
-            if (msg.embeds && msg.embeds.length > 0) {
-              const embed = msg.embeds[0];
-              const idField = embed.fields?.find(f => f.name === 'ID');
-              if (idField && idField.value === id_fivem) {
-                bloqueado = embed;
-              }
-            }
-          });
-        } catch (err) {
-          console.error('Erro ao buscar histórico de não recrutar:', err);
-        }
+      const id_fivem = interaction.fields.getTextInputValue('id_fivem').trim();
+      // O histórico inteiro é lido (pode levar alguns segundos): deferir antes
+      await interaction.deferReply({ flags: 64 });
+      let bloqueado;
+      try {
+        bloqueado = await buscarBloqueio(client, id_fivem);
+      } catch (err) {
+        console.error('Erro ao buscar histórico de não recrutar:', err);
+        return interaction.editReply({ content: '❌ NÃO FOI POSSÍVEL CONSULTAR A LISTA DE NÃO RECRUTAR. TENTE NOVAMENTE.' });
       }
       if (bloqueado) {
-        await interaction.reply({
+        await interaction.editReply({
           content: `❌ O ID FiveM **${id_fivem}** está bloqueado para recrutamento!`,
-          embeds: [bloqueado],
-          flags: 64
+          embeds: [bloqueado]
         });
       } else {
-        await interaction.reply({
-          content: `🦅 O ID FiveM **${id_fivem}** está **liberado** para recrutamento!`,
-          flags: 64
+        await interaction.editReply({
+          content: `🦅 O ID FiveM **${id_fivem}** está **liberado** para recrutamento!`
         });
       }
       return;
@@ -333,9 +379,19 @@ module.exports = (client, _config, utils) => {
       const id = interaction.fields.getTextInputValue('id');
       const motivo = interaction.fields.getTextInputValue('motivo');
       const prova = interaction.fields.getTextInputValue('prova');
-      const canalHistorico = interaction.guild.channels.cache.get('1487943943680163890');
+      const canalHistorico = interaction.guild.channels.cache.get(config.canais.historicoNaoRecrutar);
       if (!canalHistorico || !canalHistorico.isTextBased()) {
         return interaction.reply({ content: 'Canal de histórico não encontrado.', flags: 64 });
+      }
+      await interaction.deferReply({ flags: 64 });
+      // Bloqueio barra quem quer entrar; sócio ativo precisa ser desligado antes (atos separados, rastro separado)
+      await interaction.guild.members.fetch().catch(() => {});
+      const socioComId = mapearSociosPorIdFivem(interaction.guild.members.cache.values(), config.cargos.socio).get(id.trim());
+      if (socioComId) {
+        return interaction.editReply({
+          content: `❌ O ID ${id.trim()} É DE ${socioComId}, SÓCIO ATIVO. DESLIGUE (REMOVA O CARGO SÓCIO) ANTES DE BLOQUEAR.`,
+          allowedMentions: { parse: [] },
+        });
       }
       const embed = {
         color: 0xFF0000,
@@ -349,7 +405,47 @@ module.exports = (client, _config, utils) => {
         ]
       };
       await canalHistorico.send({ embeds: [embed] });
-      await interaction.reply({ content: `ID ${id} bloqueado com sucesso!`, flags: 64 });
+      invalidarCacheBloqueios();
+      await interaction.editReply({ content: `ID ${id} bloqueado com sucesso!` });
+      return;
+    }
+
+    // Handler para submissão do modal de remoção de ID bloqueado
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_desbloquearid') {
+      const id = interaction.fields.getTextInputValue('id').trim();
+      const motivo = interaction.fields.getTextInputValue('motivo');
+      await interaction.deferReply({ flags: 64 });
+
+      // Mesma leitura da validação: o histórico inteiro do canal
+      let bloqueios;
+      try {
+        bloqueios = (await mensagensDoBloqueio(client, id)).filter(msg => msg.author.id === client.user.id);
+      } catch (err) {
+        console.error('Erro ao buscar histórico de não recrutar:', err);
+        return interaction.editReply({ content: '❌ Erro ao buscar o histórico de não recrutar.' });
+      }
+      if (bloqueios.length === 0) {
+        return interaction.editReply({ content: `⚠️ O ID FiveM **${id}** não está na lista de não recrutar.` });
+      }
+
+      // Mantém o registro no histórico: renomeia o campo "ID" (a validação deixa de encontrá-lo)
+      // e acrescenta quem removeu, o motivo e a data
+      for (const msg of bloqueios) {
+        const original = msg.embeds[0];
+        const embed = {
+          color: 0x808080,
+          title: '🦅 ID Desbloqueado para Recrutamento',
+          fields: [
+            ...original.fields.map(f => f.name === 'ID' ? { ...f, name: 'ID (DESBLOQUEADO)' } : f),
+            { name: 'Motivo da remoção', value: motivo, inline: false },
+            { name: 'Removido por', value: `<@${interaction.user.id}>`, inline: false },
+            { name: 'Data da remoção', value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: false }
+          ]
+        };
+        await msg.edit({ embeds: [embed] });
+      }
+      invalidarCacheBloqueios();
+      await interaction.editReply({ content: `🦅 ID ${id} removido da lista de não recrutar!` });
       return;
     }
 
@@ -373,14 +469,8 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
       }
 
-      const CANAL_HISTORICO    = '1488654031709671574';
-      const CANAL_PENDENTES    = '1489558741996146771';
-      const CARGO_SOCIO        = '1330990668654444604';
-      const CARGOS_ADV = [
-        '1341153479602864188', // ADV¹
-        '1341149153992114229', // ADV²
-        '1340321522547429458', // ADV³
-      ];
+      const CANAL_HISTORICO = config.canais.historicoAdv;
+      const CARGOS_ADV = config.cargos.adv; // ADV¹/²/³ de sócio
 
       // Verificar quantas advertências o membro já tem
       const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
@@ -423,39 +513,15 @@ module.exports = (client, _config, utils) => {
       await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA** REGISTRADA PARA ${membro}. PRAZO: **${prazoLabel}** (<t:${expiraEm}:F>).
 > ⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DOS CARGOS NO SERVIDOR.`, flags: 64 });
 
-      // Agendar verificação de vencimento
-      const guild = interaction.guild;
-      setTimeout(async () => {
-        try {
-          const membroAtual = await guild.members.fetch(membroId).catch(() => null);
-          if (!membroAtual) return;
-          // Se ainda tem o cargo de advertência, o pagamento não foi feito
-          if (!membroAtual.roles.cache.has(CARGOS_ADV[proximaAdv])) return;
-          // Remover cargo de sócio
-          await membroAtual.roles.remove(CARGO_SOCIO).catch(() => {});
-          // Postar no canal de advertências pendentes
-          const canalPendentes = await guild.channels.fetch(CANAL_PENDENTES).catch(() => null);
-          if (canalPendentes) {
-            await canalPendentes.send({
-              embeds: [{
-                color: 0xFF0000,
-                title: '❌ ADVERTÊNCIA NÃO PAGA — CARGO REMOVIDO',
-                fields: [
-                  { name: 'MEMBRO', value: `<@${membroId}>`, inline: true },
-                  { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
-                  { name: 'MOTIVO', value: motivo, inline: false },
-                  { name: 'PUNIÇÃO', value: punicao, inline: false },
-                  { name: 'PRAZO', value: `${prazoLabel} (VENCIDO)`, inline: false },
-                  { name: 'AÇÃO', value: 'CARGO DE SÓCIO REMOVIDO AUTOMATICAMENTE', inline: false },
-                  { name: 'DATA DE VENCIMENTO', value: `<t:${expiraEm}:F>`, inline: false }
-                ]
-              }]
-            });
-          }
-        } catch (err) {
-          console.error('[adv] Erro ao processar vencimento:', err);
-        }
-      }, prazoMs);
+      // Vencimento pelo agendador persistente: sobrevive a reinício do bot
+      try {
+        await agendar('adv_vencimento', new Date(Date.now() + prazoMs), {
+          variante: 'socio', membroId, cargoAdv: CARGOS_ADV[proximaAdv], numAdv, motivo, punicao, prazoLabel, expiraEm,
+        });
+      } catch (err) {
+        console.error('[adv] Erro ao agendar vencimento:', err);
+        await interaction.followUp({ content: '⚠️ A ADVERTÊNCIA FOI REGISTRADA, MAS O VENCIMENTO AUTOMÁTICO NÃO FOI AGENDADO. ACOMPANHE O PRAZO MANUALMENTE.', flags: 64 }).catch(() => {});
+      }
 
       return;
     }
@@ -473,12 +539,8 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
       }
 
-      const CANAL_HISTORICO = '1488654031709671574';
-      const CARGOS_ADV = [
-        '1341153479602864188', // ADV¹
-        '1341149153992114229', // ADV²
-        '1340321522547429458', // ADV³
-      ];
+      const CANAL_HISTORICO = config.canais.historicoAdv;
+      const CARGOS_ADV = config.cargos.adv; // ADV¹/²/³ de sócio
 
       // Encontrar cargo de advertência atual
       const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
@@ -520,6 +582,7 @@ module.exports = (client, _config, utils) => {
 
     // Handler para botão de abrir select de membro para registrar advertência de recrutador
     if (interaction.isButton() && interaction.customId === 'abrir_registrar_adv_rec') {
+      if (!advRecConfigurada()) return interaction.reply({ content: MSG_ADV_REC_SEM_CARGOS, flags: 64 });
       const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
       const row = new ActionRowBuilder().addComponents(
         new UserSelectMenuBuilder()
@@ -532,6 +595,7 @@ module.exports = (client, _config, utils) => {
 
     // Handler para botão de abrir select de membro para remover advertência de recrutador
     if (interaction.isButton() && interaction.customId === 'abrir_remover_adv_rec') {
+      if (!advRecConfigurada()) return interaction.reply({ content: MSG_ADV_REC_SEM_CARGOS, flags: 64 });
       const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
       const row = new ActionRowBuilder().addComponents(
         new UserSelectMenuBuilder()
@@ -623,13 +687,12 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
       }
 
-      const CANAL_HISTORICO_REC = '1447408212293714080';
-      const CARGO_RECRUTADOR_REC = '1198743169030951010';
-      const CARGOS_ADV = [
-        '1341153479602864188', // ADV¹
-        '1341149153992114229', // ADV²
-        '1340321522547429458', // ADV³
-      ];
+      if (!advRecConfigurada()) {
+        return interaction.reply({ content: MSG_ADV_REC_SEM_CARGOS, flags: 64 });
+      }
+
+      const CANAL_HISTORICO_REC = config.canais.historicoAdvRec;
+      const CARGOS_ADV = config.cargos.advRec; // ADV¹/²/³ de recrutador
 
       const advAtual  = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
       const proximaAdv = advAtual + 1;
@@ -666,35 +729,15 @@ module.exports = (client, _config, utils) => {
       await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA DE RECRUTAMENTO** REGISTRADA PARA ${membro}. PRAZO: **${prazoLabel}** (<t:${expiraEm}:F>).
 > ⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DO CARGO DE RECRUTADOR.`, flags: 64 });
 
-      const guild = interaction.guild;
-      setTimeout(async () => {
-        try {
-          const membroAtual = await guild.members.fetch(membroId).catch(() => null);
-          if (!membroAtual) return;
-          if (!membroAtual.roles.cache.has(CARGOS_ADV[proximaAdv])) return;
-          await membroAtual.roles.remove(CARGO_RECRUTADOR_REC).catch(() => {});
-          const canalHist = await guild.channels.fetch(CANAL_HISTORICO_REC).catch(() => null);
-          if (canalHist) {
-            await canalHist.send({
-              embeds: [{
-                color: 0xFF0000,
-                title: '❌ ADV. RECRUTAMENTO NÃO PAGA — CARGO REMOVIDO',
-                fields: [
-                  { name: 'RECRUTADOR', value: `<@${membroId}>`, inline: true },
-                  { name: 'ADVERTÊNCIA', value: `${numAdv}ª`, inline: true },
-                  { name: 'MOTIVO', value: motivo, inline: false },
-                  { name: 'PUNIÇÃO', value: punicao, inline: false },
-                  { name: 'PRAZO', value: `${prazoLabel} (VENCIDO)`, inline: false },
-                  { name: 'AÇÃO', value: 'CARGO DE RECRUTADOR REMOVIDO AUTOMATICAMENTE', inline: false },
-                  { name: 'DATA DE VENCIMENTO', value: `<t:${expiraEm}:F>`, inline: false }
-                ]
-              }]
-            });
-          }
-        } catch (err) {
-          console.error('[adv_rec] Erro ao processar vencimento:', err);
-        }
-      }, prazoMs);
+      // Vencimento pelo agendador persistente: sobrevive a reinício do bot
+      try {
+        await agendar('adv_vencimento', new Date(Date.now() + prazoMs), {
+          variante: 'recrutador', membroId, cargoAdv: CARGOS_ADV[proximaAdv], numAdv, motivo, punicao, prazoLabel, expiraEm,
+        });
+      } catch (err) {
+        console.error('[adv_rec] Erro ao agendar vencimento:', err);
+        await interaction.followUp({ content: '⚠️ A ADVERTÊNCIA FOI REGISTRADA, MAS O VENCIMENTO AUTOMÁTICO NÃO FOI AGENDADO. ACOMPANHE O PRAZO MANUALMENTE.', flags: 64 }).catch(() => {});
+      }
 
       return;
     }
@@ -712,12 +755,12 @@ module.exports = (client, _config, utils) => {
         return interaction.reply({ content: `❌ MEMBRO NÃO ENCONTRADO NO SERVIDOR.`, flags: 64 });
       }
 
-      const CANAL_HISTORICO_REC = '1447408212293714080';
-      const CARGOS_ADV = [
-        '1341153479602864188', // ADV¹
-        '1341149153992114229', // ADV²
-        '1340321522547429458', // ADV³
-      ];
+      if (!advRecConfigurada()) {
+        return interaction.reply({ content: MSG_ADV_REC_SEM_CARGOS, flags: 64 });
+      }
+
+      const CANAL_HISTORICO_REC = config.canais.historicoAdvRec;
+      const CARGOS_ADV = config.cargos.advRec; // ADV¹/²/³ de recrutador
 
       const advAtual = CARGOS_ADV.findIndex(id => membro.roles.cache.has(id));
 
@@ -770,7 +813,10 @@ module.exports = (client, _config, utils) => {
     }
 
     // Handler para submissão do modal
-    if (interaction.isModalSubmit() && interaction.customId === 'modal_recrutamento') {
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_recrutamento')) {
+      // Área pretendida é só preferência: vira cargo apenas se a ficha for aprovada
+      const areaSlug = interaction.customId.split(':')[1] || null;
+      const area = areaSlug ? config.departamentos.find(d => d.slug === areaSlug) ?? null : null;
       const nome = interaction.fields.getTextInputValue('nome');
       const idade = interaction.fields.getTextInputValue('idade');
       const id_fivem = interaction.fields.getTextInputValue('id_fivem');
@@ -818,14 +864,18 @@ module.exports = (client, _config, utils) => {
           { name: 'ID FIVEM', value: id_fivem, inline: false },
           { name: 'TELEFONE', value: telefone, inline: false },
           { name: 'RECRUTADOR', value: recrutador, inline: false },
+          ...(area ? [{ name: 'ÁREA PRETENDIDA', value: area.nome, inline: false }] : []),
           { name: 'ID | DISCORD', value: `${user.id} | <@${user.id}>`, inline: false }
         ]
       };
       await interaction.reply({ content: 'SUA SOLICITAÇÃO FOI ENVIADA PARA ANÁLISE! AGUARDE AS PRÓXIMAS INSTRUÇÕES.', flags: 64 });
       // Enviar embed com botões para aprovar/recusar no canal validar-setagem
-      const canalValidarSetagem = interaction.guild.channels.cache.get('1442240838699712623');
+      const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
       if (canalValidarSetagem) {
-        await canalValidarSetagem.send({ embeds: [embed], components: recrutamentoButtons });
+        const mensagemFicha = await canalValidarSetagem.send({ embeds: [embed], components: botoesRecrutamento(Boolean(area)) });
+        await registrarFicha({
+          messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador, areaSlug: area?.slug ?? null,
+        }).catch(err => console.error('[recrutamento] Erro ao registrar ficha:', err));
       } else {
         console.error('Canal de validação de setagem não encontrado!');
       }
@@ -845,77 +895,37 @@ module.exports = (client, _config, utils) => {
             avisoMsg.delete().catch(() => {});
           }, 5 * 60 * 1000); // 5 minutos
         }
-        // Agendar remoção do cargo e aviso em validar-setagem
-        setTimeout(async () => {
-          try {
-            await guildMember.roles.remove(config.cargos.provarManto);
-            // Não enviar mensagem de finalização de tempo de PROVAR MANTO
-          } catch (err) {
-            console.error('Erro ao remover cargo PROVAR MANTO ou avisar:', err);
-          }
-        }, 10 * 60 * 1000); // 10 minutos
+        // Remoção do cargo em 10 minutos pelo agendador persistente (sobrevive a reinício)
+        await agendar('remover_cargo', new Date(Date.now() + 10 * 60 * 1000), {
+          membroId: user.id, cargoId: config.cargos.provarManto,
+        }).catch(err => console.error('Erro ao agendar remoção do cargo PROVAR MANTO:', err));
       } catch (err) {
         console.error('Erro ao atribuir cargo PROVAR MANTO:', err);
       }
     }
 
-    // Handler para botão de abrir recrutamento
+    // Handler para botão de abrir recrutamento: confere a situação do candidato,
+    // pergunta a área pretendida (se houver áreas) e abre o formulário
     if (interaction.isButton() && interaction.customId === 'abrir_recrutamento') {
-      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-      const modal = new ModalBuilder()
-        .setCustomId('modal_recrutamento')
-        .setTitle('Formulário de Recrutamento');
-      const nomeInput = new TextInputBuilder()
-        .setCustomId('nome')
-        .setLabel('Nome')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(2)
-        .setMaxLength(16); // Limite para garantir nick válido
-
-      const idadeInput = new TextInputBuilder()
-        .setCustomId('idade')
-        .setLabel('Idade (apenas números)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(1)
-        .setMaxLength(2); // Máximo 2 dígitos
-
-      const idFiveMInput = new TextInputBuilder()
-        .setCustomId('id_fivem')
-        .setLabel('ID FiveM (apenas números)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(1)
-        .setMaxLength(6); // Limite de 6 dígitos para garantir nick válido
-
-      const telefoneInput = new TextInputBuilder()
-        .setCustomId('telefone')
-        .setLabel('Telefone (apenas números, ex: 11912345678)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(10)
-        .setMaxLength(11); // 10 ou 11 dígitos numéricos
-
-      const recrutadorInput = new TextInputBuilder()
-        .setCustomId('recrutador')
-        .setLabel('Recrutador')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(2)
-        .setMaxLength(32);
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(nomeInput),
-        new ActionRowBuilder().addComponents(idadeInput),
-        new ActionRowBuilder().addComponents(idFiveMInput),
-        new ActionRowBuilder().addComponents(telefoneInput),
-        new ActionRowBuilder().addComponents(recrutadorInput)
-      );
-      await interaction.showModal(modal);
+      await abrirRecrutamento(interaction);
       return;
     }
-    if (interaction.isButton()) {
-      if (interaction.customId === 'aprovar_recrutamento') {
+    // Reprovar abre o laudo (categoria, reenvio e justificativa); a decisão acontece no envio do modal
+    if (interaction.isButton() && interaction.customId === 'reprovar_recrutamento') {
+      await abrirLaudoReprovacao(interaction);
+      return;
+    }
+
+    if (interaction.isButton() && (interaction.customId === 'aprovar_recrutamento' || interaction.customId === 'aprovar_recrutamento_sem_area')) {
+      // Trava contra clique duplo: dois recrutadores decidindo a mesma ficha ao mesmo tempo
+      const fichaId = interaction.message.id;
+      if (decisaoEmAndamento(fichaId) || interaction.message.components.length === 0) {
+        return interaction.reply({ content: '⚠️ ESTA SOLICITAÇÃO JÁ ESTÁ SENDO (OU JÁ FOI) ANALISADA POR OUTRO RECRUTADOR.', flags: 64 });
+      }
+      travarFicha(fichaId);
+      try {
+      {
+        const semArea = interaction.customId === 'aprovar_recrutamento_sem_area';
         // Extrair dados do candidato do embed ANTES da busca no histórico
         const embed = interaction.message.embeds[0];
         const idField = embed.fields.find(f => f.name.startsWith('ID | DISCORD'));
@@ -924,37 +934,26 @@ module.exports = (client, _config, utils) => {
         const idFiveMField = embed.fields.find(f => f.name === 'ID FIVEM');
         const nome = nomeField ? nomeField.value : '';
         const id_fivem = idFiveMField ? idFiveMField.value : '';
-        // Buscar IDs bloqueados no canal de histórico-nao-recrutar
-        const canalHistorico = interaction.guild.channels.cache.get('1487943943680163890');
-        let bloqueado = null;
-        if (canalHistorico && canalHistorico.isTextBased()) {
-          try {
-            const msgs = await canalHistorico.messages.fetch({ limit: 100 });
-            msgs.forEach(msg => {
-              if (msg.embeds && msg.embeds.length > 0) {
-                const embedHist = msg.embeds[0];
-                const idFieldHist = embedHist.fields?.find(f => f.name === 'ID');
-                if (idFieldHist && idFieldHist.value === id_fivem) {
-                  bloqueado = embedHist;
-                }
-              }
-            });
-          } catch (err) {
-            console.error('Erro ao buscar histórico de não recrutar:', err);
-          }
+        // O histórico inteiro da lista é lido (pode levar alguns segundos): deferir antes
+        await interaction.deferUpdate();
+        let bloqueado;
+        try {
+          bloqueado = await buscarBloqueio(client, id_fivem);
+        } catch (err) {
+          console.error('Erro ao buscar histórico de não recrutar:', err);
+          await interaction.followUp({ content: '❌ NÃO FOI POSSÍVEL CONSULTAR A LISTA DE NÃO RECRUTAR. NADA FOI APROVADO — TENTE NOVAMENTE.', flags: 64 });
+          return;
         }
         if (bloqueado) {
-          await interaction.deferUpdate();
           await interaction.channel.send({
             content: `❌ O ID FiveM **${id_fivem}** está bloqueado para recrutamento!`,
             embeds: [bloqueado]
           });
           return;
         }
-        // Deferir a atualização da interação imediatamente para evitar expiração
-        await interaction.deferUpdate();
         // Dar cargo de sócio, alterar nick e registrar aprovação no banco
         const db = require('../utils/db');
+        let areaAplicada = null;
         try {
           const guildMember = await interaction.guild.members.fetch(candidatoId);
           await guildMember.roles.add(config.cargos.socio);
@@ -971,6 +970,15 @@ module.exports = (client, _config, utils) => {
           // Registrar aprovação no banco
           await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
           atualizarTopRecrutadores(client).catch(err => console.error('[aprovar] Erro ao atualizar top recrutadores:', err));
+          // Área pretendida só vira cargo agora, depois de aprovado (preferência ≠ lotação)
+          if (!semArea) {
+            areaAplicada = await aplicarAreaNaAprovacao(guildMember, fichaId, embed)
+              .catch(err => { console.error('[aprovar] Erro ao aplicar área pretendida:', err); return null; });
+          }
+          await decidirFicha(fichaId, { status: 'APROVADO', decididoPorId: interaction.user.id }, embed)
+            .catch(err => console.error('[aprovar] Erro ao registrar decisão da ficha:', err));
+          await registrarSinal(client, { discordId: candidatoId, sinal: 'APROVACAO', origemTipo: 'ficha', origemId: fichaId })
+            .catch(err => console.error('[aprovar] Erro ao registrar sinal de confiança:', err));
         } catch (err) {
           console.error('Erro ao registrar aprovação no banco:', err);
           await interaction.channel.send({
@@ -986,7 +994,7 @@ module.exports = (client, _config, utils) => {
             ...embed.fields,
             {
               name: 'STATUS',
-              value: `🦅 APROVADO POR <@${interaction.user.id}>`,
+              value: `🦅 APROVADO POR <@${interaction.user.id}>${areaAplicada ? `\n🏛️ ÁREA: ${areaAplicada.nome.toUpperCase()}` : semArea ? '\n🏛️ APROVADO SEM ÁREA' : ''}`,
               inline: false
             }
           ],
@@ -1007,7 +1015,7 @@ module.exports = (client, _config, utils) => {
             // Confirmação visual
             await channel.send({ content: `🧥 Manto recebido para <@${candidatoId}>! Processo concluído.`, reply: { messageReference: mantoMsg.id } });
             // Enviar validação de setagem para o canal privado após envio do manto
-            const canalValidarSetagem = interaction.guild.channels.cache.get('1442240838699712623');
+            const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
             if (canalValidarSetagem) {
               await canalValidarSetagem.send({
                 content: `🦅 <@${candidatoId}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`
@@ -1019,76 +1027,12 @@ module.exports = (client, _config, utils) => {
           .catch(() => {
             // Mensagens removidas conforme solicitado: não avisar timeout nem canal privado
           });
-      } else if (interaction.customId === 'reprovar_recrutamento') {
-        // Copiar o embed original e mudar a cor para vermelho, garantindo todos os campos obrigatórios
-        const embedOriginal = interaction.message.embeds[0];
-        // Copiar os campos e adicionar o status de reprovação
-        const fields = Array.isArray(embedOriginal.fields) ? [...embedOriginal.fields] : [];
-        // Adicionar campo de status de reprovação
-        fields.push({
-          name: 'Status',
-          value: `❌ Reprovado por <@${interaction.user.id}>`,
-          inline: false
-        });
-        const embedReprovado = {
-          title: embedOriginal.title || 'Recrutamento',
-          description: embedOriginal.description || '',
-          fields,
-          color: 0xFF0000
-        };
-        // Remover cargos de provar-manto e visitante ao reprovar
-        const idFieldReprovado = embedOriginal.fields.find(f => f.name.startsWith('ID | DISCORD'));
-        const candidatoIdReprovado = idFieldReprovado ? idFieldReprovado.value.split(' ')[0] : null;
-        if (candidatoIdReprovado) {
-          try {
-            const guildMember = await interaction.guild.members.fetch(candidatoIdReprovado);
-            if (config.cargos.provarManto) {
-              await guildMember.roles.remove(config.cargos.provarManto).catch(() => {});
-            }
-            if (config.cargos.visitante) {
-              await guildMember.roles.remove(config.cargos.visitante).catch(() => {});
-            }
-            if (config.cargos.reprovadoRecrutamento) {
-              await guildMember.roles.add(config.cargos.reprovadoRecrutamento).catch(() => {});
-            }
-          } catch {}
-        }
-        await interaction.update({
-          content: null,
-          embeds: [embedReprovado],
-          components: []
-        });
+      }
+      } finally {
+        liberarFicha(fichaId);
       }
     }
 
-    // Handler para submissão do modal de criação de evento
-    if (interaction.isModalSubmit() && interaction.customId === 'modal_evento') {
-      const titulo = interaction.fields.getTextInputValue('titulo');
-      const horario = interaction.fields.getTextInputValue('horario');
-
-      const { EmbedBuilder } = require('discord.js');
-      const EMOJI_CONFIRMAR = '🦅';
-      const EMOJI_RECUSAR   = '❌';
-
-      const instrucoes = `${EMOJI_CONFIRMAR} para **confirmar** presença   ${EMOJI_RECUSAR} para **recusar**`;
-
-      const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle(`📅 ${titulo}`)
-        .setDescription(instrucoes)
-        .addFields(
-          { name: '🕐 Horário', value: horario, inline: false },
-          { name: `${EMOJI_CONFIRMAR} Confirmados (0)`, value: '*Nenhum confirmado ainda*', inline: false }
-        )
-        .setFooter({ text: 'evento' });
-
-      await interaction.reply({ content: '🦅 Evento criado!', flags: 64 });
-      const eventMsg = await interaction.channel.send({ embeds: [embed] });
-
-      try { await eventMsg.react(EMOJI_CONFIRMAR); } catch (e) { console.error('[evento] Erro ao reagir confirmar:', e.message); }
-      try { await eventMsg.react(EMOJI_RECUSAR); } catch (e) { console.error('[evento] Erro ao reagir recusar:', e.message); }
-      return;
-    }
     } catch (err) {
       // Ignora interações expiradas (10062) ou já respondidas (40060)
       if (err.code === 10062 || err.code === 40060) return;
