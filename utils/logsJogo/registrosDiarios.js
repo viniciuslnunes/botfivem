@@ -152,7 +152,10 @@ async function atualizarRegistroDoDia(canal, dia, periodo, agora, idsAntigos = [
   // ranking por tempo — nunca "quem está online agora" (que é o que o
   // período 'hoje' passaria a mostrar por padrão, pensado pro botão AGORA
   // do painel ao vivo, não pra um acervo).
-  const dados = await relatorios.montarDadosPresenca(periodo, { listaCumulativa: true }, agora);
+  // semContextoGlobal: cabeçalho do registro é sobre O DIA — tira o "maior
+  // bonde já registrado" (recorde de todo o histórico), que só confundia ao
+  // lado do "pico de simultâneos" do próprio dia, logo abaixo.
+  const dados = await relatorios.montarDadosPresenca(periodo, { listaCumulativa: true, semContextoGlobal: true }, agora);
   const embeds = montarEmbedsRegistro(dia, dados);
   const idsNovos = [];
 

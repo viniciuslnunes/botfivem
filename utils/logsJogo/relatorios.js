@@ -371,7 +371,7 @@ function linhasContexto(sociosCount, manual, pico) {
   return [
     sociosCount != null ? `**SÓCIOS COM CARGO NO DISCORD:** ${E.formatarNumero(sociosCount)}` : null,
     manual?.socios?.valor != null ? `**SÓCIOS SETADOS (CONFERIDO À MÃO):** ${E.formatarNumero(manual.socios.valor)}` : null,
-    `**MAIOR BONDE JÁ REGISTRADO (WEBHOOK):** ${E.formatarNumero(pico)}`,
+    pico != null ? `**MAIOR BONDE JÁ REGISTRADO (WEBHOOK):** ${E.formatarNumero(pico)}` : null,
     manual?.pico?.valor != null ? `**MAIOR BONDE MENSAL (RANKING DO JOGO):** ${E.formatarNumero(manual.pico.valor)}` : null,
   ].filter(l => l !== null);
 }
@@ -451,9 +451,15 @@ async function montarDadosPresenca(periodo, contexto = {}, agora = new Date()) {
       .map(j => ({ id: j.id, nome: j.nome, ms: agora.getTime() - new Date(j.desde).getTime(), desde: j.desde }));
   }
 
+  // `contexto.semContextoGlobal` (registros-diários): um registro arquivado
+  // é sobre AQUELE dia — "pico de simultâneos" já aparece logo abaixo, do
+  // dia. Misturar o recorde de TODO O HISTÓRICO no cabeçalho do dia
+  // confundia (dois números de "pico" parecidos, escopos bem diferentes).
+  // Sem a flag (uso ao vivo — painel/consulta), continua mostrando, pra
+  // comparar o período com o recorde geral.
   const [bloco, picoHistorico] = await Promise.all([
     blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride),
-    picoHistoricoRegistrado(),
+    contexto.semContextoGlobal ? Promise.resolve(null) : picoHistoricoRegistrado(),
   ]);
 
   let linhaOnline;
