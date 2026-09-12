@@ -1,6 +1,6 @@
 const {
   ChannelType, PermissionFlagsBits: P, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder,
+  ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, UserSelectMenuBuilder,
 } = require('discord.js');
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
@@ -414,7 +414,10 @@ function renderizarPaginaResolver(pagina) {
   };
 }
 
-function embedFichaPendente(c) {
+// `membroSugestao` é o GuildMember já resolvido da sugestão (busca feita no
+// handler, que tem acesso à guild) — usado pra mostrar o avatar dele como
+// thumbnail, além da menção normal.
+function embedFichaPendente(c, membroSugestao) {
   const ultima = c.ultima ? new Date(c.ultima).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '?';
   const linhas = [
     `**ID:** \`${c.id}\``,
@@ -422,19 +425,32 @@ function embedFichaPendente(c) {
     `**Última aparição:** ${ultima}`,
   ];
   if (c.sugestao) linhas.push(`**Possível correlação:** <@${c.sugestao.discordId}> (${Math.round(c.sugestao.score * 100)}% de nome parecido)`);
-  return { color: 0x000000, title: `🔗 ${c.nome ?? '?'}`, description: linhas.join('\n') };
+  linhas.push(`\nNão é essa a pessoa, ou quer indicar outra? Busque e selecione direto no campo abaixo.`);
+  const embed = { color: 0x000000, title: `🔗 ${c.nome ?? '?'}`, description: linhas.join('\n') };
+  if (membroSugestao) embed.thumbnail = { url: membroSugestao.displayAvatarURL({ extension: 'png', size: 128 }) };
+  return embed;
 }
 
+// Botões da sugestão automática (linha 1) + select nativo de membro do
+// Discord (linha 2), que já vem com busca reativa por nome em todo o
+// servidor (mesmo componente usado em presencaInteracoes.js) — cobre tanto
+// confirmar a sugestão calculada quanto corrigi-la escolhendo outra pessoa
+// na mão, sem depender só do algoritmo de nome parecido.
 function botoesPendente(c) {
   const botoes = [];
   if (c.sugestao) {
     botoes.push(
-      new ButtonBuilder().setCustomId(`idsemsocio:confirmar:${c.id}:${c.sugestao.discordId}`).setLabel('É ELE — IGNORAR ESTE ID').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`idsemsocio:confirmar:${c.id}:${c.sugestao.discordId}`).setLabel('É ELE — IGNORAR ESTE ID').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`idsemsocio:rejeitarsugestao:${c.id}:${c.sugestao.discordId}`).setLabel('NÃO É ELE').setEmoji('❌').setStyle(ButtonStyle.Secondary)
     );
   }
   botoes.push(new ButtonBuilder().setCustomId(`idsemsocio:ignorar:${c.id}`).setLabel('IGNORAR (SEM CORRELAÇÃO)').setEmoji('🚫').setStyle(ButtonStyle.Danger));
-  return new ActionRowBuilder().addComponents(botoes);
+  const linhaBotoes = new ActionRowBuilder().addComponents(botoes);
+  const selectMembro = new UserSelectMenuBuilder()
+    .setCustomId(`idsemsocio:selecionarmembro:${c.id}`)
+    .setPlaceholder('🔎 BUSCAR E VINCULAR OUTRO MEMBRO');
+  const linhaSelect = new ActionRowBuilder().addComponents(selectMembro);
+  return [linhaBotoes, linhaSelect];
 }
 
 function embedFichaIgnorado(r) {
@@ -486,7 +502,8 @@ registrarModulo('idsemsocio', async interaction => {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     const c = ultimosCandidatos.find(e => String(e.id) === interaction.values[0]);
     if (!c) return interaction.reply({ content: '❌ ESSE ID NÃO ESTÁ MAIS PENDENTE (A LISTA JÁ ATUALIZOU).', flags: 64 });
-    return interaction.reply({ embeds: [embedFichaPendente(c)], components: [botoesPendente(c)], flags: 64, allowedMentions: { parse: [] } });
+    const membroSugestao = c.sugestao ? await interaction.guild.members.fetch(c.sugestao.discordId).catch(() => null) : null;
+    return interaction.reply({ embeds: [embedFichaPendente(c, membroSugestao)], components: botoesPendente(c), flags: 64, allowedMentions: { parse: [] } });
   }
 
   if (interaction.isStringSelectMenu() && acao === 'selignorado') {
@@ -504,6 +521,22 @@ registrarModulo('idsemsocio', async interaction => {
     await ignorarId(c, `correlacionado com <@${b}> (season anterior)`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
     return interaction.reply({ content: `✅ ID \`${a}\` MARCADO COMO <@${b}> — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
+  }
+
+  // Correção manual: a liderança busca e escolhe direto no select nativo do
+  // Discord (filtra reativamente por nome em todo o servidor, igual o
+  // "BUSCAR JOGADOR" do painel de presença) em vez de depender só do
+  // palpite automático — cobre tanto confirmar com outra pessoa quanto o
+  // caso de não ter vindo sugestão nenhuma.
+  if (interaction.isUserSelectMenu() && acao === 'selecionarmembro') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    const c = ultimosCandidatos.find(e => String(e.id) === a);
+    if (!c) return interaction.reply({ content: '❌ ESSE ID NÃO ESTÁ MAIS PENDENTE (A LISTA JÁ ATUALIZOU).', flags: 64 });
+    const membro = interaction.members.first();
+    if (!membro) return interaction.reply({ content: '❌ MEMBRO NÃO ENCONTRADO.', flags: 64 });
+    await ignorarId(c, `correlacionado manualmente com ${membro} por <@${interaction.user.id}>`, interaction.user.id);
+    agendarAtualizacaoReativa(interaction.client);
+    return interaction.reply({ content: `✅ ID \`${a}\` MARCADO COMO ${membro} — SAI DA LISTA.`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   if (interaction.isButton() && acao === 'rejeitarsugestao') {
