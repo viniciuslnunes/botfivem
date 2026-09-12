@@ -7,7 +7,11 @@ const E = require('./estatisticas');
 // Canal fixo listando (e mencionando) todo sócio que ainda não tem o ID do
 // jogo vinculado ao apelido — pra ele ver que precisa resolver e ter o botão
 // VINCULAR ID (mesmo customId do painel de jogadores, ver
-// linhaBotaoVincularId) logo ali pra pedir pra liderança resolver.
+// linhaBotaoVincularId) logo ali pra pedir pra liderança resolver. O botão
+// fica na ÚLTIMA mensagem do canal (depois da listagem toda), não numa fixa
+// lá em cima: a resposta ephemeral do Discord sempre nasce no fim do canal,
+// então botão no topo + listagem grande no meio escondia a resposta atrás de
+// scroll (mesmo problema que o canal de IDs sem Discord já teve).
 // Recalculado do zero a cada atualização (sem estado de "quem já foi
 // avisado"), então quando alguém vincula o ID o apelido muda, o
 // guildMemberUpdate dispara a atualização reativa e a menção dele já some
@@ -92,17 +96,19 @@ async function buscarSociosSemId(guild) {
 // dentro de embed não pinga ninguém, por isso aqui é tudo texto puro.
 // `content` tem limite de 2000 caracteres, então uma lista grande vira
 // várias mensagens (páginas), todas mantidas e editadas no mesmo canal.
-// Cabeçalho vira mensagem própria (sem menções) pra caber o botão VINCULAR
-// ID logo abaixo do aviso e acima da listagem — componente sempre renderiza
-// no fim da mensagem, então precisa ser uma mensagem separada da listagem
-// pra ficar entre as duas partes.
 function montarCabecalho(totalSemId, contador) {
   return (
     `🆔 **SÓCIOS SEM ID VINCULADO** (${totalSemId})\n` +
     `QUEM ESTÁ MARCADO ABAIXO AINDA NÃO TEM O ID DO JOGO VINCULADO AO APELIDO. ` +
-    `CLIQUE NO BOTÃO **VINCULAR ID** ABAIXO PRA RESOLVER — AO VINCULAR, SUA MENÇÃO SOME SOZINHA DAQUI.\n\n` +
+    `CLIQUE NO BOTÃO **VINCULAR ID** NO FIM DESTE CANAL PRA RESOLVER — AO VINCULAR, SUA MENÇÃO SOME SOZINHA DAQUI.\n\n` +
     `📌 **${contador}** ${contador === 1 ? 'ID JÁ FOI VINCULADO' : 'IDS JÁ FORAM VINCULADOS'} DESDE ESTE AVISO — FALTA O SEU?`
   );
+}
+
+// Mensagem própria, sempre a ÚLTIMA do canal, só com o botão — ver comentário
+// no topo do arquivo sobre a resposta ephemeral nascer no fim do canal.
+function montarBlocoAcao() {
+  return { content: '👇 **CLIQUE ABAIXO PRA VINCULAR OU CORRIGIR SEU ID FIVEM**', ids: [], components: [linhaBotaoVincularId()] };
 }
 
 function montarPaginasListagem(sociosSemId) {
@@ -158,11 +164,13 @@ async function atualizarPainelSociosSemId(client) {
 
   const sociosSemId = await buscarSociosSemId(guild);
   const contador = Number(await lerConfig(CONFIG_KEY_CONTADOR)) || 0;
-  // Bloco 0 = cabeçalho + botão VINCULAR ID (sem menções); blocos seguintes
-  // = páginas da listagem (só menções, ver montarPaginasListagem).
+  // Bloco 0 = cabeçalho (sem menções); blocos do meio = páginas da listagem
+  // (só menções, ver montarPaginasListagem); último bloco = botão VINCULAR
+  // ID, sempre a mensagem mais recente do canal (ver montarBlocoAcao).
   const blocos = [
-    { content: montarCabecalho(sociosSemId.length, contador), ids: [], components: [linhaBotaoVincularId()] },
+    { content: montarCabecalho(sociosSemId.length, contador), ids: [] },
     ...montarPaginasListagem(sociosSemId),
+    montarBlocoAcao(),
   ];
   const idsAntigos = await lerMsgIds();
   const idsNovos = [];
