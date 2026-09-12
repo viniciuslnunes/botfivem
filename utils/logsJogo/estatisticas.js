@@ -201,6 +201,7 @@ module.exports = {
   idFivemDoNick,
   formatarNumero,
   formatarDinheiro,
+  formatarDuracao,
   formatarDiaCurto,
   truncar,
 };

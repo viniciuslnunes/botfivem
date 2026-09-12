@@ -60,6 +60,14 @@ test('sparkline escala pelo máximo e não inventa barra em zero', () => {
   assert.equal(E.sparkline(new Array(90).fill(1)).length, 30);
 });
 
+test('duração formatada em minutos, horas e dias', () => {
+  assert.equal(E.formatarDuracao(45 * 60000), '45min');
+  assert.equal(E.formatarDuracao(3 * 3600000 + 20 * 60000), '3h20min');
+  assert.equal(E.formatarDuracao(4 * 3600000), '4h');
+  assert.equal(E.formatarDuracao(2 * 86400000 + 5 * 3600000), '2d5h');
+  assert.equal(E.formatarDuracao(3 * 86400000), '3d');
+});
+
 test('variação contra o período anterior', () => {
   assert.equal(E.variacao(12, 10), '▲ 20% vs período anterior');
   assert.equal(E.variacao(5, 10), '▼ 50% vs período anterior');
