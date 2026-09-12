@@ -541,7 +541,7 @@ registrarModulo('presenca', async interaction => {
     }
     const acaoTexto = idAtual ? `ID ALTERADO DE \`${idAtual}\` PARA \`${idInformado}\`` : `ID \`${idInformado}\` VINCULADO`;
     return interaction.reply({
-      content: `✅ ${acaoTexto} EM ${membro} — NOVO APELIDO: \`${novoNick}\``,
+      content: `${acaoTexto} EM ${membro} — NOVO APELIDO: \`${novoNick}\``,
       flags: 64,
       allowedMentions: { parse: [] },
     });
