@@ -185,16 +185,6 @@ async function eventosConexao(inicio, fim) {
   return res.rows;
 }
 
-async function jogadoresDistintosNoPeriodo(inicio, fim) {
-  const res = await db.query(
-    `SELECT COUNT(DISTINCT ator_id_fivem)::int AS total
-       FROM logs_jogo
-      WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL AND ocorrido_em >= $2 AND ocorrido_em < $3`,
-    [ACOES_CONEXAO, inicio, fim]
-  );
-  return res.rows[0].total;
-}
-
 module.exports = {
   inserirRegistro,
   idsJaGravados,
@@ -209,5 +199,4 @@ module.exports = {
   ultimaAtividadePorIds,
   estadoDosJogadores,
   eventosConexao,
-  jogadoresDistintosNoPeriodo,
 };
