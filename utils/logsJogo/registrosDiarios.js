@@ -105,23 +105,17 @@ function agruparLinhas(linhas, limite) {
 function montarEmbedsRegistro(dia, dados) {
   const linhas = dados.entradas.map((e, i) => linhaJogador(e, i));
   const gruposLinhas = agruparLinhas(linhas, LIMITE_CAMPO);
-  // "Parte X/6" sozinho numa mensagem separada (quando a lista precisa de
-  // mais de uma mensagem — ver comentário abaixo) não diz nada sobre onde
-  // aquele pedaço entra: dá a impressão de duas listas soltas, não uma só
-  // continuando. A faixa de posições ("1–26 DE 145") se explica sozinha em
-  // qualquer mensagem, sem precisar olhar a anterior.
-  let cursor = 0;
-  const camposLista = gruposLinhas.map(grupo => {
-    const inicio = cursor + 1;
-    cursor += grupo.length;
-    return {
-      name: gruposLinhas.length > 1
-        ? `JOGADORES (${inicio}–${cursor} DE ${dados.entradas.length})`
-        : `JOGADORES (${dados.entradas.length})`,
-      value: grupo.join('\n'),
-      inline: false,
-    };
-  });
+  // É UMA lista só (só quebrada em campos porque cada campo do Discord tem
+  // limite de 1024 caracteres) — repetir "JOGADORES" com numeração de parte
+  // a cada pedaço dava a impressão de várias listas soltas. Nome só no
+  // primeiro campo; os campos seguintes usam um espaço de largura zero como
+  // nome (Discord não aceita campo sem nome) pra não repetir nada e a lista
+  // continuar direto, como se fosse um texto só.
+  const camposLista = gruposLinhas.map((grupo, i) => ({
+    name: i === 0 ? `JOGADORES (${dados.entradas.length})` : '​',
+    value: grupo.join('\n'),
+    inline: false,
+  }));
 
   const paginas = [];
   let atual = { primeira: true, fields: [dados.resumo], tamanho: dados.resumo.name.length + dados.resumo.value.length };
