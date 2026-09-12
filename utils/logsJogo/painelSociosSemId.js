@@ -1,12 +1,13 @@
-const { ChannelType, PermissionFlagsBits: P } = require('discord.js');
+const { ChannelType, PermissionFlagsBits: P, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const { garantirMembrosCarregados } = require('../membrosGuild');
 const E = require('./estatisticas');
 
 // Canal fixo listando (e mencionando) todo sócio que ainda não tem o ID do
-// jogo vinculado ao apelido — pra ele ver que precisa resolver e saber onde
-// (o botão VINCULAR ID do painel de jogadores, ver presencaInteracoes.js).
+// jogo vinculado ao apelido — pra ele ver que precisa resolver e ter o botão
+// VINCULAR ID (mesmo customId do painel de jogadores, ver
+// linhaBotaoVincularId) logo ali pra pedir pra liderança resolver.
 // Recalculado do zero a cada atualização (sem estado de "quem já foi
 // avisado"), então quando alguém vincula o ID o apelido muda, o
 // guildMemberUpdate dispara a atualização reativa e a menção dele já some
@@ -28,6 +29,22 @@ const LIMITE_MENCOES = 100; // limite do Discord pro allowedMentions.users de um
 
 const LER = [P.ViewChannel, P.ReadMessageHistory];
 const ESCREVER = [...LER, P.SendMessages, P.EmbedLinks];
+
+// Mesmo customId do botão VINCULAR ID de presencaInteracoes.js (linhaBotoesAcao)
+// — não importa a função de lá pra montar o botão porque esse arquivo já é
+// importado por presencaInteracoes.js (incrementarContadorVinculados), e um
+// require de volta criaria dependência circular. O dispatch em
+// presencaInteracoes.js é por prefixo do customId ('presenca:'), não por
+// canal, então o mesmo botão funciona igual aqui.
+function linhaBotaoVincularId() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('presenca:vincularid')
+      .setLabel('VINCULAR ID')
+      .setEmoji('🆔')
+      .setStyle(ButtonStyle.Secondary)
+  );
+}
 
 function permissoesCanal(guild, botId) {
   return [
@@ -75,18 +92,24 @@ async function buscarSociosSemId(guild) {
 // dentro de embed não pinga ninguém, por isso aqui é tudo texto puro.
 // `content` tem limite de 2000 caracteres, então uma lista grande vira
 // várias mensagens (páginas), todas mantidas e editadas no mesmo canal.
-function montarPaginas(sociosSemId, contador) {
-  const cabecalho =
-    `🆔 **SÓCIOS SEM ID VINCULADO** (${sociosSemId.length})\n` +
+// Cabeçalho vira mensagem própria (sem menções) pra caber o botão VINCULAR
+// ID logo abaixo do aviso e acima da listagem — componente sempre renderiza
+// no fim da mensagem, então precisa ser uma mensagem separada da listagem
+// pra ficar entre as duas partes.
+function montarCabecalho(totalSemId, contador) {
+  return (
+    `🆔 **SÓCIOS SEM ID VINCULADO** (${totalSemId})\n` +
     `QUEM ESTÁ MARCADO ABAIXO AINDA NÃO TEM O ID DO JOGO VINCULADO AO APELIDO. ` +
-    `ENTRE EM ${config.logsJogo.canalPainelJogadores ? `<#${config.logsJogo.canalPainelJogadores}>` : 'PAINEL DE JOGADORES'} ` +
-    `E CLIQUE NO BOTÃO **VINCULAR ID** PRA RESOLVER — AO VINCULAR, SUA MENÇÃO SOME SOZINHA DAQUI.\n\n` +
-    `📌 **${contador}** ${contador === 1 ? 'ID JÁ FOI VINCULADO' : 'IDS JÁ FORAM VINCULADOS'} DESDE ESTE AVISO — FALTA O SEU?\n\n`;
+    `CLIQUE NO BOTÃO **VINCULAR ID** ABAIXO PRA RESOLVER — AO VINCULAR, SUA MENÇÃO SOME SOZINHA DAQUI.\n\n` +
+    `📌 **${contador}** ${contador === 1 ? 'ID JÁ FOI VINCULADO' : 'IDS JÁ FORAM VINCULADOS'} DESDE ESTE AVISO — FALTA O SEU?`
+  );
+}
 
-  if (!sociosSemId.length) return [{ content: `${cabecalho}*NINGUÉM PENDENTE — TODO MUNDO JÁ VINCULOU O ID.* 🎉`, ids: [] }];
+function montarPaginasListagem(sociosSemId) {
+  if (!sociosSemId.length) return [{ content: '*NINGUÉM PENDENTE — TODO MUNDO JÁ VINCULOU O ID.* 🎉', ids: [] }];
 
   const paginas = [];
-  let atual = cabecalho;
+  let atual = '';
   let idsAtual = [];
   for (const membro of sociosSemId) {
     const linha = `<@${membro.id}> `;
@@ -120,7 +143,7 @@ async function lerMsgIds() {
 // Chamado por presencaInteracoes.js toda vez que alguém vincula um ID pela
 // primeira vez (não em troca de ID já vinculado) — soma 1 no contador do
 // placar e força a atualização do painel na hora (o próprio texto do
-// contador já vive no cabeçalho da página 1, ver montarPaginas).
+// contador já vive no cabeçalho, ver montarCabecalho).
 async function incrementarContadorVinculados(client) {
   if (!config.cargos.socio) return;
   const atual = Number(await lerConfig(CONFIG_KEY_CONTADOR)) || 0;
@@ -135,12 +158,21 @@ async function atualizarPainelSociosSemId(client) {
 
   const sociosSemId = await buscarSociosSemId(guild);
   const contador = Number(await lerConfig(CONFIG_KEY_CONTADOR)) || 0;
-  const paginas = montarPaginas(sociosSemId, contador);
+  // Bloco 0 = cabeçalho + botão VINCULAR ID (sem menções); blocos seguintes
+  // = páginas da listagem (só menções, ver montarPaginasListagem).
+  const blocos = [
+    { content: montarCabecalho(sociosSemId.length, contador), ids: [], components: [linhaBotaoVincularId()] },
+    ...montarPaginasListagem(sociosSemId),
+  ];
   const idsAntigos = await lerMsgIds();
   const idsNovos = [];
 
-  for (let i = 0; i < paginas.length; i++) {
-    const conteudo = { content: paginas[i].content, allowedMentions: { users: paginas[i].ids } };
+  for (let i = 0; i < blocos.length; i++) {
+    const conteudo = {
+      content: blocos[i].content,
+      allowedMentions: { users: blocos[i].ids },
+      components: blocos[i].components ?? [],
+    };
     const idAntigo = idsAntigos[i];
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
@@ -153,8 +185,8 @@ async function atualizarPainelSociosSemId(client) {
     const nova = await canal.send(conteudo);
     idsNovos.push(nova.id);
   }
-  // A lista encolheu (menos páginas que antes): apaga as mensagens que sobraram
-  for (const idExtra of idsAntigos.slice(paginas.length)) {
+  // A lista encolheu (menos blocos que antes): apaga as mensagens que sobraram
+  for (const idExtra of idsAntigos.slice(blocos.length)) {
     await canal.messages.delete(idExtra).catch(() => {});
   }
   await gravarConfig(CONFIG_KEY_MSGS, JSON.stringify(idsNovos));
