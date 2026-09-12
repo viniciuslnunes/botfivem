@@ -651,7 +651,7 @@ registrarModulo('idsemsocio', async interaction => {
     await ignorarId(c, `associado a <@${b}> (season anterior)`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
     const aviso = erroRename ? `\n⚠️ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}` : '';
-    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
+    return interaction.reply({ content: `ID \`${a}\` ASSOCIADO A <@${b}> — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   // Correção manual: a liderança busca e escolhe direto no select nativo do
@@ -669,7 +669,7 @@ registrarModulo('idsemsocio', async interaction => {
     await ignorarId(c, `associado manualmente a ${membro} por <@${interaction.user.id}>`, interaction.user.id);
     agendarAtualizacaoReativa(interaction.client);
     const aviso = erroRename ? `\n⚠️ APELIDO NÃO ATUALIZADO (SEM PERMISSÃO OU CARGO ACIMA DO BOT): ${erroRename}` : '';
-    return interaction.reply({ content: `✅ ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
+    return interaction.reply({ content: `ID \`${a}\` ASSOCIADO A ${membro} — SAI DA LISTA.${aviso}`, flags: 64, allowedMentions: { parse: [] } });
   }
 
   if (interaction.isButton() && acao === 'rejeitarsugestao') {
