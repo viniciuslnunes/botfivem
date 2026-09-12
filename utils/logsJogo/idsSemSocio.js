@@ -217,10 +217,12 @@ async function buscarIdsSemDiscord(client, guild) {
   return liberados;
 }
 
+// Sem a sugestão de correlação aqui — deixa a listagem enxuta e igual à
+// versão sem essa inteligência; quem quer ver as associações possíveis usa
+// o botão 🔎 RESOLVER PENDENTE (filtra só quem tem sugestão).
 function linhaCandidato(entrada, indice) {
   const ultima = entrada.ultima ? new Date(entrada.ultima).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '?';
-  const sugestao = entrada.sugestao ? ` · possível <@${entrada.sugestao.discordId}>?` : '';
-  return `${indice + 1}. **${entrada.nome ?? '?'}** \`${entrada.id}\` — ${entrada.total}x · última: ${ultima}${sugestao}`;
+  return `${indice + 1}. **${entrada.nome ?? '?'}** \`${entrada.id}\` — ${entrada.total}x · última: ${ultima}`;
 }
 
 // Mesmo motivo do registro diário: description em texto corrido, nunca
@@ -251,8 +253,7 @@ function montarEmbeds(candidatos) {
   const cabecalho =
     `Jogadores que interagem com a torcida pelos logs do jogo (${MINIMO_INTERACOES}+ vezes) ` +
     `mas nenhum membro atual do Discord tem esse ID vinculado ao apelido. ` +
-    `Procurem dentro do jogo e orientem a entrar no Discord. Quando o nome bate com o de ` +
-    `alguém já no servidor, aparece "possível @menção?" — use 🔎 RESOLVER PENDENTE pra confirmar ou descartar.\n\n`;
+    `Procurem dentro do jogo e orientem a entrar no Discord.\n\n`;
   const cabecalhoLista = `**ID · NOME — INTERAÇÕES**\n`;
   const cabecalhoPrimeira = `${cabecalho}${cabecalhoLista}`;
   const orcamentoPrimeira = Math.max(500, LIMITE_DESCRICAO - cabecalhoPrimeira.length);
@@ -307,7 +308,9 @@ async function atualizarIdsSemSocio(client) {
   const idsNovos = [];
 
   for (let i = 0; i < embeds.length; i++) {
-    const payload = { embeds: [embeds[i]], components: i === 0 ? [linhaBotoesGerenciar()] : [], allowedMentions: { parse: [] } };
+    // Botões só na última mensagem — no fim da listagem, não interrompendo
+    // a leitura da primeira página.
+    const payload = { embeds: [embeds[i]], components: i === embeds.length - 1 ? [linhaBotoesGerenciar()] : [], allowedMentions: { parse: [] } };
     const idAntigo = idsAntigos[i];
     if (idAntigo) {
       const msg = await canal.messages.fetch(idAntigo).catch(() => null);
@@ -346,10 +349,13 @@ function agendarAtualizacaoReativa(client) {
 }
 
 // ── Interação: RESOLVER PENDENTE / VER IGNORADOS ────────────────────────
-// Mesmo padrão botão → select → (ação) usado no resto do bot: um botão
-// único abre um modal de busca (não cabe botão por linha — a lista pode
-// ter centenas de itens), o resultado vira um select de até 25 opções, e a
-// escolha mostra a ficha do candidato com os botões de ação cabíveis.
+// RESOLVER PENDENTE não precisa de busca: já filtra pra só quem tem
+// sugestão de correlação (normalmente uma fração da lista toda) e mostra
+// direto num select paginado — botão → select, sem passo de busca no meio.
+// VER IGNORADOS pode crescer bastante com o tempo, então continua no
+// padrão botão → modal de busca → select (não cabe botão por linha).
+// Em ambos, a escolha no select mostra a ficha do candidato com os botões
+// de ação cabíveis (aprovar/reprovar sugestão, ignorar, reativar).
 
 function modalBuscar(customId, titulo) {
   return new ModalBuilder()
@@ -375,6 +381,37 @@ function selectDeResultado(customId, entradas, descricaoFn) {
       description: descricaoFn(e).slice(0, 100),
     })));
   return new ActionRowBuilder().addComponents(select);
+}
+
+// Só os candidatos com sugestão de correlação — é o que RESOLVER PENDENTE
+// mostra direto, sem precisar buscar nada. Ordenado pela similaridade
+// (mais parecido primeiro), assim os casos mais óbvios aparecem antes.
+const POR_PAGINA_RESOLVER = 25;
+function candidatosComSugestao() {
+  return ultimosCandidatos.filter(c => c.sugestao).sort((a, b) => b.sugestao.score - a.sugestao.score);
+}
+
+function renderizarPaginaResolver(pagina) {
+  const sugeridos = candidatosComSugestao();
+  if (!sugeridos.length) {
+    return { content: '🎉 NENHUMA ASSOCIAÇÃO POSSÍVEL NO MOMENTO — TODO NOME COM CORRELAÇÃO JÁ FOI RESOLVIDO OU NENHUM BATEU AINDA.', components: [] };
+  }
+  const totalPaginas = Math.max(1, Math.ceil(sugeridos.length / POR_PAGINA_RESOLVER));
+  const atual = Math.min(Math.max(0, pagina), totalPaginas - 1);
+  const fatia = sugeridos.slice(atual * POR_PAGINA_RESOLVER, (atual + 1) * POR_PAGINA_RESOLVER);
+  const selectRow = selectDeResultado('idsemsocio:selpendente', fatia,
+    e => `${e.total}x · ${Math.round(e.sugestao.score * 100)}% parecido`);
+  const temAnterior = atual > 0;
+  const temProxima = atual < totalPaginas - 1;
+  const botoesPag = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`idsemsocio:resolver:${atual - 1}`).setLabel('◀ ANTERIOR').setStyle(ButtonStyle.Secondary).setDisabled(!temAnterior),
+    new ButtonBuilder().setCustomId(`idsemsocio:resolver:${atual + 1}`).setLabel('PRÓXIMA ▶').setStyle(ButtonStyle.Secondary).setDisabled(!temProxima)
+  );
+  const components = totalPaginas > 1 ? [selectRow, botoesPag] : [selectRow];
+  return {
+    content: `🔎 **ASSOCIAÇÕES POSSÍVEIS** (${sugeridos.length}${totalPaginas > 1 ? ` · Página ${atual + 1}/${totalPaginas}` : ''}) — ESCOLHA UMA PRA APROVAR OU REPROVAR:`,
+    components,
+  };
 }
 
 function embedFichaPendente(c) {
@@ -424,21 +461,15 @@ registrarModulo('idsemsocio', async interaction => {
 
   if (interaction.isButton() && acao === 'resolver') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    return interaction.showModal(modalBuscar('idsemsocio:resolvermodal', 'BUSCAR ID PENDENTE'));
+    const resposta = renderizarPaginaResolver(Number(a) || 0);
+    // Primeiro clique (sem página no customId) é reply novo; clique de
+    // paginação (ANTERIOR/PRÓXIMA) edita a mesma mensagem ephemeral.
+    return a == null ? interaction.reply({ ...resposta, flags: 64 }) : interaction.update(resposta);
   }
 
   if (interaction.isButton() && acao === 'verignorados') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     return interaction.showModal(modalBuscar('idsemsocio:ignoradosmodal', 'BUSCAR ID IGNORADO'));
-  }
-
-  if (interaction.isModalSubmit() && acao === 'resolvermodal') {
-    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    const termo = interaction.fields.getTextInputValue('termo');
-    const encontrados = buscarEmLista(ultimosCandidatos, termo);
-    if (!encontrados.length) return interaction.reply({ content: `❌ NENHUM ID PENDENTE ENCONTRADO PARA \`${termo}\`.`, flags: 64 });
-    const selectRow = selectDeResultado('idsemsocio:selpendente', encontrados, e => e.sugestao ? `${e.total}x · possível correlação` : `${e.total}x`);
-    return interaction.reply({ content: `🔎 BUSCA POR \`${termo}\`:`, components: [selectRow], flags: 64 });
   }
 
   if (interaction.isModalSubmit() && acao === 'ignoradosmodal') {
