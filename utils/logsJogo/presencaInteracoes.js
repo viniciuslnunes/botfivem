@@ -449,21 +449,17 @@ function resetarPainelFixo(client) {
   agendarAtualizacaoReativa(client);
 }
 
-// Sócios (cargo Discord) + números manuais (sócios/pico batidos à mão) — os
-// mesmos 3 que aparecem no painel fixo, repetidos em cada consulta de
-// período pra não parecer que os dois lugares mostram coisas diferentes.
-// `contarSocios` é lazy-requerido pelo mesmo motivo do resetarPainelFixo:
-// evitar ciclo de require com painelJogadores.js.
-async function montarContextoPainel(guild) {
-  const { contarSocios } = require('./painelJogadores');
-  const [sociosCount, manual] = await Promise.all([contarSocios(guild), lerManualAtual()]);
-  return { sociosCount, manual };
-}
-
+// `semContextoGlobal` corta os números fixos do painel (sócios, pico
+// histórico do webhook, bonde mensal manual) — eles já aparecem na mensagem
+// principal do painel, e misturados aqui na consulta por período só faziam
+// parecer que aquele número específico tinha relação com o período filtrado
+// (não tem: são todos acumulados/atuais, não recortados pela janela
+// escolhida). Sem isso, `linhasContexto` (relatorios.js) some sozinho por
+// falta de dado — essa flag só evita o cálculo (pico histórico + sócios) à
+// toa.
 async function abrirPresenca(interaction, periodo) {
   limparExpiradas();
-  const contexto = await montarContextoPainel(interaction.guild);
-  const dados = await relatorios.montarDadosPresenca(periodo, contexto);
+  const dados = await relatorios.montarDadosPresenca(periodo, { semContextoGlobal: true });
   const consultaId = crypto.randomBytes(6).toString('hex');
   const consulta = { ...dados, userId: interaction.user.id, criadoEm: Date.now() };
   consultas.set(consultaId, consulta);
@@ -643,8 +639,7 @@ registrarModulo('presenca', async interaction => {
   if (interaction.isStringSelectMenu() && acao === 'selrankingperiodo') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     await interaction.deferReply({ flags: 64 });
-    const contexto = await montarContextoPainel(interaction.guild);
-    const dados = await relatorios.montarDadosPresenca(E.resolverPeriodo(interaction.values[0]), contexto);
+    const dados = await relatorios.montarDadosPresenca(E.resolverPeriodo(interaction.values[0]), { semContextoGlobal: true });
     await interaction.editReply({ embeds: [embedRanking(dados)], allowedMentions: { parse: [] } });
     return;
   }
