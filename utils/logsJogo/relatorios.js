@@ -1,6 +1,7 @@
 const config = require('../../config/index.js');
 const repo = require('./repositorio');
 const E = require('./estatisticas');
+const P = require('./presenca');
 
 // Embeds de estatística, compartilhados por /estatisticas e pelo painel fixo.
 
@@ -147,4 +148,96 @@ async function montarEmbedInativos(guild, dias) {
   };
 }
 
-module.exports = { montarEmbedTorcida, montarEmbedMembro, montarEmbedCategoria, montarEmbedInativos };
+// Um bloco "pico + distintos" para um período já resolvido (hoje por hora,
+// semana/mês por dia). "Tudo" (sem início) usa a época como início efetivo.
+async function blocoOcupacao(rotulo, periodo, granularidade) {
+  const inicio = periodo.inicio ?? new Date(0);
+  const [baselineEstado, eventos, distintos] = await Promise.all([
+    repo.estadoDosJogadores(inicio),
+    repo.eventosConexao(inicio, periodo.fim),
+    repo.jogadoresDistintosNoPeriodo(inicio, periodo.fim),
+  ]);
+  const baseline = P.totalOnline(baselineEstado);
+  const hora = granularidade === 'hora';
+  const baldes = E.gerarBaldes(
+    inicio, periodo.fim,
+    hora ? E.HORA_MS : E.DIA_MS,
+    hora ? E.chaveHora : E.chaveDia,
+    hora ? E.inicioDaHoraSP : E.inicioDoDiaSP
+  );
+  const serie = P.serieDeOcupacao(baseline, eventos, baldes);
+  const pico = P.picoDoPeriodo(baseline, serie);
+
+  const linhas = [
+    `**Pico de simultâneos:** ${E.formatarNumero(pico)}`,
+    `**Jogadores distintos:** ${E.formatarNumero(distintos)}`,
+  ];
+  if (serie.some(b => b.pico > 0)) linhas.push('', `\`${E.sparkline(serie.map(b => b.pico))}\``);
+  return { name: rotulo, value: linhas.join('\n'), inline: false };
+}
+
+function rotuloOnline(j) {
+  return `${j.nome ?? '?'}${j.id ? ` (${j.id})` : ''}`;
+}
+
+// Painel de presença: quem está online agora + pico de simultâneos por
+// hora (hoje), por dia (semana e mês)
+async function montarEmbedJogadoresOnline(agora = new Date()) {
+  const estadoAgora = await repo.estadoDosJogadores(agora);
+  const online = P.listaOnline(estadoAgora);
+  const nomes = online.slice(0, 25).map(rotuloOnline);
+  const resto = online.length - nomes.length;
+  const descOnline = online.length
+    ? nomes.join(', ') + (resto > 0 ? ` … e mais ${E.formatarNumero(resto)}` : '')
+    : '*Ninguém online agora.*';
+
+  const [hoje, semana, mes] = await Promise.all([
+    blocoOcupacao('HOJE (pico por hora)', E.resolverPeriodo('hoje', agora), 'hora'),
+    blocoOcupacao('ESTA SEMANA (pico por dia)', E.resolverPeriodo('7d', agora), 'dia'),
+    blocoOcupacao('ESTE MÊS (pico por dia)', E.resolverPeriodo('30d', agora), 'dia'),
+  ]);
+
+  return {
+    color: COR,
+    title: '🎮 JOGADORES ONLINE — GAVIÕES DA FIEL FIVEM',
+    description: `**Online agora:** ${E.formatarNumero(online.length)}\n${E.truncar(descOnline, 600)}`,
+    fields: [hoje, semana, mes],
+    footer: { text: `${RODAPE} · canal logs-painel` },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// Consulta sob demanda (/estatisticas online periodo:X): mesma "online agora"
+// + um único bloco de pico/distintos para o período escolhido. "Hoje" quebra
+// por hora; qualquer período maior quebra por dia.
+async function montarEmbedPresenca(periodo, agora = new Date()) {
+  const estadoAgora = await repo.estadoDosJogadores(agora);
+  const online = P.listaOnline(estadoAgora);
+  const nomes = online.slice(0, 25).map(rotuloOnline);
+  const resto = online.length - nomes.length;
+  const descOnline = online.length
+    ? nomes.join(', ') + (resto > 0 ? ` … e mais ${E.formatarNumero(resto)}` : '')
+    : '*Ninguém online agora.*';
+
+  const granularidade = periodo.chave === 'hoje' ? 'hora' : 'dia';
+  const rotuloBloco = granularidade === 'hora' ? 'POR HORA' : 'POR DIA';
+  const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade);
+
+  return {
+    color: COR,
+    title: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
+    description: `**Online agora:** ${E.formatarNumero(online.length)}\n${E.truncar(descOnline, 600)}`,
+    fields: [bloco],
+    footer: { text: `${RODAPE} · canal logs-painel` },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+module.exports = {
+  montarEmbedTorcida,
+  montarEmbedMembro,
+  montarEmbedCategoria,
+  montarEmbedInativos,
+  montarEmbedJogadoresOnline,
+  montarEmbedPresenca,
+};

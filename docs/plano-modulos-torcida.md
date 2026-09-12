@@ -330,16 +330,14 @@ Fechadas em 2026-09-11:
 
 Em aberto:
 
-1. **Formato dos logs do webhook.** O bot só conhece um hoje: título
-   `Registro de Atividade: {nome}`, descrição "O Novato **X** (ID: **Y**) entrou na
-   sua torcida **Novato**." e rodapé `Time: Gaviões da Fiel | Categoria: lideranca`.
-   O parser precisa de: quais canais recebem webhook, quais categorias existem e
-   um exemplo de cada tipo de registro. Destrava: nome das ações nos filtros, alerta
-   de dinheiro fora do padrão e lançamento automático no financeiro a partir do log.
+1. **Formato dos logs do webhook.** O bot conhece dois hoje: (a) `Registro de
+   Atividade: {nome}` no canal logs-liderança (novato + genérico); (b) `Entrada`/
+   `Saída` com descrição `#{ID} {nome} entrou/saiu do servidor.` no canal
+   logs-painel (2026-09-12), usado para presença/online. Categorias e ações fora
+   desses dois formatos continuam caindo em `desconhecido` — nunca descartadas.
 2. **IDs dos cargos ADV¹/²/³ de recrutador** (`config.cargos.advRec`). Até lá a
    advertência de recrutador fica bloqueada com aviso.
-3. **Canal do painel fixo de estatísticas** (`config.logsJogo.canalPainel`).
-4. **Cargos cosméticos de nível de confiança** (`config.confianca.cargosNivel`) —
+3. **Cargos cosméticos de nível de confiança** (`config.confianca.cargosNivel`) —
    opcional.
 
 ## 9. Estado da implementação
@@ -369,6 +367,20 @@ Em aberto:
 | `/estatisticas torcida · membro · categoria · inativos` | `commands/estatisticas.js` |
 | `/logs-sincronizar [completo]` | `commands/logs-sincronizar.js` |
 | Testes (`npm test`) | `test/` |
+
+### Presença de jogadores (entregue em 2026-09-12)
+
+| Peça | Onde |
+|---|---|
+| Parser: entrada/saída do canal logs-painel (`jogador_entrou`/`jogador_saiu`, categoria `conexao`) | `utils/logsJogo/parser.js` |
+| Canal logs-painel somado à ingestão | `config.logsJogo.canais` |
+| Cálculo puro de presença simultânea (online agora, pico por balde de hora/dia) | `utils/logsJogo/presenca.js` |
+| Embed do painel (online agora + pico/distintos de hoje·semana·mês) | `utils/logsJogo/relatorios.js#montarEmbedJogadoresOnline` |
+| Painel fixo, editado a cada `painelJogadoresIntervaloMin` | `utils/logsJogo/painelJogadores.js`, canal `📊・painel-jogadores` (`config.logsJogo.canalPainelJogadores`) |
+
+**Para ativar:** reiniciar o bot — ele faz o backfill do histórico inteiro do
+canal logs-painel na primeira sincronização (pode demorar se o canal for
+grande) e o painel passa a ser criado/atualizado sozinho.
 
 **Para ativar:** `npm run deploy` (registra os comandos novos) e reiniciar o bot.
 No start ele cria as tabelas, lê o histórico do canal de logs e reconcilia as

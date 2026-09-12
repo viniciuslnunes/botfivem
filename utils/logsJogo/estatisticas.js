@@ -1,6 +1,7 @@
 // Cálculos puros das estatísticas dos logs (sem Discord nem banco).
 
 const FUSO = 'America/Sao_Paulo';
+const HORA_MS = 60 * 60 * 1000;
 const DIA_MS = 24 * 60 * 60 * 1000;
 const BLOCOS = '▁▂▃▄▅▆▇█';
 
@@ -30,6 +31,31 @@ function chaveDia(data) {
 // São Paulo é UTC-3 fixo (sem horário de verão desde 2019)
 function inicioDoDiaSP(data) {
   return new Date(`${chaveDia(data)}T00:00:00-03:00`);
+}
+
+const formatadorHora = new Intl.DateTimeFormat('en-GB', { timeZone: FUSO, hour: '2-digit', hour12: false });
+
+// Hora civil em São Paulo, "YYYY-MM-DD HHh"
+function chaveHora(data) {
+  const hora = formatadorHora.format(new Date(data)).replace(/\D/g, '').padStart(2, '0');
+  return `${chaveDia(data)} ${hora}h`;
+}
+
+function inicioDaHoraSP(data) {
+  const [dia, horaRotulo] = chaveHora(data).split(' ');
+  return new Date(`${dia}T${horaRotulo.replace('h', '')}:00:00-03:00`);
+}
+
+// Baldes de tempo consecutivos cobrindo [início, fim), no tamanho `passoMs`
+function gerarBaldes(inicio, fim, passoMs, chaveFn, inicioBaldeFn) {
+  const baldes = [];
+  let cursor = inicioBaldeFn(inicio).getTime();
+  const fimMs = new Date(fim).getTime();
+  for (let i = 0; i < 3660 && cursor < fimMs; i++) {
+    baldes.push({ chave: chaveFn(cursor), fim: cursor + passoMs });
+    cursor += passoMs;
+  }
+  return baldes;
 }
 
 // Janela atual e a anterior de mesma duração, para comparar sem distorção
@@ -124,8 +150,13 @@ function truncar(texto, max) {
 
 module.exports = {
   PERIODO_CHOICES,
+  HORA_MS,
+  DIA_MS,
   chaveDia,
   inicioDoDiaSP,
+  chaveHora,
+  inicioDaHoraSP,
+  gerarBaldes,
   resolverPeriodo,
   serieDiaria,
   sparkline,

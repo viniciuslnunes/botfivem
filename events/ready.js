@@ -5,10 +5,12 @@ const { executarMigracoes } = require('../utils/migracoes');
 const { iniciarAgendador } = require('../utils/agendador');
 const { sincronizarCanaisDeLog } = require('../utils/logsJogo/ingestao');
 const { iniciarPainelLogs } = require('../utils/logsJogo/painel');
+const { iniciarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
 const { atualizarQuadroDepartamentos } = require('../utils/departamentos/quadro');
+const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
 
 module.exports = (client) => {
   client.once('clientReady', async () => {
@@ -23,6 +25,7 @@ module.exports = (client) => {
       .then(resultados => console.log('[logs-jogo] Sincronização inicial:', resultados))
       .catch(err => console.error('[logs-jogo] Erro na sincronização inicial:', err));
     iniciarPainelLogs(client);
+    iniciarPainelJogadores(client);
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
     reconciliarCarteirinhas(client)
@@ -35,6 +38,9 @@ module.exports = (client) => {
     // Quadro de departamentos em dia com quem entrou/saiu das áreas com o bot desligado
     atualizarQuadroDepartamentos(client)
       .catch(err => console.error('[departamentos] Erro ao atualizar quadro:', err));
+    // Mensagem fixa do não recrutar com os botões de bloquear e remover ID
+    garantirMensagemNaoRecrutar(client)
+      .catch(err => console.error('[nao-recrutar] Erro ao atualizar mensagem fixa:', err));
 
     // Enviar mensagem fixa de recrutamento no canal de análise (somente se não existir)
     try {

@@ -25,6 +25,28 @@ test('novato no formato do /testenovato (com negrito)', () => {
   assert.equal(r.atorIdFivem, '9999');
 });
 
+test('entrada de jogador no formato do canal logs-painel', () => {
+  const r = parseRegistro({
+    title: 'Entrada',
+    description: '#13138 Will lhp entrou no servidor.',
+  });
+  assert.equal(r.acao, 'jogador_entrou');
+  assert.equal(r.atorNome, 'Will lhp');
+  assert.equal(r.atorIdFivem, '13138');
+  assert.equal(r.categoria, 'conexao');
+});
+
+test('saída de jogador no formato do canal logs-painel', () => {
+  const r = parseRegistro({
+    title: 'Saída',
+    description: '#19200 Bigode lmzz saiu do servidor.',
+  });
+  assert.equal(r.acao, 'jogador_saiu');
+  assert.equal(r.atorNome, 'Bigode lmzz');
+  assert.equal(r.atorIdFivem, '19200');
+  assert.equal(r.categoria, 'conexao');
+});
+
 test('formato desconhecido é mantido, com IDs e valor extraídos', () => {
   const r = parseRegistro({
     title: 'Registro de Atividade: Fulano',

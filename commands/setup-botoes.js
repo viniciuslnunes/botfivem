@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config/index.js');
+const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
 
 // Verifica se já existe mensagem do bot com botões no canal; retorna true se já existir
 async function jaTemBotao(canal, client) {
@@ -31,31 +32,7 @@ module.exports = {
     }
 
     // Canal de bloqueio de ID
-    const canalBloquear = interaction.guild.channels.cache.get(config.canais.naoRecrutar);
-    if (canalBloquear) {
-      const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('NÃO RECRUTAR - GAVIÕES DA FIEL - FIVEM')
-        .setDescription('Use os botões abaixo para adicionar ou remover um ID da lista de não recrutar!');
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('abrir_bloquearid')
-          .setLabel('BLOQUEAR NOVO ID')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId('abrir_desbloquearid')
-          .setLabel('REMOVER ID BLOQUEADO')
-          .setStyle(ButtonStyle.Secondary)
-      );
-      // Atualiza a mensagem fixa já existente (que só tinha o botão de bloquear) em vez de duplicar
-      const msgs = await canalBloquear.messages.fetch({ limit: 20 });
-      const existente = msgs.find(m => m.author.id === client.user.id && m.components.length > 0);
-      if (existente) {
-        await existente.edit({ embeds: [embed], components: [row] });
-      } else {
-        await canalBloquear.send({ embeds: [embed], components: [row] });
-      }
-    }
+    await garantirMensagemNaoRecrutar(client);
 
     // Canal de advertência
     const canalAdvertencia = interaction.guild.channels.cache.get(config.canais.advertencia);
