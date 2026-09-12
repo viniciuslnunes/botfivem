@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const { listarDepartamentos } = require('./repositorio');
 const { listaLimitada } = require('./regras');
 
@@ -41,7 +42,7 @@ async function atualizarQuadroDepartamentos(client) {
   const areas = await listarDepartamentos({ apenasAtivos: true });
   if (!areas.length) return;
 
-  await canal.guild.members.fetch();
+  await garantirMembrosCarregados(canal.guild);
   const embed = montarEmbed(canal.guild, areas);
   const mensagemId = await lerConfig(CHAVE_MENSAGEM);
   const componentes = [linhaBotaoQuadro()];

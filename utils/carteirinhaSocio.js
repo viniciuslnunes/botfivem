@@ -1,6 +1,7 @@
 const db = require('./db');
 const config = require('../config/index.js');
 const { atualizarMural } = require('./muralAssociados');
+const { garantirMembrosCarregados } = require('./membrosGuild');
 
 // Carteirinha acompanha o cargo SÓCIO: perdeu o cargo, a carteirinha é revogada
 // (sai do mural); voltou, é restaurada com o mesmo número. Nada é apagado.
@@ -16,7 +17,7 @@ async function sincronizarCarteirinhaComCargo(client, discordId, ehSocio) {
 // incompleta, revogaria meio mural por engano — daí a trava de proporção.
 async function reconciliarCarteirinhas(client) {
   const guild = await client.guilds.fetch(config.guildId);
-  await guild.members.fetch();
+  await garantirMembrosCarregados(guild);
   if (guild.members.cache.size === 0) return 0;
 
   const { rows } = await db.query('SELECT discord_id, revogada_em FROM socios');

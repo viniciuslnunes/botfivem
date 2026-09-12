@@ -1,6 +1,7 @@
 const { ChannelType, PermissionFlagsBits: P } = require('discord.js');
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const E = require('./estatisticas');
 
 // Canal fixo listando (e mencionando) todo sócio que ainda não tem o ID do
@@ -63,7 +64,7 @@ async function garantirCanal(guild) {
 }
 
 async function buscarSociosSemId(guild) {
-  await guild.members.fetch();
+  await garantirMembrosCarregados(guild);
   return [...guild.members.cache.values()]
     .filter(m => m.roles.cache.has(config.cargos.socio))
     .filter(m => !E.idFivemDoNick(m.nickname ?? m.displayName))

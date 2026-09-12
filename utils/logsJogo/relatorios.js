@@ -1,4 +1,5 @@
 const config = require('../../config/index.js');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const repo = require('./repositorio');
 const E = require('./estatisticas');
 const P = require('./presenca');
@@ -230,7 +231,7 @@ async function montarEmbedChurn(periodo) {
 
 // Sócios (cargo SÓCIO) sem registro no jogo há N dias, cruzando o ID do apelido
 async function montarEmbedInativos(guild, dias) {
-  await guild.members.fetch();
+  await garantirMembrosCarregados(guild);
   const socios = [...guild.members.cache.values()].filter(m => m.roles.cache.has(config.cargos.socio));
   const comId = socios.map(m => ({ membro: m, idFivem: E.idFivemDoNick(m.nickname ?? m.displayName) }));
   const semId = comId.filter(s => !s.idFivem);
@@ -393,6 +394,7 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
       ...linhasContexto(sociosCount, manual, pico),
       '',
       '*Escolha um período abaixo pra ver quem está online e o pico de simultâneos.*',
+      '*Pra buscar um jogador é preciso ter um ID vinculado ao seu usuário do Discord.*',
     ].join('\n'),
     footer: { text: `${RODAPE} · ${AVISO_DIVERGENCIA} · canal logs-painel` },
     timestamp: new Date().toISOString(),

@@ -1,4 +1,5 @@
 const config = require('../../config/index.js');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const { listaLimitada } = require('../departamentos/regras');
 const { formatarNumero } = require('../logsJogo/estatisticas');
 const { formatarTaxa } = require('../eventos/regras');
@@ -6,7 +7,7 @@ const repo = require('./funilRepositorio');
 const { mapearSociosPorIdFivem, resumirFunil } = require('./funil');
 
 async function montarEmbedFunil(guild, periodo) {
-  const [novatos] = await Promise.all([repo.novatosDoPeriodo(periodo.inicio, periodo.fim), guild.members.fetch()]);
+  const [novatos] = await Promise.all([repo.novatosDoPeriodo(periodo.inicio, periodo.fim), garantirMembrosCarregados(guild)]);
   const idsSocios = new Set(mapearSociosPorIdFivem(guild.members.cache.values(), config.cargos.socio).keys());
   const f = resumirFunil(novatos, idsSocios);
   const semPedido = f.semPedido.slice(0, 20).map(n =>

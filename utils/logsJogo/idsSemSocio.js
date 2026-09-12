@@ -4,6 +4,7 @@ const {
 } = require('discord.js');
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const E = require('./estatisticas');
@@ -181,7 +182,7 @@ function encontrarSugestao(nomeCandidato, membros) {
 }
 
 async function membrosAtuais(guild) {
-  await guild.members.fetch();
+  await garantirMembrosCarregados(guild);
   return [...guild.members.cache.values()]
     .filter(m => !m.user.bot)
     .map(m => ({ id: m.id, nick: m.nickname ?? m.displayName }));

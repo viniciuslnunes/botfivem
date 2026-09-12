@@ -1,6 +1,7 @@
 const db = require('../db');
 const config = require('../../config/index.js');
 const { lerConfig } = require('../botConfig');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const { montarEmbedJogadoresOnline } = require('./relatorios');
 const { linhaBotoesPresenca, CONFIG_KEY_MANUAL } = require('./presencaInteracoes');
 
@@ -26,7 +27,7 @@ async function lerManual() {
 // buscar não derruba o painel — só sai sem esse número.
 async function contarSocios(guild) {
   try {
-    await guild.members.fetch();
+    await garantirMembrosCarregados(guild);
     return guild.members.cache.filter(m => m.roles.cache.has(config.cargos.socio)).size;
   } catch (err) {
     console.error('[painel-jogadores] Erro ao contar sócios:', err);

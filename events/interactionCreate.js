@@ -18,6 +18,7 @@ const { registrarFicha, decidirFicha } = require('../utils/recrutamento/fichas')
 const { situacaoCarteirinha, textoSituacao } = require('../utils/carteirinha/regras');
 const { registrarSinal } = require('../utils/confianca/servico');
 const { mapearSociosPorIdFivem } = require('../utils/recrutamento/funil');
+const { garantirMembrosCarregados } = require('../utils/membrosGuild');
 
 // Advertência de recrutador tem cargos próprios; reusar os de sócio escalaria as duas juntas.
 const advRecConfigurada = () =>
@@ -385,7 +386,7 @@ module.exports = (client, _config, utils) => {
       }
       await interaction.deferReply({ flags: 64 });
       // Bloqueio barra quem quer entrar; sócio ativo precisa ser desligado antes (atos separados, rastro separado)
-      await interaction.guild.members.fetch().catch(() => {});
+      await garantirMembrosCarregados(interaction.guild).catch(() => {});
       const socioComId = mapearSociosPorIdFivem(interaction.guild.members.cache.values(), config.cargos.socio).get(id.trim());
       if (socioComId) {
         return interaction.editReply({

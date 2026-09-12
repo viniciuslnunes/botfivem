@@ -1,4 +1,5 @@
 const config = require('../../config/index.js');
+const { garantirMembrosCarregados } = require('../membrosGuild');
 const { listaLimitada } = require('../departamentos/regras');
 const repo = require('./funilRepositorio');
 const { mapearSociosPorIdFivem, novatosParaAlertar } = require('./funil');
@@ -15,7 +16,7 @@ async function verificarNovatosNaoRecrutados(client) {
   if (!novatos.length) return 0;
 
   const guild = await client.guilds.fetch(config.guildId);
-  await guild.members.fetch();
+  await garantirMembrosCarregados(guild);
   const idsSocios = new Set(mapearSociosPorIdFivem(guild.members.cache.values(), config.cargos.socio).keys());
   const jaAlertados = await repo.alertasJaEnviados(TIPO_ALERTA, novatos.map(n => n.id_fivem));
   const alertar = novatosParaAlertar(novatos, { idsSocios, jaAlertados, agora, dias });
