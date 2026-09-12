@@ -198,41 +198,6 @@ function linhaOnline(j) {
   return `**${j.nome ?? '?'}**${j.id ? ` \`${j.id}\`` : ''} · desde <t:${desde}:R>`;
 }
 
-// Cabe ~20 linhas por campo de 1024 caracteres. Uma lista vira vários campos
-// (até MAX_CAMPOS), o resto some num "e mais N" — Discord aceita até 25
-// campos por embed, então isso nunca estoura.
-const MAX_POR_CAMPO = 20;
-const MAX_CAMPOS = 4;
-
-function paginarEmCampos(titulo, linhas, vazio) {
-  if (!linhas.length) return [{ name: titulo, value: vazio, inline: false }];
-  const campos = [];
-  for (let i = 0; i < linhas.length && i < MAX_POR_CAMPO * MAX_CAMPOS; i += MAX_POR_CAMPO) {
-    campos.push({
-      name: i === 0 ? titulo : '​',
-      value: E.truncar(linhas.slice(i, i + MAX_POR_CAMPO).join('\n'), 1024),
-      inline: false,
-    });
-  }
-  const resto = linhas.length - MAX_POR_CAMPO * MAX_CAMPOS;
-  if (resto > 0) campos.push({ name: '​', value: `*… e mais ${E.formatarNumero(resto)}.*`, inline: false });
-  return campos;
-}
-
-// Campo(s) "QUEM ESTÁ ONLINE": uma coluna vertical, um jogador por linha,
-// em ordem alfabética.
-function camposOnline(online) {
-  const ordenados = [...online].sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR'));
-  return paginarEmCampos('QUEM ESTÁ ONLINE', ordenados.map(linhaOnline), '*Ninguém online agora.*');
-}
-
-// Campo(s) com o ranking de tempo jogado (ou sessão atual) de um período,
-// do maior pro menor — não só o top 5, a lista inteira de quem jogou.
-function camposRanking(titulo, ranking) {
-  const linhas = ranking.map((t, i) => `${i + 1}. **${t.nome ?? '?'}** \`${t.id}\` — ${E.formatarDuracao(t.ms)}`);
-  return paginarEmCampos(titulo, linhas, '*Sem dados no período.*');
-}
-
 // "Hoje/últimos 7-30-90 dias/tudo" incluem o presente: fazem sentido junto
 // de "online agora". "Ontem/semana passada/mês passado" são passado fechado:
 // mostrar "online agora" ali seria mostrar um número que não tem nada a ver
@@ -281,18 +246,20 @@ async function montarEmbedJogadoresOnline(sociosCount, agora = new Date()) {
   };
 }
 
-// Consulta sob demanda (/estatisticas online e os botões do painel): pico +
-// distintos + ranking completo de tempo jogado do período escolhido (não só
-// top 5 — todo mundo que jogou, paginado). "Hoje"/"ontem" quebram por hora;
-// o resto por dia.
+// Dados crus pro /estatisticas online e os botões do painel: pico +
+// distintos + a lista inteira (quem está online, ou o ranking de tempo
+// jogado do período — nunca só um top 5). Quem monta o embed e pagina é
+// utils/logsJogo/presencaInteracoes.js: uma lista de centenas de jogadores
+// não cabe num embed só (limite de 6000 caracteres/25 campos do Discord).
 //
-// A lista "QUEM ESTÁ ONLINE" (quem está conectado neste exato instante) só
-// aparece no botão AGORA (período "hoje") — não faz sentido misturar um
-// retrato do agora dentro de um relatório de "últimos 7 dias" ou "mês
-// passado": o número mudaria conforme a hora que alguém clica, sem relação
-// nenhuma com o período pedido. Nos demais, "Online agora" fica só como uma
-// linha de contexto rápido (quando o período inclui o presente).
-async function montarEmbedPresenca(periodo, agora = new Date()) {
+// "Hoje"/"ontem" quebram por hora; o resto por dia. A lista "QUEM ESTÁ
+// ONLINE" (quem está conectado neste exato instante) só existe no período
+// "hoje" (botão AGORA) — não faz sentido misturar um retrato do presente
+// dentro de um relatório de "últimos 7 dias" ou "mês passado": o número
+// mudaria conforme a hora do clique, sem relação com o período pedido. Nos
+// demais, "Online agora" fica só como uma linha de contexto (quando o
+// período inclui o presente).
+async function montarDadosPresenca(periodo, agora = new Date()) {
   const comPresente = PERIODOS_COM_PRESENTE.has(periodo.chave);
   const ehAgora = periodo.chave === 'hoje';
   const granularidade = ['hoje', 'ontem'].includes(periodo.chave) ? 'hora' : 'dia';
@@ -312,32 +279,31 @@ async function montarEmbedPresenca(periodo, agora = new Date()) {
   }
 
   const bloco = await blocoOcupacao(rotuloBloco, periodo, granularidade, topTempoOverride);
-  const rotuloRanking = ehAgora ? 'SESSÃO ATUAL (DA MAIS LONGA)' : `MAIS TEMPO JOGADO — ${periodo.rotulo}`;
 
-  let description;
+  let linhaTopo;
   if (ehAgora) {
-    description = `**Online agora:** ${E.formatarNumero(online.length)}`;
+    linhaTopo = `**Online agora:** ${E.formatarNumero(online.length)}`;
   } else if (comPresente) {
     const agoraOnline = P.totalOnline(P.estadoSemSessoesExpiradas(await repo.estadoDosJogadores(agora), LIMITE_SESSAO_MS, agora));
-    description = `**Online agora:** ${E.formatarNumero(agoraOnline)}`;
+    linhaTopo = `**Online agora:** ${E.formatarNumero(agoraOnline)}`;
   } else {
     const diaInicio = E.formatarDiaCurto(E.chaveDia(periodo.inicio));
     const diaFim = E.formatarDiaCurto(E.chaveDia(new Date(periodo.fim.getTime() - 1)));
     const faixa = diaInicio === diaFim ? diaInicio : `${diaInicio} → ${diaFim}`;
-    description = `*Período fechado: ${faixa}.*`;
+    linhaTopo = `*Período fechado: ${faixa}.*`;
   }
 
+  const tituloLista = ehAgora ? 'QUEM ESTÁ ONLINE' : `MAIS TEMPO JOGADO — ${periodo.rotulo}`;
+  const linhas = ehAgora
+    ? [...online].sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR')).map(linhaOnline)
+    : bloco.ranking.map((t, i) => `${i + 1}. **${t.nome ?? '?'}** \`${t.id}\` — ${E.formatarDuracao(t.ms)}`);
+
   return {
-    color: COR,
-    title: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
-    description,
-    fields: [
-      ...(ehAgora ? camposOnline(online) : []),
-      bloco.resumo,
-      ...camposRanking(rotuloRanking, bloco.ranking),
-    ],
-    footer: { text: `${RODAPE} · canal logs-painel` },
-    timestamp: new Date().toISOString(),
+    titulo: `🎮 PRESENÇA DE JOGADORES — ${periodo.rotulo}`,
+    linhaTopo,
+    resumo: bloco.resumo,
+    tituloLista,
+    linhas,
   };
 }
 
@@ -347,5 +313,5 @@ module.exports = {
   montarEmbedCategoria,
   montarEmbedInativos,
   montarEmbedJogadoresOnline,
-  montarEmbedPresenca,
+  montarDadosPresenca,
 };

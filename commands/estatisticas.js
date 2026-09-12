@@ -4,6 +4,7 @@ const { ehLideranca, MSG_SO_LIDERANCA } = require('../utils/permissoes');
 const { PERIODO_CHOICES, resolverPeriodo } = require('../utils/logsJogo/estatisticas');
 const { resolverIdFivem, autocompletarFiltro } = require('../utils/logsJogo/consultas');
 const relatorios = require('../utils/logsJogo/relatorios');
+const { abrirPresenca } = require('../utils/logsJogo/presencaInteracoes');
 const { montarEmbedFunil } = require('../utils/recrutamento/funilRelatorio');
 
 const opcaoPeriodo = o => o.setName('periodo').setDescription('Período (padrão: últimos 7 dias)').addChoices(...PERIODO_CHOICES);
@@ -42,9 +43,10 @@ module.exports = {
 
     await interaction.deferReply({ flags: 64 });
 
+    if (sub === 'online') return abrirPresenca(interaction, periodo);
+
     let embed;
     if (sub === 'torcida') embed = await relatorios.montarEmbedTorcida(periodo);
-    else if (sub === 'online') embed = await relatorios.montarEmbedPresenca(periodo);
     else if (sub === 'membro') embed = await relatorios.montarEmbedMembro(alvo.idFivem, alvo.rotulo, periodo);
     else if (sub === 'categoria') embed = await relatorios.montarEmbedCategoria(interaction.options.getString('categoria'), periodo);
     else if (sub === 'recrutamento') embed = await montarEmbedFunil(interaction.guild, periodo);
