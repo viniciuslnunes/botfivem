@@ -6,6 +6,7 @@ const { CHAVE_CANAL: CHAVE_CANAL_QUADRO } = require('./quadro');
 const { listarDepartamentos, salvarDepartamento } = require('./repositorio');
 const { nomesDosCargos, nomeDoCanal } = require('./regras');
 const { garantirMensagemFixa } = require('../mensagemFixa');
+const { linhaBotoesArea } = require('./interacoes');
 
 function mensagemApresentacaoArea(area, cargoMembroId, cargoGestorId) {
   return {
@@ -14,8 +15,9 @@ function mensagemApresentacaoArea(area, cargoMembroId, cargoGestorId) {
       title: `${area.emoji} ${area.nome.toUpperCase()}`,
       description: area.descricao ?? null,
       fields: [{ name: 'QUEM PARTICIPA', value: `<@&${cargoMembroId}> · Gestor: <@&${cargoGestorId}>`, inline: false }],
-      footer: { text: 'A presidência ou o gestor da área incluem sócios com /departamentos incluir' },
+      footer: { text: 'Incluir/remover é da presidência ou do gestor desta área — pelos botões abaixo' },
     }],
+    components: [linhaBotoesArea(area.slug)],
     allowedMentions: { parse: [] },
   };
 }

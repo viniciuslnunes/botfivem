@@ -1,6 +1,13 @@
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const { listarDepartamentos } = require('./repositorio');
 const { listaLimitada } = require('./regras');
+
+function linhaBotaoQuadro() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('dept:quadro-atualizar').setLabel('Atualizar').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
+  );
+}
 
 // Quadro fixo de quem faz parte de cada área, no padrão do embed de hierarquia
 const CHAVE_CANAL = 'canal_quadro_departamentos';
@@ -37,16 +44,17 @@ async function atualizarQuadroDepartamentos(client) {
   await canal.guild.members.fetch();
   const embed = montarEmbed(canal.guild, areas);
   const mensagemId = await lerConfig(CHAVE_MENSAGEM);
+  const componentes = [linhaBotaoQuadro()];
   if (mensagemId) {
     try {
       const msg = await canal.messages.fetch(mensagemId);
-      await msg.edit({ embeds: [embed], allowedMentions: { parse: [] } });
+      await msg.edit({ embeds: [embed], components: componentes, allowedMentions: { parse: [] } });
       return;
     } catch {
       // mensagem apagada — recriar
     }
   }
-  const nova = await canal.send({ embeds: [embed], allowedMentions: { parse: [] } });
+  const nova = await canal.send({ embeds: [embed], components: componentes, allowedMentions: { parse: [] } });
   await gravarConfig(CHAVE_MENSAGEM, nova.id);
 }
 
