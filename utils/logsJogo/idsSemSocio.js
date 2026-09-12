@@ -1,5 +1,5 @@
 const {
-  ChannelType, PermissionFlagsBits: P, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ChannelType, PermissionFlagsBits: P, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
   ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, UserSelectMenuBuilder,
 } = require('discord.js');
 const config = require('../../config/index.js');
@@ -356,20 +356,35 @@ async function lerMsgIds() {
 // ciclo de 20 min), então nunca fica mais desatualizada que o canal em si.
 let ultimosCandidatos = [];
 
-// Garante a mensagem de botões no canal de gerenciamento. Se ela já existe
-// lá, só devolve o ID — os botões não mudam, nunca precisa reenviar. Se o ID
-// salvo aponta pra uma mensagem que não existe MAIS nesse canal (migração:
-// canal de gerenciamento acabou de ser criado, mensagem antiga ainda estava
-// no canal de listagem, junto das páginas), apaga a sobra de lá antes de
-// mandar a mensagem nova aqui.
+// Mesmo padrão das outras mensagens fixas com botão (VALIDAÇÃO DE ID,
+// BLOQUEIO DE ID — ver commands/setup-botoes.js): embed com título e
+// descrição, botões embaixo. Nada de content solto com emoji no texto.
+function payloadMsgBotoes() {
+  const embed = new EmbedBuilder()
+    .setColor(0x000000)
+    .setTitle('GERENCIAR IDS PENDENTES - GAVIÕES DA FIEL - FIVEM')
+    .setDescription('Clique em um dos botões abaixo pra ver associações sugeridas por nome parecido ou buscar um ID já ignorado.');
+  return { content: null, embeds: [embed], components: [linhaBotoesGerenciar()] };
+}
+
+// Garante a mensagem de botões no canal de gerenciamento, no formato padrão
+// acima. Se ela já existe lá mas ainda está no formato antigo (content solto
+// com emoji, de antes desse padrão), edita em posição. Se o ID salvo aponta
+// pra uma mensagem que não existe MAIS nesse canal (migração: canal de
+// gerenciamento acabou de ser criado, mensagem antiga ainda estava no canal
+// de listagem, junto das páginas), apaga a sobra de lá antes de mandar a
+// mensagem nova aqui.
 async function garantirMsgBotoes(canalGerenciar, canalListagem) {
   const salvoId = await lerConfig(CONFIG_KEY_BOTOES_MSG);
   if (salvoId) {
     const salvo = await canalGerenciar.messages.fetch(salvoId).catch(() => null);
-    if (salvo) return salvo.id;
+    if (salvo) {
+      if (salvo.content || !salvo.embeds.length) await salvo.edit(payloadMsgBotoes());
+      return salvo.id;
+    }
     await canalListagem.messages.delete(salvoId).catch(() => {});
   }
-  const msg = await canalGerenciar.send({ content: '🔎 GERENCIAR IDS PENDENTES:', components: [linhaBotoesGerenciar()] });
+  const msg = await canalGerenciar.send(payloadMsgBotoes());
   await gravarConfig(CONFIG_KEY_BOTOES_MSG, msg.id);
   return msg.id;
 }
