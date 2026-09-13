@@ -18,8 +18,11 @@ function mencoes() {
 const REGRAS = [
   {
     nome: 'novato',
-    async montar(registro) {
+    async montar(registro, client) {
       if (registro.acao !== 'novato_entrou') return null;
+      // ID bloqueado não é candidato a recrutamento — quem decide já foi
+      // avisado pela regra id_bloqueado_no_jogo, no histórico-não-recrutar.
+      if (registro.atorIdFivem && await buscarBloqueio(client, registro.atorIdFivem)) return null;
       const alerta = new EmbedBuilder()
         .setColor(0xFF0000)
         .setTitle('🆕 NOVO NOVATO DETECTADO')
@@ -35,6 +38,9 @@ const REGRAS = [
   },
   {
     nome: 'id_bloqueado_no_jogo',
+    // Vai para o histórico de não recrutar, não para novatos: o ID já é
+    // bloqueado, não é candidato a recrutamento.
+    canal: () => config.canais.historicoNaoRecrutar,
     async montar(registro, client) {
       for (const idFivem of [registro.atorIdFivem, registro.alvoIdFivem].filter(Boolean)) {
         const ultimo = ultimosAlertasBloqueio.get(idFivem);
@@ -107,15 +113,26 @@ const REGRAS = [
   },
 ];
 
+const canaisAlerta = new Map(); // idCanal -> Channel (cache simples, uma leva por vez)
+
+async function resolverCanal(client, idCanal) {
+  if (!canaisAlerta.has(idCanal)) {
+    canaisAlerta.set(idCanal, await client.channels.fetch(idCanal).catch(() => null));
+  }
+  return canaisAlerta.get(idCanal);
+}
+
 async function avaliarAlertas(client, registros) {
   if (!registros.length) return;
-  const canal = await client.channels.fetch(config.logsJogo.canalAlertas).catch(() => null);
-  if (!canal) return;
+  canaisAlerta.clear();
   for (const registro of registros) {
     for (const regra of REGRAS) {
       try {
         const mensagem = await regra.montar(registro, client);
-        if (mensagem) await canal.send(mensagem);
+        if (!mensagem) continue;
+        const idCanal = regra.canal ? regra.canal() : config.logsJogo.canalAlertas;
+        const canal = await resolverCanal(client, idCanal);
+        if (canal) await canal.send(mensagem);
       } catch (err) {
         console.error(`[logs-jogo] Erro no alerta ${regra.nome}:`, err);
       }
