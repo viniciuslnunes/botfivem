@@ -54,9 +54,8 @@ function renderizarAdvertencias(consultaId, consulta) {
       `**${consulta.ativas.length}** ${consulta.ativas.length === 1 ? 'advertência aberta' : 'advertências abertas'}`
         + ` · **${E.formatarNumero(consulta.servicosPendentes)}** serviços pendentes no total`,
       '*Aberta = o último evento do jogador foi uma advertência; cumprir ("FINALIZOU") ou ser perdoado encerra.*',
-      '',
-      itens.map(linhaAdvertencia).join('\n') || '*Sem advertências nesta página.*',
     ].join('\n'),
+    fields: F.campoLista('ADVERTÊNCIAS', itens.map(linhaAdvertencia), 'Sem advertências nesta página.'),
     footer: { text: `${F.rodape('canal logs-liderança')} · Página ${atual + 1}/${totalPaginas}` },
   };
   return { embeds: [embed], components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas)], allowedMentions: { parse: [] } };
@@ -94,9 +93,9 @@ async function embedFluxo(periodo) {
   return {
     color: F.COR,
     title: `⚖️ DISCIPLINA — ${periodo.rotulo}`,
-    description: 'Fluxo do período (o estado atual fica no botão ADVERTÊNCIAS ABERTAS).\n\n'
-      + (contagens.map(c => `• **${ROTULOS[c.acao] ?? c.acao}:** ${E.formatarNumero(c.total)}`).join('\n') || '*Nenhum evento no período.*'),
+    description: 'Fluxo do período (o estado atual fica no botão ADVERTÊNCIAS ABERTAS).',
     fields: [
+      ...F.campoLista('POR TIPO', contagens.map(c => `• **${ROTULOS[c.acao] ?? c.acao}:** ${E.formatarNumero(c.total)}`), 'Nenhum evento no período.'),
       ...(multas.length ? [{ name: 'MULTAS DO PERÍODO', value: E.truncar(multas.map(linhaMulta).join('\n'), 1024) }] : []),
       ...(perdoes.length ? [{ name: 'PERDÕES DO PERÍODO', value: E.truncar(perdoes.map(linhaPerdao).join('\n'), 1024) }] : []),
     ],
@@ -120,12 +119,10 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
         ? `**Advertência:** ABERTA — ${E.formatarNumero(E.extrairServicos(aberta.descricao) ?? 0)} serviços, ${F.haQuantoTempo(aberta.ocorrido_em)}`
         : '**Advertência:** nenhuma aberta',
       `**Total de multas:** ${E.formatarNumero(multas.length)}`,
-      '',
-      eventos.length ? '**Histórico recente:**' : '*Nenhum evento registrado.*',
-      ...eventos.slice(0, 8).map(e => (e.acao === 'multou'
-        ? linhaMulta(e)
-        : `• ${e.acao} — ${E.formatarDataHora(e.ocorrido_em)}${e.ator_nome ? ` · por ${F.nomeSeguro(e.ator_nome)}` : ''}`)),
     ].filter(Boolean).join('\n'),
+    fields: F.campoLista('HISTÓRICO RECENTE', eventos.slice(0, 8).map(e => (e.acao === 'multou'
+      ? linhaMulta(e)
+      : `• ${e.acao} — ${E.formatarDataHora(e.ocorrido_em)}${e.ator_nome ? ` · por ${F.nomeSeguro(e.ator_nome)}` : ''}`)), 'Nenhum evento registrado.'),
     footer: { text: F.rodape('canais logs-registros e logs-liderança') },
   };
 }

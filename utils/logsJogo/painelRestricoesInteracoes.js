@@ -59,11 +59,8 @@ function renderizarLista(consultaId, consulta) {
   const embed = {
     color: F.COR,
     title: `⛔ RESTRIÇÕES ATIVAS${consulta.tipo ? ` — ${consulta.tipo.toUpperCase()}` : ''} (${consulta.ativas.length})`,
-    description: [
-      faltaBloquear ? `⚠️ **${faltaBloquear}** com blacklist ainda fora do ❌・nao-recrutar.` : null,
-      '',
-      itens.map(linhaRestricao).join('\n') || '*Ninguém nesta lista.*',
-    ].filter(Boolean).join('\n'),
+    description: faltaBloquear ? `⚠️ **${faltaBloquear}** com blacklist ainda fora do ❌・nao-recrutar.` : undefined,
+    fields: F.campoLista('RESTRIÇÕES', itens.map(linhaRestricao), 'Ninguém nesta lista.'),
     footer: { text: `${F.rodape('canal logs-registros')} · Página ${atual + 1}/${totalPaginas}` },
   };
   const selectTipo = new ActionRowBuilder().addComponents(
@@ -113,9 +110,11 @@ async function embedFluxo(periodo) {
   return {
     color: F.COR,
     title: `⛔ RESTRIÇÕES — ${periodo.rotulo}`,
-    description: 'O que foi aplicado e retirado no período (quem está barrado HOJE tem botão próprio).\n\n'
-      + (contagens.map(c => `• **${ROTULOS_ACAO[c.acao] ?? c.acao}:** ${E.formatarNumero(c.total)}`).join('\n') || '*Nenhum evento no período.*'),
-    fields: topAplicou.length ? [{ name: 'QUEM MAIS APLICOU RESTRIÇÃO', value: topAplicou.map((l, i) => `${i + 1}. ${F.pessoa(l)} — ${E.formatarNumero(l.total)}`).join('\n') }] : [],
+    description: 'O que foi aplicado e retirado no período (quem está barrado HOJE tem botão próprio).',
+    fields: [
+      ...F.campoLista('POR TIPO', contagens.map(c => `• **${ROTULOS_ACAO[c.acao] ?? c.acao}:** ${E.formatarNumero(c.total)}`), 'Nenhum evento no período.'),
+      ...(topAplicou.length ? [{ name: 'QUEM MAIS APLICOU RESTRIÇÃO', value: topAplicou.map((l, i) => `${i + 1}. ${F.pessoa(l)} — ${E.formatarNumero(l.total)}`).join('\n') }] : []),
+    ],
     footer: { text: F.rodape('canal logs-registros') },
   };
 }
@@ -140,10 +139,8 @@ async function embedFichaJogador(client, idFivem, nomeConhecido) {
       `**ID:** \`${idFivem}\``,
       ...status.map(s => `**${A.TIPOS_RESTRICAO[s.tipo].rotulo}:** ${s.ativo ? `ATIVA (${F.haQuantoTempo(s.ultimo.ocorrido_em)})` : 'sem restrição'}`),
       blacklistAtivo ? (bloqueadoNoDiscord === null ? null : bloqueadoNoDiscord ? 'já está no ❌・nao-recrutar' : '⚠️ **FALTA BLOQUEAR NO ❌・NAO-RECRUTAR**') : null,
-      '',
-      eventos.length ? '**Histórico recente:**' : '*Nenhum evento registrado.*',
-      ...eventos.slice(0, 6).map(e => `• ${ROTULOS_ACAO[e.acao] ?? e.acao} — por ${F.nomeSeguro(e.ator_nome)}, ${E.formatarDataHora(e.ocorrido_em)}`),
     ].filter(Boolean).join('\n'),
+    fields: F.campoLista('HISTÓRICO RECENTE', eventos.slice(0, 6).map(e => `• ${ROTULOS_ACAO[e.acao] ?? e.acao} — por ${F.nomeSeguro(e.ator_nome)}, ${E.formatarDataHora(e.ocorrido_em)}`), 'Nenhum evento registrado.'),
     footer: { text: F.rodape('canal logs-registros') },
   };
 }

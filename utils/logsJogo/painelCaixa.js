@@ -22,15 +22,12 @@ async function montarBlocos() {
   const embed = {
     color: F.COR,
     title: '🏦 CAIXA DO JOGO — GAVIÕES DA FIEL FIVEM',
-    description: [
-      cabecalhoDinheiro(somasTudo, 'DESDE O PRIMEIRO LOG LIDO', F.avisoFonteParada(ultima)),
-      '',
-      somasTudo.map(linhaResumo).join('\n') || '*Nenhum registro de dinheiro ainda.*',
-      ...(avisoRoupa && somasTudo.some(l => ROUPA.includes(l.acao))
-        ? ['', `*👕 Roupa só aparecia no canal logs-liderança — ${avisoRoupa.replace(/^⚠️ /, '')}*`]
-        : []),
-    ].join('\n'),
-    footer: { text: F.rodape('canais logs-banco e logs-liderança') },
+    description: cabecalhoDinheiro(somasTudo, 'DESDE O PRIMEIRO LOG LIDO', F.avisoFonteParada(ultima)),
+    fields: F.campoLista('MOVIMENTO POR TIPO', somasTudo.map(linhaResumo), 'Nenhum registro de dinheiro ainda.'),
+    footer: {
+      text: `${F.rodape('canais logs-banco e logs-liderança')}`
+        + (avisoRoupa && somasTudo.some(l => ROUPA.includes(l.acao)) ? ' · 👕 roupa sem log recente (fonte parada)' : ''),
+    },
     timestamp: new Date().toISOString(),
   };
   return [{ embeds: [embed], components: linhaComponentesCaixa(), allowedMentions: { parse: [] } }];

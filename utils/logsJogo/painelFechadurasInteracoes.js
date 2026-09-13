@@ -14,14 +14,22 @@ const MODULO = 'fechaduras';
 const ACOES_ARENA = ['arena_bloqueou', 'arena_desbloqueou'];
 const ORIGEM = 'canais logs-registros e logs-liderança';
 
-function linhaFechadura(f) {
-  const por = f.porNome || f.porId ? ` · por ${F.pessoa({ nome: f.porNome, id: f.porId })}` : '';
-  if (f.semLogRecente) {
-    return `⚪ **${f.fechadura.toUpperCase()}** — sem log desde ${E.formatarDataHora(f.em)} (último estado: ${f.destrancada ? 'destrancada' : 'trancada'})${por}`;
-  }
-  return `${f.destrancada ? '🔓' : '🔒'} **${f.fechadura.toUpperCase()}** — ${f.destrancada ? 'DESTRANCADA' : 'trancada'} ${F.haQuantoTempo(f.em)}${por}`;
+// Ativa (log recente): estado + há quanto tempo + quem mexeu — é o que pede
+// ação, então leva o detalhe todo.
+function linhaAtiva(f) {
+  return `${f.destrancada ? '🔓' : '🔒'} **${f.fechadura.toUpperCase()}** — ${f.destrancada ? 'DESTRANCADA' : 'trancada'} ${F.haQuantoTempo(f.em)}`
+    + (f.porNome || f.porId ? ` · ${F.pessoa({ nome: f.porNome, id: f.porId })}` : '');
 }
 
+// Sem log recente: não é "estado atual" de verdade, só o último conhecido — uma
+// linha só com a data, sem "por fulano" (informação de baixa prioridade aqui).
+function linhaSemLog(f) {
+  return `⚪ **${f.fechadura.toUpperCase()}** — desde ${E.formatarDataHora(f.em)} (${f.destrancada ? 'destrancada' : 'trancada'})`;
+}
+
+// Situação vira 3 grupos visuais (fields) em vez de uma pilha só: é a mesma
+// informação de antes, mas separada por relevância — destrancada (pede ação),
+// trancada (ok) e sem log (baixa confiança), cada um com seu próprio respiro.
 async function embedEstadoAtual() {
   const [eventos, arena] = await Promise.all([
     repo.ultimoPorFechadura(A.ACOES_FECHADURA),
@@ -29,29 +37,29 @@ async function embedEstadoAtual() {
   ]);
   const estado = A.estadoFechaduras(eventos, { limiteMs: config.logsJogo.fonteParadaDias * E.DIA_MS });
   const destrancadas = estado.filter(f => f.destrancada && !f.semLogRecente);
+  const trancadas = estado.filter(f => !f.destrancada && !f.semLogRecente);
   const semLog = estado.filter(f => f.semLogRecente);
   const ultimaArena = arena[0] ?? null;
 
-  const fields = [];
+  const fields = [
+    ...F.campoLista('🔓 DESTRANCADAS AGORA', destrancadas.map(linhaAtiva), 'Nenhuma.'),
+    ...(trancadas.length ? F.campoLista('🔒 TRANCADAS', trancadas.map(linhaAtiva), '') : []),
+    ...(semLog.length ? F.campoLista(`⚪ SEM LOG HÁ MAIS DE ${config.logsJogo.fonteParadaDias} DIAS`, semLog.map(linhaSemLog), '') : []),
+  ];
   if (ultimaArena) {
     const parada = F.avisoFonteParada(ultimaArena.ocorrido_em);
     fields.push({
-      name: 'ARENA (BLOQUEIO DE USO, NÃO FECHADURA)',
+      name: '🎯 ARENA (BLOQUEIO DE USO, NÃO FECHADURA)',
       value: `${ultimaArena.acao === 'arena_bloqueou' ? '⛔ BLOQUEADA' : 'LIBERADA'} ${F.haQuantoTempo(ultimaArena.ocorrido_em)}`
-        + ` · por ${F.pessoa({ nome: ultimaArena.ator_nome, id: ultimaArena.ator_id_fivem })}${parada ? ' · ⚪ sem log recente' : ''}`,
+        + ` · ${F.pessoa({ nome: ultimaArena.ator_nome, id: ultimaArena.ator_id_fivem })}${parada ? ' · ⚪ sem log recente' : ''}`,
     });
   }
   return {
     color: F.COR,
     title: '🔐 FECHADURAS DA SEDE — ESTADO ATUAL',
-    description: [
-      destrancadas.length
-        ? `**${destrancadas.length}** ${destrancadas.length === 1 ? 'fechadura está DESTRANCADA' : 'fechaduras estão DESTRANCADAS'} agora.`
-        : 'Nenhuma fechadura com log recente está destrancada.',
-      semLog.length ? `⚪ **${semLog.length}** sem log há mais de ${config.logsJogo.fonteParadaDias} dias.` : null,
-      '',
-      estado.map(linhaFechadura).join('\n') || '*Nenhum evento de fechadura registrado ainda.*',
-    ].filter(Boolean).join('\n'),
+    description: destrancadas.length
+      ? `**${destrancadas.length}** ${destrancadas.length === 1 ? 'fechadura pede atenção' : 'fechaduras pedem atenção'} agora.`
+      : 'Nenhuma fechadura com log recente está destrancada.',
     fields,
     footer: { text: F.rodape(ORIGEM) },
   };
@@ -66,8 +74,10 @@ async function embedRanking(periodo) {
   return {
     color: F.COR,
     title: `🏆 QUEM MAIS MEXEU EM FECHADURA — ${periodo.rotulo}`,
-    description: topMexeu.map((l, i) => `${i + 1}. ${F.pessoa(l)} — ${E.formatarNumero(l.total)} ${l.total === 1 ? 'vez' : 'vezes'}`).join('\n') || '*Sem dados no período.*',
-    fields: contagens.length ? [{ name: 'POR TIPO DE EVENTO', value: E.truncar(contagens.map(c => `• ${c.acao}: ${E.formatarNumero(c.total)}`).join('\n'), 1024) }] : [],
+    fields: [
+      ...F.campoLista('RANKING', topMexeu.map((l, i) => `${i + 1}. ${F.pessoa(l)} — ${E.formatarNumero(l.total)} ${l.total === 1 ? 'vez' : 'vezes'}`), 'Sem dados no período.'),
+      ...(contagens.length ? [{ name: 'POR TIPO DE EVENTO', value: E.truncar(contagens.map(c => `• ${c.acao}: ${E.formatarNumero(c.total)}`).join('\n'), 1024) }] : []),
+    ],
     footer: { text: F.rodape(ORIGEM) },
     timestamp: new Date().toISOString(),
   };
@@ -78,13 +88,8 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
   return {
     color: F.COR,
     title: `🔐 ${F.nomeSeguro(nomeConhecido ?? idFivem)} — FECHADURAS`,
-    description: [
-      `**ID:** \`${idFivem}\``,
-      `**Total de eventos:** ${E.formatarNumero(eventos.length)}`,
-      '',
-      eventos.length ? '**Últimos movimentos:**' : '*Nenhum movimento registrado.*',
-      ...eventos.map(e => `• ${e.acao} — ${F.nomeSeguro(e.alvo_nome ?? 'sede')} — ${E.formatarDataHora(e.ocorrido_em)}`),
-    ].join('\n'),
+    description: [`**ID:** \`${idFivem}\``, `**Total de eventos:** ${E.formatarNumero(eventos.length)}`].join('\n'),
+    fields: F.campoLista('ÚLTIMOS MOVIMENTOS', eventos.map(e => `• ${e.acao} — ${F.nomeSeguro(e.alvo_nome ?? 'sede')} — ${E.formatarDataHora(e.ocorrido_em)}`), 'Nenhum movimento registrado.'),
     footer: { text: F.rodape(ORIGEM) },
   };
 }

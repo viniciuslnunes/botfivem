@@ -31,7 +31,7 @@ function renderizarMembros(consultaId, consulta) {
   const embed = {
     color: F.COR,
     title: `🏷️ ${F.nomeSeguro(consulta.tag).toUpperCase()} (${consulta.membros.length})`,
-    description: itens.map(linhaMembro).join('\n') || '*Ninguém com esta tag.*',
+    fields: F.campoLista('MEMBROS', itens.map(linhaMembro), 'Ninguém com esta tag.'),
     footer: { text: `${F.rodape('canal logs-registros')} · Página ${atual + 1}/${totalPaginas}` },
   };
   return { embeds: [embed], components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })], allowedMentions: { parse: [] } };
@@ -49,12 +49,13 @@ async function abrirTag(interaction, tag) {
 
 async function embedFluxo(periodo) {
   const eventos = await repo.listarPorAcoes(A.ACOES_TAG, periodo, 40);
+  const linhas = eventos.map(e => `${e.acao === 'tag_adicionou' ? '➕' : '➖'} ${F.pessoa({ nome: e.alvo_nome, id: e.alvo_id_fivem })}`
+    + ` · **${F.nomeSeguro(E.extrairEntreParenteses(e.descricao) ?? '?')}** — por ${F.nomeSeguro(e.ator_nome)}, ${E.formatarDataHora(e.ocorrido_em)}`);
   return {
     color: F.COR,
     title: `🏷️ MUDANÇAS DE TAG — ${periodo.rotulo}`,
-    description: 'Movimento do período (o quadro de quem tem cada tag hoje fica no select TAG).\n\n'
-      + (eventos.map(e => `${e.acao === 'tag_adicionou' ? '➕' : '➖'} ${F.pessoa({ nome: e.alvo_nome, id: e.alvo_id_fivem })}`
-        + ` · **${F.nomeSeguro(E.extrairEntreParenteses(e.descricao) ?? '?')}** — por ${F.nomeSeguro(e.ator_nome)}, ${E.formatarDataHora(e.ocorrido_em)}`).join('\n') || '*Nenhuma mudança no período.*'),
+    description: 'Movimento do período (o quadro de quem tem cada tag hoje fica no select TAG).',
+    fields: F.campoLista('EVENTOS', linhas, 'Nenhuma mudança no período.'),
     footer: { text: F.rodape('canal logs-registros') },
   };
 }

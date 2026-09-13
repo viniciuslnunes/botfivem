@@ -89,15 +89,17 @@ async function dadosDoPeriodo(periodo) {
 }
 
 function embedDinheiro(periodo, d) {
-  const fields = [];
-  if (d.movimentos.length) fields.push({ name: 'ÚLTIMAS MOVIMENTAÇÕES', value: E.truncar(d.movimentos.map(linhaMovimento).join('\n'), 1024) });
-  if (d.topSaque.length) fields.push({ name: '🔴 QUEM SACOU', value: E.truncar(d.topSaque.map(linhaPessoaValor).join('\n'), 1024) });
-  if (d.topDeposito.length) fields.push({ name: '🔵 QUEM MAIS DEPOSITOU', value: E.truncar(d.topDeposito.map(linhaPessoaValor).join('\n'), 1024) });
   const doDinheiro = d.somas.filter(l => DINHEIRO.includes(l.acao));
+  const fields = [
+    ...F.campoLista('MOVIMENTO POR TIPO', doDinheiro.map(linhaResumo), 'Sem movimento.'),
+    ...(d.movimentos.length ? [{ name: 'ÚLTIMAS MOVIMENTAÇÕES', value: E.truncar(d.movimentos.map(linhaMovimento).join('\n'), 1024) }] : []),
+    ...(d.topSaque.length ? [{ name: '🔴 QUEM SACOU', value: E.truncar(d.topSaque.map(linhaPessoaValor).join('\n'), 1024) }] : []),
+    ...(d.topDeposito.length ? [{ name: '🔵 QUEM MAIS DEPOSITOU', value: E.truncar(d.topDeposito.map(linhaPessoaValor).join('\n'), 1024) }] : []),
+  ];
   return {
     color: F.COR,
     title: `🏦 BANCO DA TORCIDA — ${periodo.rotulo}`,
-    description: [cabecalhoDinheiro(d.somas, periodo.rotulo, F.avisoFonteParada(d.ultima)), '', doDinheiro.map(linhaResumo).join('\n') || '*Sem movimento.*'].join('\n'),
+    description: cabecalhoDinheiro(d.somas, periodo.rotulo, F.avisoFonteParada(d.ultima)),
     fields,
     footer: { text: F.rodape('canal logs-banco') },
   };
@@ -106,11 +108,12 @@ function embedDinheiro(periodo, d) {
 function embedHonraGasto(periodo, d) {
   const recebida = somaDe(d.somas, ['honra_adicionada']);
   const gasta = somaDe(d.somas, ['honra_gastou']);
+  const linhas = d.honraGasta.map(l => `• ${F.pessoa({ nome: l.ator_nome, id: l.ator_id_fivem })} gastou **${E.formatarNumero(l.valor)}** em **${F.nomeSeguro(l.alvo_nome ?? 'item')}** — ${E.formatarDataHora(l.ocorrido_em)}`);
   return {
     color: F.COR,
     title: `🎖️ HONRA — ${periodo.rotulo}`,
-    description: `Recebida: **${E.formatarNumero(recebida)}** · Gasta: **${E.formatarNumero(gasta)}**\n*Honra é moeda própria: não se soma com dinheiro.*\n\n`
-      + (d.honraGasta.length ? d.honraGasta.map(l => `• ${F.pessoa({ nome: l.ator_nome, id: l.ator_id_fivem })} gastou **${E.formatarNumero(l.valor)}** em **${F.nomeSeguro(l.alvo_nome ?? 'item')}** — ${E.formatarDataHora(l.ocorrido_em)}`).join('\n') : '*Ninguém gastou honra no período.*'),
+    description: `Recebida: **${E.formatarNumero(recebida)}** · Gasta: **${E.formatarNumero(gasta)}**\n*Honra é moeda própria: não se soma com dinheiro.*`,
+    fields: F.campoLista('ÚLTIMOS GASTOS', linhas, 'Ninguém gastou honra no período.'),
     footer: { text: F.rodape('canal logs-banco') },
   };
 }
@@ -156,10 +159,8 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
     description: [
       `**ID:** \`${idFivem}\``,
       depositou[0] ? `**Depositado (total):** ${E.formatarDinheiro(depositou[0].soma)} em ${E.formatarNumero(depositou[0].total)}×` : null,
-      '',
-      eventos.length ? '**Últimos movimentos:**' : '*Nenhum movimento registrado.*',
-      ...eventos.map(linhaMovimento),
     ].filter(Boolean).join('\n'),
+    fields: F.campoLista('ÚLTIMOS MOVIMENTOS', eventos.map(linhaMovimento), 'Nenhum movimento registrado.'),
     footer: { text: F.rodape('canais logs-banco e logs-liderança') },
   };
 }

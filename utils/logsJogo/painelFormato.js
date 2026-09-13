@@ -110,6 +110,53 @@ function blocosDeEmbeds(embeds) {
   return embeds.map(embed => ({ embeds: [embed] }));
 }
 
+const LIMITE_FIELD = 1024; // limite do Discord pro `value` de um field
+
+// Uma lista vira `fields`, não texto dentro de `description` — é a diferença
+// entre o painel de jogadores (informação respirada, cada bloco separado) e
+// colar tudo num parágrafo só. Um field do Discord reserva margem de verdade
+// acima e abaixo (nome em negrito, depois o valor), e vários fields empilhados
+// vêm com espaço entre si — description concatenada com "\n" não tem nada
+// disso, e foi o que deixava as listas (fechaduras, itens do baú, restrições)
+// parecerem uma parede de texto. Quebra em mais de um field só se passar do
+// limite de 1024 caracteres (25 fields cabem num embed, bem mais que qualquer
+// lista destes painéis precisa).
+function campoLista(nome, linhas, vazio) {
+  if (!linhas.length) return [{ name: nome, value: `*${vazio}*` }];
+  const grupos = [];
+  let atual = [];
+  let tamanho = 0;
+  for (const linha of linhas) {
+    const acrescimo = linha.length + 1;
+    if (atual.length && tamanho + acrescimo > LIMITE_FIELD) {
+      grupos.push(atual);
+      atual = [];
+      tamanho = 0;
+    }
+    atual.push(linha);
+    tamanho += acrescimo;
+  }
+  if (atual.length) grupos.push(atual);
+  return grupos.map((grupo, i) => ({
+    name: grupos.length > 1 ? `${nome} (${i + 1}/${grupos.length})` : nome,
+    value: grupo.join('\n'),
+  }));
+}
+
+// Embed padrão dos canais-painel interativos: description curta (2-4 linhas de
+// contexto, nunca a lista) + a lista sempre em field(s) via campoLista. Um
+// título e um rodapé prontos, pra cada painel só decidir o QUE mostrar.
+function embedComLista({ titulo, descricao = [], nomeLista, linhas, vazio, origem, fields = [] }) {
+  return {
+    color: COR,
+    title: titulo,
+    description: (Array.isArray(descricao) ? descricao.filter(Boolean) : [descricao]).join('\n') || undefined,
+    fields: [...campoLista(nomeLista, linhas, vazio), ...fields],
+    footer: { text: rodape(origem) },
+    timestamp: new Date().toISOString(),
+  };
+}
+
 module.exports = {
   COR,
   LIMITE_DESCRICAO,
@@ -123,4 +170,6 @@ module.exports = {
   agruparPorOrcamento,
   embedsDeLista,
   blocosDeEmbeds,
+  campoLista,
+  embedComLista,
 };

@@ -103,9 +103,8 @@ function renderizarListaItens(consultaId, consulta) {
       `**${itensFiltrados.length}** ${itensFiltrados.length === 1 ? 'item movimentado' : 'itens movimentados'}`
         + (negativos ? ` · **${negativos}** com saldo negativo` : ''),
       '*Saldo líquido do período (guardou − removeu) — não é o estoque total.*',
-      '',
-      itens.map(l => linhaItem(l, !consulta.bauFiltro)).join('\n') || '*Sem itens nesta página.*',
     ].join('\n'),
+    fields: F.campoLista('ITENS', itens.map(l => linhaItem(l, !consulta.bauFiltro)), 'Sem itens nesta página.'),
     footer: { text: `${F.rodape('canal logs-baú')} · Página ${atual + 1}/${totalPaginas}` },
   };
 
@@ -228,10 +227,8 @@ async function embedFichaPessoa(idFivem, nomeConhecido) {
       `**Guardou (total):** ${qtd(dados.guardou)}`,
       `**Retirou (total):** ${qtd(dados.removeu)}`,
       dados.desde ? `**Desde:** ${E.formatarDataHora(dados.desde)}` : null,
-      '',
-      dados.eventos.length ? '**Últimos movimentos:**' : '*Nenhum movimento registrado.*',
-      ...dados.eventos.map(linhaEventoPessoa),
     ].filter(Boolean).join('\n'),
+    fields: F.campoLista('ÚLTIMOS MOVIMENTOS', dados.eventos.map(linhaEventoPessoa), 'Nenhum movimento registrado.'),
     footer: { text: F.rodape('canal logs-baú') },
   };
 }

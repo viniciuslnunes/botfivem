@@ -44,11 +44,8 @@ function renderizarRanking(consultaId, consulta) {
   const embed = {
     color: F.COR,
     title: `🗺️ DOMINAÇÃO — ${consulta.rotulo}`,
-    description: [
-      `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`,
-      '',
-      itens.map(linhaTerritorio).join('\n') || '*Nenhum território dominado no período.*',
-    ].join('\n'),
+    description: `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`,
+    fields: F.campoLista('RANKING', itens.map(linhaTerritorio), 'Nenhum território dominado no período.'),
     footer: { text: `${F.rodape('canal logs-banco')} · Página ${atual + 1}/${totalPaginas}` },
   };
   return { embeds: [embed], components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })], allowedMentions: { parse: [] } };
@@ -72,13 +69,12 @@ async function embedPerdidos() {
   const conhecidos = porTerritorio(linhasTudo);
   const dominadosRecentes = new Set(porTerritorio(linhasRecentes).map(t => t.territorio));
   const perdidos = conhecidos.filter(t => !dominadosRecentes.has(t.territorio));
+  const linhas = perdidos.map(t => `• **${F.nomeSeguro(t.territorio)}** — ${(t.ultimaDominacao ?? t.ultimaConquista) ? `último domínio ${F.haQuantoTempo(t.ultimaDominacao ?? t.ultimaConquista)}` : 'sem data'}`);
   return {
     color: F.COR,
     title: `⚠️ TERRITÓRIOS SEM DOMÍNIO HÁ ${PERDIDO_DIAS} DIAS`,
-    description: perdidos.length
-      ? `**${perdidos.length}** de **${conhecidos.length}** territórios já dominados:\n\n`
-        + perdidos.map(t => `• **${F.nomeSeguro(t.territorio)}** — ${(t.ultimaDominacao ?? t.ultimaConquista) ? `último domínio ${F.haQuantoTempo(t.ultimaDominacao ?? t.ultimaConquista)}` : 'sem data'}`).join('\n')
-      : 'Todo território já dominado segue ativo.',
+    description: perdidos.length ? `**${perdidos.length}** de **${conhecidos.length}** territórios já dominados:` : 'Todo território já dominado segue ativo.',
+    fields: perdidos.length ? F.campoLista('TERRITÓRIOS', linhas, '') : [],
     footer: { text: F.rodape('canal logs-banco') },
   };
 }

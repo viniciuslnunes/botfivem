@@ -34,7 +34,7 @@ function renderizarHistorico(consultaId, consulta) {
   const embed = {
     color: F.COR,
     title: '⚙️ HISTÓRICO DE CONFIGURAÇÃO',
-    description: itens.map(linhaEvento).join('\n') || '*Nenhuma alteração registrada.*',
+    fields: F.campoLista('ALTERAÇÕES', itens.map(linhaEvento), 'Nenhuma alteração registrada.'),
     footer: { text: `${F.rodape('canais logs-registros e logs-liderança')} · Página ${atual + 1}/${totalPaginas}` },
   };
   return { embeds: [embed], components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })], allowedMentions: { parse: [] } };
@@ -51,7 +51,7 @@ async function embedFluxo(periodo) {
   return {
     color: F.COR,
     title: `⚙️ CONFIGURAÇÃO — ${periodo.rotulo}`,
-    description: eventos.map(linhaEvento).join('\n') || '*Nenhuma alteração no período.*',
+    fields: F.campoLista('ALTERAÇÕES', eventos.map(linhaEvento), 'Nenhuma alteração no período.'),
     footer: { text: F.rodape('canais logs-registros e logs-liderança') },
   };
 }
@@ -61,12 +61,8 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
   return {
     color: F.COR,
     title: `⚙️ ${F.nomeSeguro(nomeConhecido ?? idFivem)} — ALTERAÇÕES`,
-    description: [
-      `**ID:** \`${idFivem}\``,
-      `**Total de alterações:** ${E.formatarNumero(eventos.length)}`,
-      '',
-      eventos.length ? eventos.map(linhaEvento).join('\n') : '*Nenhuma alteração registrada.*',
-    ].join('\n'),
+    description: [`**ID:** \`${idFivem}\``, `**Total de alterações:** ${E.formatarNumero(eventos.length)}`].join('\n'),
+    fields: F.campoLista('ALTERAÇÕES', eventos.map(linhaEvento), 'Nenhuma alteração registrada.'),
     footer: { text: F.rodape('canais logs-registros e logs-liderança') },
   };
 }
