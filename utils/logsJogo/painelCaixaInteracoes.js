@@ -21,8 +21,8 @@ const ROUPA = ['comprou_roupa'];
 const ACOES_TODAS = [...DINHEIRO, ...HONRA, ...ROUPA];
 
 const ROTULOS = {
-  banco_depositou: '🟢 Depósitos de sócios',
-  dinheiro_conquista: '🟢 Prêmio de conquista de território',
+  banco_depositou: '🔵 Depósitos de sócios',
+  dinheiro_conquista: '🔵 Prêmio de conquista de território',
   dinheiro_adicionado: '🟡 Dinheiro posto pela staff',
   banco_sacou: '🔴 Saques',
   honra_adicionada: '🎖️ Honra recebida',
@@ -52,13 +52,13 @@ function linhaPessoaValor(l, i) {
 
 function linhaMovimento(l) {
   const quando = E.formatarDataHora(l.ocorrido_em);
-  if (l.acao === 'dinheiro_conquista') return `🟢 conquista de **${F.nomeSeguro(l.alvo_nome)}** rendeu **${E.formatarDinheiro(l.valor)}** — ${quando}`;
+  if (l.acao === 'dinheiro_conquista') return `🔵 conquista de **${F.nomeSeguro(l.alvo_nome)}** rendeu **${E.formatarDinheiro(l.valor)}** — ${quando}`;
   const quem = F.pessoa({ nome: l.ator_nome, id: l.ator_id_fivem });
   if (l.acao === 'dinheiro_adicionado') return `🟡 staff ${quem} pôs **${E.formatarDinheiro(l.valor)}** — ${quando}`;
   if (l.acao.startsWith('honra')) return `🎖️ ${quem} ${l.acao === 'honra_gastou' ? `gastou **${E.formatarNumero(l.valor)}** em ${F.nomeSeguro(l.alvo_nome ?? 'item')}` : `recebeu **${E.formatarNumero(l.valor)}**`} — ${quando}`;
   if (l.acao === 'comprou_roupa') return `👕 ${quem} gastou **${E.formatarDinheiro(l.valor)}** em roupa — ${quando}`;
   const entrou = l.acao === 'banco_depositou';
-  return `${entrou ? '🟢' : '🔴'} ${quem} ${entrou ? 'depositou' : 'sacou'} **${E.formatarDinheiro(l.valor)}** — ${quando}`;
+  return `${entrou ? '🔵' : '🔴'} ${quem} ${entrou ? 'depositou' : 'sacou'} **${E.formatarDinheiro(l.valor)}** — ${quando}`;
 }
 
 function cabecalhoDinheiro(somas, rotulo, aviso) {
@@ -68,9 +68,9 @@ function cabecalhoDinheiro(somas, rotulo, aviso) {
   return [
     ...(aviso ? [aviso, ''] : []),
     `**${rotulo}**`,
-    `🟢 Entrou: **${E.formatarDinheiro(entrou)}** (${E.formatarNumero(totalDe(somas, DINHEIRO_ENTRA))} registros)`,
+    `🔵 Entrou: **${E.formatarDinheiro(entrou)}** (${E.formatarNumero(totalDe(somas, DINHEIRO_ENTRA))} registros)`,
     `🔴 Saiu: **${E.formatarDinheiro(saiu)}** (${E.formatarNumero(totalDe(somas, DINHEIRO_SAI))} saques)`,
-    `${liquido >= 0 ? '📈' : '📉'} Líquido: **${E.formatarDinheiro(liquido)}**`,
+    `${liquido >= 0 ? '▲' : '▼'} Líquido: **${E.formatarDinheiro(liquido)}**`,
     '',
     '*Movimento do período, não o saldo da conta — o jogo só publica entrada e saída.*',
   ].join('\n');
@@ -92,7 +92,7 @@ function embedDinheiro(periodo, d) {
   const fields = [];
   if (d.movimentos.length) fields.push({ name: 'ÚLTIMAS MOVIMENTAÇÕES', value: E.truncar(d.movimentos.map(linhaMovimento).join('\n'), 1024) });
   if (d.topSaque.length) fields.push({ name: '🔴 QUEM SACOU', value: E.truncar(d.topSaque.map(linhaPessoaValor).join('\n'), 1024) });
-  if (d.topDeposito.length) fields.push({ name: '🟢 QUEM MAIS DEPOSITOU', value: E.truncar(d.topDeposito.map(linhaPessoaValor).join('\n'), 1024) });
+  if (d.topDeposito.length) fields.push({ name: '🔵 QUEM MAIS DEPOSITOU', value: E.truncar(d.topDeposito.map(linhaPessoaValor).join('\n'), 1024) });
   const doDinheiro = d.somas.filter(l => DINHEIRO.includes(l.acao));
   return {
     color: F.COR,
@@ -136,7 +136,7 @@ async function embedRanking(periodo) {
     color: F.COR,
     title: `🏆 RANKING DO CAIXA — ${periodo.rotulo}`,
     fields: [
-      { name: '🟢 QUEM MAIS DEPOSITOU', value: topDeposito.map(linhaRankingValor).join('\n') || '*Sem dados.*' },
+      { name: '🔵 QUEM MAIS DEPOSITOU', value: topDeposito.map(linhaRankingValor).join('\n') || '*Sem dados.*' },
       { name: '🔴 QUEM MAIS SACOU', value: topSaque.map(linhaRankingValor).join('\n') || '*Sem dados.*' },
       { name: '🎖️ QUEM MAIS GASTOU HONRA', value: topHonra.map(linhaRankingValor).join('\n') || '*Sem dados.*' },
     ],

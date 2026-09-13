@@ -16,7 +16,6 @@ const { iniciarPainelRestricoes } = require('../utils/logsJogo/painelRestricoes'
 const { iniciarPainelFechaduras } = require('../utils/logsJogo/painelFechaduras');
 const { iniciarPainelTags } = require('../utils/logsJogo/painelTags');
 const { iniciarPainelAuditoria } = require('../utils/logsJogo/painelAuditoria');
-const { iniciarPainelDesconhecidos } = require('../utils/logsJogo/painelDesconhecidos');
 const { iniciarPainelTerritorio } = require('../utils/logsJogo/painelTerritorio');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
@@ -59,7 +58,6 @@ module.exports = (client) => {
         iniciarPainelFechaduras(client);
         iniciarPainelTags(client);
         iniciarPainelAuditoria(client);
-        iniciarPainelDesconhecidos(client);
         iniciarPainelTerritorio(client);
       });
 

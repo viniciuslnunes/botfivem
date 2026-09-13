@@ -24,8 +24,6 @@ async function montarBlocos() {
     description: [
       `**TOTAL DE ALTERAÇÕES:** ${E.formatarNumero(total)}`,
       '*Volume baixo de propósito: é aqui que aparece quem mexe na fonte dos logs e nos cargos do jogo.*',
-      '',
-      '*Veja o histórico completo, busque quem alterou ou veja um período nos botões abaixo.*',
     ].join('\n'),
     fields: webhooks.length
       ? [{ name: '🚨 ALTERAÇÕES DE WEBHOOK (MEXEM NA FONTE DESTES PAINÉIS)', value: E.truncar(webhooks.slice(0, 5).map(linhaEvento).join('\n'), 1024) }]

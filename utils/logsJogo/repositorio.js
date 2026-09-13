@@ -476,19 +476,6 @@ async function eventosDoAlvo(idFivem, acoes, limite) {
   return res.rows;
 }
 
-// Registros que o parser não reconheceu, pro canal de logs não reconhecidos
-// agrupar por formato (analises.agruparDesconhecidos).
-async function desconhecidos(periodo, limite) {
-  const { condicoes, params } = condicoesPorAcoes(['desconhecido'], periodo);
-  const res = await db.query(
-    `SELECT canal_id, titulo, descricao, ocorrido_em
-       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
-      ORDER BY ocorrido_em DESC LIMIT ${Number(limite)}`,
-    params
-  );
-  return res.rows;
-}
-
 // Trilha de promoções/rebaixamentos de UM sócio (é o alvo, não o ator), em
 // ordem cronológica — "de > para" fica pra quem exibir extrair da
 // `descricao` (ver E.extrairMudancaCargo), não vira coluna nova.
@@ -614,6 +601,5 @@ module.exports = {
   atividadeBauPorId,
   movimentoBauPorPessoa,
   maioresRetiradasBau,
-  desconhecidos,
   historicoCargo,
 };

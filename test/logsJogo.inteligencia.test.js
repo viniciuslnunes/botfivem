@@ -209,17 +209,6 @@ test('fechadura sem log recente é "último estado conhecido", nunca "destrancad
   assert.deepEqual(estado.map(f => [f.fechadura, f.destrancada, f.semLogRecente]), [['sede', false, false], ['baú', true, true]]);
 });
 
-test('desconhecidos agrupados por formato, não por texto', () => {
-  const familias = A.agruparDesconhecidos([
-    { canal_id: 'c', descricao: '#1 Fulano Tal fez coisa nova #9 Beltrano.', ocorrido_em: new Date('2026-09-10') },
-    { canal_id: 'c', descricao: '#22 Outro Nome fez coisa nova #9 Beltrano.', ocorrido_em: new Date('2026-09-12') },
-    { canal_id: 'c', descricao: '#3 Ciclano outro formato.', ocorrido_em: new Date('2026-09-11') },
-  ]);
-  assert.equal(familias.length, 2);
-  assert.equal(familias[0].total, 2);
-  assert.equal(familias[0].assinatura, 'fez coisa nova #ID Beltrano.');
-});
-
 test('logs-banco: coins de território, dinheiro e honra (formatos atuais)', () => {
   const dom = parseRegistro({ title: 'Coins', description: 'Origem: Dominação (1h): Vila dos Pelados\nCoins: +3' });
   assert.equal(dom.acao, 'coins_dominacao');
@@ -316,15 +305,3 @@ test('tags: grafia antiga da mesma tag é a mesma tag, e quem saiu da torcida pe
   assert.deepEqual(tags.map(t => [t.tag, t.membros.map(m => m.id)]), [['RSJ', ['5', '9']]]);
 });
 
-test('desconhecido "Chave: valor" agrupa pelas chaves, não pelos valores', () => {
-  assert.equal(
-    A.assinaturaDesconhecido('Personagem: #13067 Cris Sabará Item: Maconha Quantidade: 500 Data: 11/09/2026 23:44:05'),
-    A.assinaturaDesconhecido('Personagem: #2 Flavinha Item: Veículo VIP Quantidade: 3 Data: 18/07/2026 01:12:55')
-  );
-  const familias = A.agruparDesconhecidos([
-    { canal_id: 'b', titulo: 'Baú X - Retirada', descricao: 'Personagem: #1 A Item: Pão Quantidade: 2', ocorrido_em: new Date('2026-09-10') },
-    { canal_id: 'b', titulo: 'Baú X - Retirada', descricao: 'Personagem: #2 B Item: Faca Quantidade: 9', ocorrido_em: new Date('2026-09-11') },
-    { canal_id: 'b', titulo: 'Baú X - Depósito', descricao: 'Personagem: #2 B Item: Faca Quantidade: 9', ocorrido_em: new Date('2026-09-11') },
-  ]);
-  assert.deepEqual(familias.map(f => f.total), [2, 1]);
-});

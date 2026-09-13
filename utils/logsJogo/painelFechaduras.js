@@ -9,7 +9,6 @@ const SLUG = 'fechaduras';
 
 async function montarBlocos() {
   const embed = await embedEstadoAtual();
-  embed.description += '\n\n*Busque um jogador ou veja o ranking de um período nos botões abaixo.*';
   return [{ embeds: [embed], components: linhaComponentesFechaduras(), allowedMentions: { parse: [] } }];
 }
 

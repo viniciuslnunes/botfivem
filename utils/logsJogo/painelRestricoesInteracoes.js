@@ -46,7 +46,7 @@ async function marcarBloqueioNoDiscord(client, restricoes) {
 }
 
 function linhaRestricao(r) {
-  const marca = r.bloqueadoNoDiscord === true ? ' · ✅ no não-recrutar'
+  const marca = r.bloqueadoNoDiscord === true ? ' · já no não-recrutar'
     : r.bloqueadoNoDiscord === false ? ' · ⚠️ fora do não-recrutar'
       : '';
   return `• ${F.pessoa(r)} — ${r.rotulo} ${F.haQuantoTempo(r.em)}`
@@ -139,7 +139,7 @@ async function embedFichaJogador(client, idFivem, nomeConhecido) {
     description: [
       `**ID:** \`${idFivem}\``,
       ...status.map(s => `**${A.TIPOS_RESTRICAO[s.tipo].rotulo}:** ${s.ativo ? `ATIVA (${F.haQuantoTempo(s.ultimo.ocorrido_em)})` : 'sem restrição'}`),
-      blacklistAtivo ? (bloqueadoNoDiscord === null ? null : bloqueadoNoDiscord ? '✅ já está no ❌・nao-recrutar' : '⚠️ **FALTA BLOQUEAR NO ❌・NAO-RECRUTAR**') : null,
+      blacklistAtivo ? (bloqueadoNoDiscord === null ? null : bloqueadoNoDiscord ? 'já está no ❌・nao-recrutar' : '⚠️ **FALTA BLOQUEAR NO ❌・NAO-RECRUTAR**') : null,
       '',
       eventos.length ? '**Histórico recente:**' : '*Nenhum evento registrado.*',
       ...eventos.slice(0, 6).map(e => `• ${ROTULOS_ACAO[e.acao] ?? e.acao} — por ${F.nomeSeguro(e.ator_nome)}, ${E.formatarDataHora(e.ocorrido_em)}`),

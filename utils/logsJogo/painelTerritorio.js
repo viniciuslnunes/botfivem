@@ -19,15 +19,15 @@ async function montarBlocos() {
   const conquistas = territorios.reduce((s, t) => s + t.conquistas, 0);
   const aviso = F.avisoFonteParada(ultima);
 
+  const lider = territorios[0];
   const embed = {
     color: F.COR,
     title: '🗺️ DOMINAÇÃO DE TERRITÓRIOS — GAVIÕES DA FIEL FIVEM',
     description: [
       ...(aviso ? [aviso, ''] : []),
       `**ÚLTIMOS 30 DIAS:** ${E.formatarNumero(horas)}h de domínio · ${E.formatarNumero(conquistas)} conquistas · ${E.formatarNumero(territorios.length)} territórios`,
-      '',
-      '*1 log "Dominação (1h)" = 1 hora com o território. Escolha um período abaixo ou veja os territórios perdidos.*',
-    ].join('\n'),
+      lider ? `**LÍDER:** ${F.nomeSeguro(lider.territorio)} (${E.formatarNumero(lider.horas)}h)` : null,
+    ].filter(Boolean).join('\n'),
     footer: { text: F.rodape('canal logs-banco') },
     timestamp: new Date().toISOString(),
   };

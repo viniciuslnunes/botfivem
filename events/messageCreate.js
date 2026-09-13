@@ -14,7 +14,6 @@ const { agendarAtualizacaoReativa: agendarRestricoes } = require('../utils/logsJ
 const { agendarAtualizacaoReativa: agendarFechaduras } = require('../utils/logsJogo/painelFechaduras');
 const { agendarAtualizacaoReativa: agendarTags } = require('../utils/logsJogo/painelTags');
 const { agendarAtualizacaoReativa: agendarAuditoria } = require('../utils/logsJogo/painelAuditoria');
-const { agendarAtualizacaoReativa: agendarDesconhecidos } = require('../utils/logsJogo/painelDesconhecidos');
 const { agendarAtualizacaoReativa: agendarTerritorio } = require('../utils/logsJogo/painelTerritorio');
 const { tratarSpam } = require('../utils/antiSpam/servico');
 
@@ -63,7 +62,6 @@ module.exports = (client) => {
       for (const [categoria, agendar] of PAINEIS_POR_CATEGORIA) {
         if (novos.some(r => r.categoria === categoria)) agendar(client);
       }
-      if (novos.some(r => r.acao === 'desconhecido')) agendarDesconhecidos(client);
       // "Fulano recrutou beltrano" no log do próprio jogo: soma 1 em SÓCIOS
       // SETADOS por recrutamento novo (só os que `gravarRegistros` não tinha
       // visto ainda — reprocessar um log antigo não conta de novo) e

@@ -11,17 +11,17 @@ const SLUG = 'tags_jogo';
 async function montarBlocos() {
   const tags = await tagsAtuais();
   const pessoasComTag = new Set(tags.flatMap(t => t.membros.map(m => m.id))).size;
+  const maior = tags[0];
 
   const embed = {
     color: F.COR,
     title: '🏷️ TAGS DO JOGO — GAVIÕES DA FIEL FIVEM',
     description: [
       `**${tags.length}** ${tags.length === 1 ? 'tag em uso' : 'tags em uso'} · **${pessoasComTag}** ${pessoasComTag === 1 ? 'pessoa com tag' : 'pessoas com tag'}`,
+      maior ? `**MAIOR TAG:** ${F.nomeSeguro(maior.tag)} (${maior.membros.length})` : null,
       '*Reconstruído dos logs de adicionar/remover tag. Quem saiu ou foi expulso da torcida perde as tags, '
         + 'e grafias antigas da mesma tag (R.S.J. / RSJ) contam como uma só.*',
-      '',
-      '*Escolha uma tag abaixo pra ver quem tem, busque um jogador ou veja o que mudou num período.*',
-    ].join('\n'),
+    ].filter(Boolean).join('\n'),
     footer: { text: F.rodape('canal logs-registros') },
     timestamp: new Date().toISOString(),
   };

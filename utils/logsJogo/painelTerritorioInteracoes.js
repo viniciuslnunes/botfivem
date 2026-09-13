@@ -78,7 +78,7 @@ async function embedPerdidos() {
     description: perdidos.length
       ? `**${perdidos.length}** de **${conhecidos.length}** territórios já dominados:\n\n`
         + perdidos.map(t => `• **${F.nomeSeguro(t.territorio)}** — ${(t.ultimaDominacao ?? t.ultimaConquista) ? `último domínio ${F.haQuantoTempo(t.ultimaDominacao ?? t.ultimaConquista)}` : 'sem data'}`).join('\n')
-      : 'Todo território já dominado segue ativo. ✅',
+      : 'Todo território já dominado segue ativo.',
     footer: { text: F.rodape('canal logs-banco') },
   };
 }

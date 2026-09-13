@@ -37,7 +37,7 @@ async function embedEstadoAtual() {
     const parada = F.avisoFonteParada(ultimaArena.ocorrido_em);
     fields.push({
       name: 'ARENA (BLOQUEIO DE USO, NÃO FECHADURA)',
-      value: `${ultimaArena.acao === 'arena_bloqueou' ? '⛔ BLOQUEADA' : '✅ liberada'} ${F.haQuantoTempo(ultimaArena.ocorrido_em)}`
+      value: `${ultimaArena.acao === 'arena_bloqueou' ? '⛔ BLOQUEADA' : 'LIBERADA'} ${F.haQuantoTempo(ultimaArena.ocorrido_em)}`
         + ` · por ${F.pessoa({ nome: ultimaArena.ator_nome, id: ultimaArena.ator_id_fivem })}${parada ? ' · ⚪ sem log recente' : ''}`,
     });
   }
@@ -47,7 +47,7 @@ async function embedEstadoAtual() {
     description: [
       destrancadas.length
         ? `**${destrancadas.length}** ${destrancadas.length === 1 ? 'fechadura está DESTRANCADA' : 'fechaduras estão DESTRANCADAS'} agora.`
-        : 'Nenhuma fechadura com log recente está destrancada. ✅',
+        : 'Nenhuma fechadura com log recente está destrancada.',
       semLog.length ? `⚪ **${semLog.length}** sem log há mais de ${config.logsJogo.fonteParadaDias} dias.` : null,
       '',
       estado.map(linhaFechadura).join('\n') || '*Nenhum evento de fechadura registrado ainda.*',

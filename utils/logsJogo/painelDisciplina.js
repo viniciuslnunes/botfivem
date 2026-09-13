@@ -32,8 +32,6 @@ async function montarBlocos() {
       `**ADVERTÊNCIAS ABERTAS:** ${E.formatarNumero(ativas.length)}`,
       `**SERVIÇOS PENDENTES:** ${E.formatarNumero(servicosPendentes)}`,
       `**MULTAS (HISTÓRICO):** ${E.formatarNumero(totalMultas[0]?.total ?? 0)}`,
-      '',
-      '*Veja quem está com advertência aberta, busque um jogador ou veja o fluxo de um período nos botões abaixo.*',
     ].join('\n'),
     footer: { text: F.rodape('canais logs-registros e logs-liderança') },
     timestamp: new Date().toISOString(),

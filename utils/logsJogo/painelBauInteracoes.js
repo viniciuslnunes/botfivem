@@ -74,7 +74,7 @@ async function buscarDadosPeriodo(periodo) {
 // ── Renderização da lista paginada de itens ──────────────────────────────────
 
 function linhaItem(l, comBau) {
-  const sinal = l.saldo > 0 ? '📈' : l.saldo < 0 ? '📉' : '➖';
+  const sinal = l.saldo > 0 ? '▲' : l.saldo < 0 ? '▼' : '➖';
   const prefixo = comBau ? `**[${F.nomeSeguro(l.bau)}]** ` : '';
   return `${prefixo}${sinal} **${F.nomeSeguro(l.item)}** — saldo **${qtd(l.saldo)}** (entrou ${qtd(l.guardou)} · saiu ${qtd(l.removeu)})`;
 }

@@ -1,8 +1,8 @@
 // Parser dos "Registros de Atividade" que o FiveM publica por webhook.
 // Puro (sem Discord nem banco) para ser testável. O que não reconhece continua
-// sendo gravado como 'desconhecido' — nunca descartado (e o canal
-// 🧩・logs-nao-reconhecidos lista essas famílias, ver painelDesconhecidos.js:
-// é como se descobre formato novo em vez de perder informação em silêncio).
+// sendo gravado como 'desconhecido' — nunca descartado. Regra nova aqui é
+// aplicada retroativamente ao histórico já gravado por
+// ingestao.reprocessarDesconhecidos, rodada a cada arranque do bot.
 const { corrigirMojibake } = require('./estatisticas');
 
 // O jogo manda HTML em alguns logs ("Renato Lhp <b>adicionou tag</b> #1588"),

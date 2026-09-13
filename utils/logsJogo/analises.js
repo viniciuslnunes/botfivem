@@ -196,52 +196,6 @@ function estadoFechaduras(eventos, { agora = new Date(), limiteMs = Infinity } =
       || (new Date(a.em) - new Date(b.em)));
 }
 
-// ── Logs que o parser ainda não entende ─────────────────────────────────────
-// Agrupa por FORMATO em vez de por texto, e guarda um exemplo de cada família —
-// é a lista de onde sai a próxima regra do parser.
-//
-// Formato "Chave: valor Chave: valor" (baú de recompensas, banco) é agrupado
-// pelas CHAVES: sem isso cada item e cada pessoa virava uma família (o Baú de
-// Recompensas saiu como 27 famílias pra um formato só). O título entra na chave
-// com os números apagados, porque em vários canais é ele que diz o tipo do log.
-function assinaturaDesconhecido(descricao) {
-  const texto = String(descricao ?? '');
-  const chaves = [...texto.matchAll(/(?:^|\s)([A-ZÀ-Ú][A-Za-zÀ-ú]*):\s/g)].map(m => m[1]);
-  if (chaves.length >= 2) return chaves.map(c => `${c}: …`).join(' ');
-  return E.assinaturaLog(texto);
-}
-
-function assinaturaTitulo(titulo) {
-  return String(titulo ?? '')
-    .replace(/^Registro de Atividade:.*$/i, 'Registro de Atividade')
-    .replace(/\d+/g, 'N')
-    .trim();
-}
-
-function agruparDesconhecidos(registros) {
-  const familias = new Map();
-  for (const r of registros) {
-    const assinatura = assinaturaDesconhecido(r.descricao);
-    const chave = `${r.canal_id}|${assinaturaTitulo(r.titulo)}|${assinatura}`;
-    if (!familias.has(chave)) {
-      familias.set(chave, {
-        canalId: r.canal_id,
-        assinatura,
-        exemplo: E.corrigirMojibake(r.descricao ?? ''),
-        titulo: E.corrigirMojibake(r.titulo ?? ''),
-        total: 0,
-        primeira: r.ocorrido_em,
-        ultima: r.ocorrido_em,
-      });
-    }
-    const familia = familias.get(chave);
-    familia.total++;
-    if (new Date(r.ocorrido_em) < new Date(familia.primeira)) familia.primeira = r.ocorrido_em;
-    if (new Date(r.ocorrido_em) > new Date(familia.ultima)) familia.ultima = r.ocorrido_em;
-  }
-  return [...familias.values()].sort((a, b) => b.total - a.total);
-}
-
 module.exports = {
   ultimoPorChave,
   TIPOS_RESTRICAO,
@@ -254,6 +208,4 @@ module.exports = {
   tagsAtivas,
   ACOES_FECHADURA,
   estadoFechaduras,
-  assinaturaDesconhecido,
-  agruparDesconhecidos,
 };

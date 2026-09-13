@@ -223,26 +223,6 @@ function corrigirMojibake(texto) {
   }
 }
 
-// Assinatura de um log: a mesma frase com os dados variáveis apagados, pra
-// agrupar registros 'desconhecido' por FORMATO (é o que transforma 3.957 linhas
-// soltas em ~20 famílias legíveis no canal de logs não reconhecidos).
-function assinaturaLog(descricao) {
-  return String(descricao ?? '')
-    .replace(/^#\d+\s+/, '')                                  // "#123 " do começo
-    .replace(/^O\s+(jogador|Novato|administrador|presidente)\s+/i, '')
-    .replace(/\(\s*ID:?\s*\d+\s*\)/gi, '(ID)')
-    .replace(/\bID\s+\d+/gi, 'ID')
-    .replace(/#\d+/g, '#ID')
-    .replace(/(?:R\$|US\$|\$)\s?[\d.,]+/g, '$')
-    .replace(/\d+/g, 'N')
-    // Sobra o nome de quem agiu no começo da frase (o jogo não o marca de
-    // forma nenhuma): corta até a primeira palavra minúscula, que é sempre o
-    // verbo ("adicionou", "comprou", "trancou").
-    .replace(/^(?:\S+\s+){0,4}?(?=[a-zà-ú])/u, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 const formatadorNumero = new Intl.NumberFormat('pt-BR');
 const formatadorDinheiro = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 
@@ -313,7 +293,6 @@ module.exports = {
   extrairServicos,
   bauDoTitulo,
   corrigirMojibake,
-  assinaturaLog,
   formatarNumero,
   formatarDinheiro,
   formatarDuracao,

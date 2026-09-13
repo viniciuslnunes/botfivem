@@ -8,13 +8,12 @@ const { linhaComponentesBau } = require('./painelBauInteracoes');
 // GDF Sócio/Diretoria/Presidência/Recrutador + Recompensas), a partir do canal
 // logs-baú.
 //
-// PILOTO do padrão "canal-painel interativo" (2026-09-13): a mensagem fixa
-// mostra só os números-chave, igual ao 📊・painel-jogadores — nada de listagem
-// direta no canal. Escolher período, filtrar por baú, buscar item/jogador e
-// ver ranking são tudo botão/select que abre uma resposta EPHEMERAL, só pra
-// quem clicou (mecânica inteira em painelBauInteracoes.js). Validando bem
-// aqui, os outros 8 canais de log trocam a listagem que têm hoje por este
-// mesmo mecanismo — não inventar variação por canal.
+// Padrão "canal-painel interativo" (2026-09-13, replicado nos 8 outros canais
+// de log): a mensagem fixa mostra só os números-chave, igual ao
+// 📊・painel-jogadores — nada de listagem direta no canal. Escolher período,
+// filtrar por baú, buscar item/jogador e ver ranking são tudo botão/select
+// que abre uma resposta EPHEMERAL, só pra quem clicou (mecânica inteira em
+// painelBauInteracoes.js).
 //
 // Honestidade do número: o jogo NUNCA diz quanto já tinha dentro do baú, só
 // avisa "guardou 1 tecido" / "removeu 58 madeira". Então todo saldo aqui é
@@ -53,10 +52,7 @@ async function montarBlocos() {
       `**COMPARTIMENTOS:** ${baus}`,
       `**ITENS COM MOVIMENTO:** ${qtd(saldos.length)}${negativos ? ` (${qtd(negativos)} com saldo negativo)` : ''}`,
       maiorRetirador?.[0] ? `**QUEM MAIS RETIROU (30 DIAS):** ${maiorRetirador[0].nome ?? maiorRetirador[0].id} (${qtd(maiorRetirador[0].removeu)})` : null,
-      '',
       `Saldo **líquido desde ${E.formatarDataHora(desde)}** — o jogo não informa o que já estava dentro, só entrada e saída.`,
-      '',
-      '*Escolha um período abaixo pra ver o saldo por item, filtrar por baú, buscar ou ver o ranking.*',
     ].filter(Boolean).join('\n'),
     footer: { text: F.rodape('canal logs-baú') },
     timestamp: new Date().toISOString(),

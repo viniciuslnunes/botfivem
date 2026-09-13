@@ -29,8 +29,6 @@ async function montarBlocos() {
       ...(avisoRoupa && somasTudo.some(l => ROUPA.includes(l.acao))
         ? ['', `*👕 Roupa só aparecia no canal logs-liderança — ${avisoRoupa.replace(/^⚠️ /, '')}*`]
         : []),
-      '',
-      '*Escolha um período abaixo pra ver o detalhe, buscar um jogador ou ver o ranking.*',
     ].join('\n'),
     footer: { text: F.rodape('canais logs-banco e logs-liderança') },
     timestamp: new Date().toISOString(),
