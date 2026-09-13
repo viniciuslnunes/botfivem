@@ -26,6 +26,15 @@ const dbPath = require.resolve(path.join(REPO, 'utils/db.js'));
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: pool };
 process.env.DATABASE_URL = 'postgres://x';
 
+// Trava de segurança: sem isso, se a interceptação acima falhar por qualquer motivo
+// (path resolvido diferente, módulo já carregado antes), o resto do script escreve
+// direto no Postgres real do .env — foi exatamente isso que aconteceu em 2026-09-13
+// e sujou produção (fichas, eventos, rifas, departamentos etc. com dados de teste).
+// Aborta ANTES de qualquer escrita se `require('utils/db')` não devolver o pool falso.
+if (require(path.join(REPO, 'utils/db.js')) !== pool) {
+  throw new Error('[integracao] Interceptação de utils/db.js falhou — abortando para não escrever no banco real.');
+}
+
 const R = p => require(path.join(REPO, p));
 const config = R('config/index.js');
 const q = async (sql, params) => (await pool.query(sql, params)).rows;

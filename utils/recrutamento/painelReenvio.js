@@ -27,6 +27,9 @@ const LIMITE_SELECT = 25;
 
 let clientAtual = null;
 
+// Linha em branco entre reprovados (o \n extra no fim, somado ao \n do join do
+// embedsDeLista, vira linha em branco) — cada um tem duas linhas de dado e fica
+// ilegível colado no próximo sem esse respiro.
 function linhaReprovado(r, membros) {
   const fora = membros && !membros.has(r.discord_id) ? ' · 🚪 *fora do servidor*' : '';
   const motivo = r.reprovado_motivo
@@ -35,7 +38,8 @@ function linhaReprovado(r, membros) {
   return `• ${F.pessoa({ nome: r.nome, id: r.id_fivem })} · <@${r.discord_id}>${fora}\n`
     + `  ↳ ${regras.rotuloCategoria(r.reprovado_categoria)} — ${E.formatarDataHora(r.decidido_em ?? r.criado_em)}`
     + (r.decidido_por_id ? ` por <@${r.decidido_por_id}>` : '')
-    + motivo;
+    + motivo
+    + '\n';
 }
 
 // Falha ao carregar membros não derruba a lista: só some a marca "fora do servidor"
