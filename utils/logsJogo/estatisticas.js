@@ -286,6 +286,13 @@ function truncar(texto, max) {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
+// Sem acento, minúsculo — pra "buscar por nome" achar "Peça" digitando "peca".
+// Mesma normalização que presencaInteracoes.js já fazia por conta própria;
+// fatorada aqui pra todo canal-painel com busca por texto reaproveitar.
+function normalizarBusca(texto) {
+  return String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 module.exports = {
   PERIODO_CHOICES,
   HORA_MS,
@@ -313,4 +320,5 @@ module.exports = {
   formatarDiaCurto,
   formatarDataHora,
   truncar,
+  normalizarBusca,
 };

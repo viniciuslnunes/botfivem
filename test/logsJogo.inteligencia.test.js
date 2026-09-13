@@ -270,7 +270,7 @@ test('logs-banco: formatos antigos (sinal no valor) viram as mesmas ações dos 
 });
 
 test('território: horas = logs de dominação, ordenado por horas', () => {
-  const { porTerritorio } = require('../utils/logsJogo/painelTerritorio');
+  const { porTerritorio } = require('../utils/logsJogo/painelTerritorioInteracoes');
   const t = porTerritorio([
     { alvo: 'Farol', acao: 'coins_dominacao', total: 5, soma: 15, ultima: new Date('2026-09-12') },
     { alvo: 'Farol', acao: 'coins_conquista', total: 2, soma: 20, ultima: new Date('2026-09-10') },

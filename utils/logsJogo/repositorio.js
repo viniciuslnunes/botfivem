@@ -374,6 +374,51 @@ async function saldoBau() {
   return res.rows;
 }
 
+// Mesma conta de saldoBau, só que recortada num período — é o que o painel
+// interativo usa quando a liderança escolhe "últimos 7 dias" em vez do
+// acumulado. Sem limite de linhas: pagina quem chama (a lista de itens pode
+// passar de 25 fácil).
+async function saldoBauPeriodo(periodo) {
+  const { condicoes, params } = condicoesPorAcoes(ACOES_BAU, periodo);
+  condicoes.push('alvo_nome IS NOT NULL', 'valor IS NOT NULL');
+  const res = await db.query(
+    `SELECT CASE
+              WHEN titulo ILIKE 'Ba_ de Recompensas%' THEN 'Recompensas'
+              ELSE substring(titulo from '\\[(.+)\\]')
+            END AS bau,
+            alvo_nome AS item,
+            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE -valor END), 0)::float AS saldo,
+            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END), 0)::float AS guardou,
+            COALESCE(SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END), 0)::float AS removeu,
+            MIN(ocorrido_em) AS desde, MAX(ocorrido_em) AS ultima
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1, 2
+      ORDER BY 1, (SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END)
+                    + SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END)) DESC`,
+    params
+  );
+  return res.rows;
+}
+
+// Atividade de UM jogador no baú: totais (pra ficha rápida) + últimos eventos
+// (pra auditoria — o que ele tirou/guardou por último e de qual baú).
+async function atividadeBauPorId(idFivem, limiteEventos) {
+  const totalRes = await db.query(
+    `SELECT COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END), 0)::float AS guardou,
+            COALESCE(SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END), 0)::float AS removeu,
+            COUNT(*)::int AS eventos, MIN(ocorrido_em) AS desde, MAX(ocorrido_em) AS ultima
+       FROM logs_jogo WHERE acao = ANY($1) AND ator_id_fivem = $2 AND valor IS NOT NULL`,
+    [ACOES_BAU, idFivem]
+  );
+  const eventosRes = await db.query(
+    `SELECT acao, alvo_nome AS item, valor::float AS quantidade, titulo, ocorrido_em
+       FROM logs_jogo WHERE acao = ANY($1) AND ator_id_fivem = $2 AND valor IS NOT NULL
+      ORDER BY ocorrido_em DESC LIMIT ${Number(limiteEventos)}`,
+    [ACOES_BAU, idFivem]
+  );
+  return { ...totalRes.rows[0], eventos: eventosRes.rows };
+}
+
 // Quem mexeu no baú num período: quanto guardou e quanto retirou cada um. Só o
 // ID vem do log (ver nomesPorIds).
 async function movimentoBauPorPessoa(periodo, limite) {
@@ -401,6 +446,32 @@ async function maioresRetiradasBau(periodo, limite) {
        FROM logs_jogo WHERE ${condicoes.join(' AND ')}
       ORDER BY valor DESC LIMIT ${Number(limite)}`,
     params
+  );
+  return res.rows;
+}
+
+// Últimos eventos de um conjunto de ações em que o ID dado foi quem AGIU —
+// "ficha do jogador" de qualquer canal-painel interativo cujo protagonista é
+// quem mexeu (caixa, fechaduras, auditoria). Genérico de propósito: evita uma
+// consulta bespoke por domínio pra fazer a mesma pergunta.
+async function eventosDoAtor(idFivem, acoes, limite) {
+  const res = await db.query(
+    `SELECT acao, ator_nome, ator_id_fivem, alvo_nome, alvo_id_fivem, valor, titulo, descricao, ocorrido_em
+       FROM logs_jogo WHERE acao = ANY($1) AND ator_id_fivem = $2
+      ORDER BY ocorrido_em DESC LIMIT ${Number(limite)}`,
+    [acoes, idFivem]
+  );
+  return res.rows;
+}
+
+// Mesma ideia, só que pro ID que SOFREU a ação (disciplina, restrições, tags —
+// domínios em que o protagonista da ficha é o alvo, não quem agiu).
+async function eventosDoAlvo(idFivem, acoes, limite) {
+  const res = await db.query(
+    `SELECT acao, ator_nome, ator_id_fivem, alvo_nome, alvo_id_fivem, valor, titulo, descricao, ocorrido_em
+       FROM logs_jogo WHERE acao = ANY($1) AND alvo_id_fivem = $2
+      ORDER BY ocorrido_em DESC LIMIT ${Number(limite)}`,
+    [acoes, idFivem]
   );
   return res.rows;
 }
@@ -532,11 +603,15 @@ module.exports = {
   contarPorDiaPorAcoes,
   ultimaOcorrencia,
   resumoPorAlvo,
+  eventosDoAtor,
+  eventosDoAlvo,
   somarPorAcoes,
   topAtoresPorValor,
   nomesPorIds,
   ultimoPorFechadura,
   saldoBau,
+  saldoBauPeriodo,
+  atividadeBauPorId,
   movimentoBauPorPessoa,
   maioresRetiradasBau,
   desconhecidos,

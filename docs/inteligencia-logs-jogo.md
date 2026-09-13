@@ -79,19 +79,81 @@ Estas regras existem por casos reais. Painel novo deve seguir todas.
 
 - `painelCanal.js`: `criarPainelCanal({ slug, nomeCanal, montarBlocos, montarAcao, … })`.
   Cuida de criar o canal, reeditar as mensagens no lugar, apagar sobras, ciclo
-  por tempo e debounce. O bloco de ação (`montarAcao`) é **sempre a última
-  mensagem** do canal, porque a resposta ephemeral nasce no fim do canal.
-- `painelConsulta.js`: `registrarConsulta(slug, renderizar)` + `selectPeriodo(slug)`.
-  É um handler só (`logstat:<slug>`) para o filtro por período de todos os
-  painéis. Só a liderança usa.
+  por tempo e debounce.
 - `painelFormato.js`: `embedsDeLista` (pagina lista longa respeitando 4096),
   `pessoa`, `nomeSeguro`, `comNomes`, `haQuantoTempo`, `avisoFonteParada`, `nomeCanal`.
 - `analises.js`: reduções puras e testadas (estado atual a partir de eventos).
+- `consultasEmMemoria.js`: `criarArmazemConsultas()` — Map + TTL + dono da
+  consulta, pra qualquer canal-painel interativo (ver abaixo) guardar uma lista
+  grande em memória sem reimplementar isso.
+- `painelConsulta.js` (`registrarConsulta`/`selectPeriodo`, prefixo `logstat:`):
+  mecanismo ANTIGO, de resposta ephemeral única sem paginação. Só os 8 canais
+  ainda não migrados pro padrão interativo (ver abaixo) o usam; painel novo não
+  deve mais partir daqui.
 
-Painel novo: regra(s) no parser com teste usando **exemplo real** →
-consulta no repositório se precisar → arquivo `painelX.js` com `montarBlocos` +
-`registrarConsulta` → `iniciar` em `events/ready.js` → categoria em
-`PAINEIS_POR_CATEGORIA`.
+## Padrão de UI: canal-painel interativo (piloto: 📦・estoque-bau, 2026-09-13)
+
+Os 9 canais nasceram despejando listas inteiras direto no canal (várias
+mensagens, sempre visíveis, sem filtro). Ficou poluído. O padrão novo — igual
+ao 📊・painel-jogadores (`presencaInteracoes.js`), que já existia antes destes
+9 canais — é: **a mensagem fixa do canal fica curta** (só números-chave, uma
+mensagem só) e **toda exploração é botão/select que abre uma resposta
+EPHEMERAL** (só quem clicou vê), com paginação de verdade.
+
+Peças do padrão (ver `painelBauInteracoes.js` como referência completa):
+
+1. **Mensagem fixa** (`painelX.js`): um embed com 3–5 números-chave + `linhaComponentesX()`
+   com 3 linhas de componente:
+   - `selectPeriodo` (StringSelect) → abre a consulta paginada.
+   - `UserSelectMenuBuilder` "🔎 BUSCAR JOGADOR (DISCORD)" → ficha direta a
+     partir do ID no apelido (`E.idFivemDoNick`), sem pedir período.
+   - Botão(ões) de ação (ex.: RANKING) → normalmente abre outro select de
+     período antes de mostrar o resultado (mesmo fluxo do botão RANKING do
+     painel de jogadores).
+2. **Consulta paginada** (`painelXInteracoes.js`): ao escolher o período,
+   `armazem.salvar(userId, dados)` guarda a lista inteira e devolve um
+   `consultaId` curto (cabe no customId, que tem limite de 100 caracteres).
+   A resposta ephemeral mostra uma página (25 itens), com:
+   - Select de filtro adicional quando fizer sentido (ex.: por compartimento/
+     categoria) — reaplica o mesmo `consultaId`, sem nova consulta.
+   - Botões ◀ ANTERIOR / PRÓXIMA ▶ (desabilitados na ponta) e 🔎 BUSCAR.
+   - 🔎 BUSCAR abre um modal; o resultado vira um select (até 25 opções) que,
+     ao escolher, mostra a "ficha" daquele item/pessoa.
+3. **Toda ação que mexe numa consulta** chama `armazem.obter(id, userId)`
+   primeiro — devolve `{ erro: 'expirada' | 'outro_usuario' }` ou `{ consulta
+   }`. `mensagemErroConsulta(erro)` dá a mensagem pronta. Nunca pular essa
+   checagem: é o que impede um botão de consulta expirada silenciosamente
+   mostrar dado errado, e uma consulta de outro usuário.
+
+Migrado em 2026-09-13 para os 9 canais (piloto 📦・estoque-bau + réplica nos
+outros 8). `painelComponentesFixos.js` reúne os builders comuns
+(`selectPeriodo`, `selectBuscarJogador`, `linhaBotao`, `linhaPaginacao`) — todo
+`painelXInteracoes.js` monta a mensagem fixa com eles em vez de escrever
+`ActionRowBuilder` cru. O select que abre a exploração nem sempre é por
+período: cada canal usa o eixo que faz sentido pro dado dele —
+
+| Canal | 1º select/botão | 2º (buscar jogador) | 3º |
+|---|---|---|---|
+| estoque-bau | período (lista paginada + filtro por baú) | sim | RANKING → período |
+| caixa-do-jogo | período (resumo, sem paginação) | sim | RANKING → período |
+| disciplina-jogo | botão ADVERTÊNCIAS ABERTAS (paginado, estado atual) | sim | período → fluxo |
+| banidos-e-impedidos | tipo (blacklist/suspensão/impedimento, paginado) | sim (cruza c/ não-recrutar) | período → fluxo |
+| fechaduras | botão ESTADO ATUAL (cabe numa mensagem, sem paginação) | sim | período → ranking |
+| tags-do-jogo | tag (dinâmico, paginado) | sim | período → fluxo |
+| auditoria-config | botão HISTÓRICO COMPLETO (paginado) | sim | período → fluxo |
+| logs-nao-reconhecidos | período (paginado) | não se aplica | botão TODO O HISTÓRICO |
+| dominacao-territorios | período (paginado) | não se aplica (sem ator) | botão TERRITÓRIOS PERDIDOS |
+
+tags-do-jogo e dominacao-territorios são públicos (referência/orgulho da
+torcida, não auditoria) — os handlers de interação deles não checam
+`ehLideranca`, diferente dos outros 7.
+
+Painel novo do zero: regra(s) no parser com teste usando **exemplo real** →
+consulta no repositório se precisar (`eventosDoAtor`/`eventosDoAlvo` cobrem a
+maioria das "fichas de jogador") → `painelX.js` (resumo curto) +
+`painelXInteracoes.js` (exploração, usando `painelComponentesFixos.js` e
+`consultasEmMemoria.js`) → `iniciar` em `events/ready.js` → categoria em
+`PAINEIS_POR_CATEGORIA` (events/messageCreate.js).
 
 ## Formato de log novo
 
