@@ -24,7 +24,7 @@ function linhaAtiva(f) {
 // Sem log recente: não é "estado atual" de verdade, só o último conhecido — uma
 // linha só com a data, sem "por fulano" (informação de baixa prioridade aqui).
 function linhaSemLog(f) {
-  return `⚪ **${f.fechadura.toUpperCase()}** — desde ${E.formatarDataHora(f.em)} (${f.destrancada ? 'destrancada' : 'trancada'})`;
+  return `**${f.fechadura.toUpperCase()}** — desde ${E.formatarDataHora(f.em)} (${f.destrancada ? 'destrancada' : 'trancada'})`;
 }
 
 // Situação vira 3 grupos visuais (fields) em vez de uma pilha só: é a mesma
@@ -44,14 +44,14 @@ async function embedEstadoAtual() {
   const fields = [
     ...F.campoLista('🔓 DESTRANCADAS AGORA', destrancadas.map(linhaAtiva), 'Nenhuma.'),
     ...(trancadas.length ? F.campoLista('🔒 TRANCADAS', trancadas.map(linhaAtiva), '') : []),
-    ...(semLog.length ? F.campoLista(`⚪ SEM LOG HÁ MAIS DE ${config.logsJogo.fonteParadaDias} DIAS`, semLog.map(linhaSemLog), '') : []),
+    ...(semLog.length ? F.campoLista(`SEM LOG HÁ MAIS DE ${config.logsJogo.fonteParadaDias} DIAS`, semLog.map(linhaSemLog), '') : []),
   ];
   if (ultimaArena) {
     const parada = F.avisoFonteParada(ultimaArena.ocorrido_em);
     fields.push({
       name: '🎯 ARENA (BLOQUEIO DE USO, NÃO FECHADURA)',
       value: `${ultimaArena.acao === 'arena_bloqueou' ? '⛔ BLOQUEADA' : 'LIBERADA'} ${F.haQuantoTempo(ultimaArena.ocorrido_em)}`
-        + ` · ${F.pessoa({ nome: ultimaArena.ator_nome, id: ultimaArena.ator_id_fivem })}${parada ? ' · ⚪ sem log recente' : ''}`,
+        + ` · ${F.pessoa({ nome: ultimaArena.ator_nome, id: ultimaArena.ator_id_fivem })}${parada ? ' · sem log recente' : ''}`,
     });
   }
   return {

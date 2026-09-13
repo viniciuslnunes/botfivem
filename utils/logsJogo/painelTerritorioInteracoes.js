@@ -28,11 +28,13 @@ function porTerritorio(linhas) {
   return [...mapa.values()].sort((a, b) => b.horas - a.horas || b.conquistas - a.conquistas || a.territorio.localeCompare(b.territorio, 'pt-BR'));
 }
 
+// Linha curta o bastante pra não quebrar em 2 no embed (o que criava um
+// "degrau" visual entre os números e o item seguinte): "de domínio" e
+// "última conquista" já ficam implícitos pelo título do campo RANKING e pelo
+// "há" no fim, então saem daqui — só o essencial por linha.
 function linhaTerritorio(t, i) {
-  return `${i + 1}. **${F.nomeSeguro(t.territorio)}** — **${E.formatarNumero(t.horas)}h** de domínio`
-    + ` · ${E.formatarNumero(t.conquistas)} ${t.conquistas === 1 ? 'conquista' : 'conquistas'}`
-    + ` · ${E.formatarNumero(t.coins)} coins`
-    + (t.ultimaConquista ? ` · última conquista ${F.haQuantoTempo(t.ultimaConquista)}` : '');
+  return `${i + 1}. **${F.nomeSeguro(t.territorio)}** — ${E.formatarNumero(t.horas)}h · ${E.formatarNumero(t.conquistas)} ${t.conquistas === 1 ? 'conquista' : 'conquistas'} · ${E.formatarNumero(t.coins)} coins`
+    + (t.ultimaConquista ? ` · ${F.haQuantoTempo(t.ultimaConquista)}` : '');
 }
 
 const armazem = criarArmazemConsultas();

@@ -41,7 +41,7 @@ async function montarBlocos() {
 
   const desde = saldos.reduce((min, l) => (new Date(l.desde) < new Date(min) ? l.desde : min), saldos[0].desde);
   const negativos = saldos.filter(l => l.saldo < 0).length;
-  const baus = new Set(saldos.map(l => l.bau)).size;
+  const baus = [...new Set(saldos.map(l => l.bau))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const [pessoas30d] = await Promise.all([repo.movimentoBauPorPessoa(E.resolverPeriodo('30d'), 1)]);
   const maiorRetirador = pessoas30d[0] ? await F.comNomes(pessoas30d) : null;
 
@@ -49,7 +49,7 @@ async function montarBlocos() {
     color: F.COR,
     title: '📦 BAÚ DA TORCIDA — GAVIÕES DA FIEL FIVEM',
     description: [
-      `**COMPARTIMENTOS:** ${baus}`,
+      `**COMPARTIMENTOS:** ${baus.length}`,
       `**ITENS COM MOVIMENTO:** ${qtd(saldos.length)}${negativos ? ` (${qtd(negativos)} com saldo negativo)` : ''}`,
       maiorRetirador?.[0] ? `**QUEM MAIS RETIROU (30 DIAS):** ${maiorRetirador[0].nome ?? maiorRetirador[0].id} (${qtd(maiorRetirador[0].removeu)})` : null,
       `Saldo **líquido desde ${E.formatarDataHora(desde)}** — o jogo não informa o que já estava dentro, só entrada e saída.`,
@@ -57,7 +57,7 @@ async function montarBlocos() {
     footer: { text: F.rodape('canal logs-baú') },
     timestamp: new Date().toISOString(),
   };
-  return [{ embeds: [embed], components: linhaComponentesBau(), allowedMentions: { parse: [] } }];
+  return [{ embeds: [embed], components: linhaComponentesBau(baus), allowedMentions: { parse: [] } }];
 }
 
 const painel = criarPainelCanal({

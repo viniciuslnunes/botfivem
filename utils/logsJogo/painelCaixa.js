@@ -26,7 +26,7 @@ async function montarBlocos() {
     fields: F.campoLista('MOVIMENTO POR TIPO', somasTudo.map(linhaResumo), 'Nenhum registro de dinheiro ainda.'),
     footer: {
       text: `${F.rodape('canais logs-banco e logs-liderança')}`
-        + (avisoRoupa && somasTudo.some(l => ROUPA.includes(l.acao)) ? ' · 👕 roupa sem log recente (fonte parada)' : ''),
+        + (avisoRoupa && somasTudo.some(l => ROUPA.includes(l.acao)) ? ' · roupa sem log recente (fonte parada)' : ''),
     },
     timestamp: new Date().toISOString(),
   };

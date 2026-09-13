@@ -50,10 +50,26 @@ function linhaBotoesAcao() {
   );
 }
 
-// As 3 linhas de componente da mensagem fixa do canal — importado por
-// painelBau.js pra colar na mesma mensagem do embed resumo.
-function linhaComponentesBau() {
-  return [selectPeriodo(), selectBuscarJogador(), linhaBotoesAcao()];
+// Atalho pra ir direto num compartimento sem passar por período primeiro —
+// antes só dava pra filtrar por baú DEPOIS de já ter aberto um período (select
+// FILTRAR POR BAÚ dentro da consulta). Abre em "tudo" (histórico inteiro),
+// já filtrado; muda de período de dentro da consulta continua não dando (só
+// abrindo outra, mesma limitação de sempre).
+function selectCompartimento(baus) {
+  if (!baus.length) return null;
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`${MODULO}:selcompartimento`)
+      .setPlaceholder('VER UM COMPARTIMENTO (TUDO)')
+      .addOptions(baus.map(b => ({ label: b, value: b })))
+  );
+}
+
+// As linhas de componente da mensagem fixa do canal — importado por
+// painelBau.js pra colar na mesma mensagem do embed resumo. `baus` vem do
+// próprio painelBau.js (já calcula a lista pro "COMPARTIMENTOS: N" do embed).
+function linhaComponentesBau(baus = []) {
+  return [selectPeriodo(), selectBuscarJogador(), selectCompartimento(baus), linhaBotoesAcao()].filter(Boolean);
 }
 
 // ── Dados por período (uma consulta = um período + filtro de baú opcional) ──
@@ -242,6 +258,16 @@ registrarModulo(MODULO, async interaction => {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     await interaction.deferReply({ flags: 64 });
     await abrirEstoqueBau(interaction, E.resolverPeriodo(interaction.values[0]));
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && acao === 'selcompartimento') {
+    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+    await interaction.deferReply({ flags: 64 });
+    const dados = await buscarDadosPeriodo(E.resolverPeriodo('tudo'));
+    dados.bauFiltro = interaction.values[0];
+    const consultaId = armazem.salvar(interaction.user.id, dados);
+    await interaction.editReply(renderizarListaItens(consultaId, dados));
     return;
   }
 
