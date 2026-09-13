@@ -84,6 +84,11 @@ const passo = (nome, fn) => passos.push([nome, fn]);
     assert.equal((await fichas.buscarFicha('f1')).area_slug, 'bateria');
     await fichas.decidirFicha('f1', { status: 'REPROVADO', decididoPorId: 'rec', categoria: 'manto', motivo: 'sem manto enviado', permiteReenvio: false });
     assert.equal((await fichas.situacaoDoCandidato('cand')).reprovacaoDefinitiva, true);
+    assert.deepEqual((await fichas.listarReprovacoesDefinitivas()).map(r => r.discord_id), ['cand']);
+    assert.equal((await fichas.liberarReenvio('f1', { porId: 'lid', motivo: 'conversamos no ticket' })).id_fivem, '8914');
+    assert.equal(await fichas.liberarReenvio('f1', { porId: 'lid', motivo: 'de novo' }), null);
+    assert.equal((await fichas.situacaoDoCandidato('cand')).reprovacaoDefinitiva, false);
+    assert.deepEqual(await fichas.listarReprovacoesDefinitivas(), []);
     await fichas.decidirFicha('antiga', { status: 'APROVADO', decididoPorId: 'rec' }, {
       fields: [{ name: 'NOME', value: 'Velho' }, { name: 'IDADE', value: '30' }, { name: 'ID FIVEM', value: '555' }, { name: 'ID | DISCORD', value: 'velho | <@velho>' }],
     });

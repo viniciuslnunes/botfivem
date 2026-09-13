@@ -171,6 +171,78 @@ function extrairMudancaCargo(descricao) {
   return m ? { de: m[1].trim(), para: m[2].trim() } : null;
 }
 
+// Texto entre os ÚLTIMOS parênteses da descrição. É onde o jogo põe o que não
+// tem lugar próprio: a tag de tag_adicionou ("(RSJ)"), o motivo de multou
+// ("(zaralho na sede)") e o "de > para" de promoveu_cargo — nenhum deles virou
+// coluna nova no banco (mesma decisão de extrairMudancaCargo).
+function extrairEntreParenteses(descricao) {
+  const m = String(descricao ?? '').match(/\(([^()]*)\)\.?\s*$/);
+  const texto = m?.[1]?.trim();
+  return texto ? texto : null;
+}
+
+// "... Motivo: não escutou call Serviços: 300" — o motivo vai até "Serviços:"
+// (quando houver) e os serviços são a pena em si, em quantidade.
+function extrairMotivo(descricao) {
+  const d = String(descricao ?? '');
+  const m = d.match(/Motivo:\s*(.+?)\s*(?:Servi[çc]os:|$)/i);
+  const texto = m?.[1]?.trim();
+  return texto ? texto : null;
+}
+
+function extrairServicos(descricao) {
+  const m = String(descricao ?? '').match(/Servi[çc]os:\s*(\d+)/i);
+  return m ? Number(m[1]) : null;
+}
+
+// "Guardou [GDF Sócio]" → "GDF Sócio". Qual baú mexeu só existe no título do
+// log (ver parser.extrairBau). No "Baú de Recompensas [GDF] - Retirada (...)" o
+// colchete é da torcida, não do compartimento — ali o baú é "Recompensas".
+// repositorio.saldoBau faz a mesma conta em SQL: mudar um, mudar o outro.
+function bauDoTitulo(titulo) {
+  const t = String(titulo ?? '');
+  if (/^Ba[úu] de Recompensas\b/i.test(t)) return 'Recompensas';
+  const m = t.match(/\[(.+?)\]/);
+  return m ? m[1].trim() : null;
+}
+
+// Log lido como latin1 no caminho até o Discord ("Fabio PeÃ§a" em vez de "Fabio
+// Peça"). Só mexe no texto quando o sinal do erro está lá (Ã/Â seguido de byte
+// de continuação) e desiste se a reinterpretação produzir caractere inválido —
+// texto são nunca é tocado.
+const SINAL_MOJIBAKE = /[ÃÂ][-¿]/;
+
+function corrigirMojibake(texto) {
+  const s = String(texto ?? '');
+  if (!SINAL_MOJIBAKE.test(s)) return s;
+  try {
+    const corrigido = Buffer.from(s, 'latin1').toString('utf8');
+    return corrigido.includes('�') ? s : corrigido;
+  } catch {
+    return s;
+  }
+}
+
+// Assinatura de um log: a mesma frase com os dados variáveis apagados, pra
+// agrupar registros 'desconhecido' por FORMATO (é o que transforma 3.957 linhas
+// soltas em ~20 famílias legíveis no canal de logs não reconhecidos).
+function assinaturaLog(descricao) {
+  return String(descricao ?? '')
+    .replace(/^#\d+\s+/, '')                                  // "#123 " do começo
+    .replace(/^O\s+(jogador|Novato|administrador|presidente)\s+/i, '')
+    .replace(/\(\s*ID:?\s*\d+\s*\)/gi, '(ID)')
+    .replace(/\bID\s+\d+/gi, 'ID')
+    .replace(/#\d+/g, '#ID')
+    .replace(/(?:R\$|US\$|\$)\s?[\d.,]+/g, '$')
+    .replace(/\d+/g, 'N')
+    // Sobra o nome de quem agiu no começo da frase (o jogo não o marca de
+    // forma nenhuma): corta até a primeira palavra minúscula, que é sempre o
+    // verbo ("adicionou", "comprou", "trancou").
+    .replace(/^(?:\S+\s+){0,4}?(?=[a-zà-ú])/u, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const formatadorNumero = new Intl.NumberFormat('pt-BR');
 const formatadorDinheiro = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 
@@ -229,6 +301,12 @@ module.exports = {
   variacao,
   idFivemDoNick,
   extrairMudancaCargo,
+  extrairEntreParenteses,
+  extrairMotivo,
+  extrairServicos,
+  bauDoTitulo,
+  corrigirMojibake,
+  assinaturaLog,
   formatarNumero,
   formatarDinheiro,
   formatarDuracao,

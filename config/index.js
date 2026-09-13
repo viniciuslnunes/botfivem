@@ -42,6 +42,7 @@ module.exports = {
     topRecrutadores: '1444861031598784673',
     logsLideranca: '1461544673825783929',
     alertaNovatos: '1490536504748150925',
+    antiSpam: '1548665394380673108', // 🛡️・anti-spam: alerta de conta hackeada com botões BANIR/LIBERAR. null = alerta só no console
   },
 
   categorias: {
@@ -97,9 +98,27 @@ module.exports = {
   // Logs que o FiveM publica por webhook. Os canais continuam como estão;
   // o bot só lê, grava para filtros/estatísticas e dispara alertas.
   logsJogo: {
-    // logs-liderança, logs-painel (entrada/saída), logs de recrutamento do
-    // próprio jogo ("fulano recrutou beltrano" — soma em SÓCIOS SETADOS)
-    canais: ['1461544673825783929', '1531478268975251496', '1439061028515090524'],
+    // Canal novo na lista faz a sincronização inicial ler o histórico INTEIRO
+    // dele uma vez (ver ingestao.sincronizarCanal). Os nomes aqui são os do
+    // Discord (conferidos pela API em 2026-09-13) e aparecem nos painéis como
+    // origem do dado.
+    canais: ['1461544673825783929', '1531478268975251496', '1439061028515090524', '1198743171765637123', '1518021496662917216'],
+    nomesCanais: {
+      // "O jogador X (ID: n) ..." — advertência, banco em R$, roupa, fechaduras
+      // da sede. PAROU de receber log em 2026-07-26: o que vem dele é histórico.
+      '1461544673825783929': 'logs-liderança',
+      '1531478268975251496': 'logs-painel',     // entrada/saída do servidor
+      // "#ID Nome ..." — recrutou, promoveu, expulsou, tag, blacklist,
+      // impedimento, multa, arena, sede/portão, config
+      '1439061028515090524': 'logs-registros',
+      '1198743171765637123': 'logs-baú',        // Guardou/Removeu [baú]
+      '1518021496662917216': 'logs-banco',      // Coins (dominação de território)
+    },
+    // Fonte sem log há mais que isso = o painel avisa que o dado pode estar
+    // parado (canal de log que o jogo deixou de usar, webhook trocado — ver
+    // painelAuditoria.js). Também separa, no painel de fechaduras, "estado atual"
+    // de "último estado conhecido".
+    fonteParadaDias: 3,
     canalAlertas: '1490536504748150925',
     mencionarAlertas: [cargos.presidente, cargos.vicePresidente, cargos.velhaGuarda, cargos.diretoria, cargos.recrutador],
     // Canal do painel fixo de estatísticas. null = painel desligado.
@@ -132,6 +151,38 @@ module.exports = {
       repetirAlertaMin: 180,     // não manda o mesmo alerta de novo antes desse tempo (segue destrancada)
       verificarIntervaloMin: 10,
     },
+    // Baú da torcida (canal logs-baú). O saldo por item só pode ser LÍQUIDO
+    // (guardou − removeu) a partir do primeiro log lido: o jogo não informa o
+    // estoque inicial, então o painel diz "desde <data>", nunca "estoque".
+    bau: {
+      // Retirada de uma vez acima disso vira alerta na hora (o maior caso real
+      // observado até 2026-09-13 foi 5.477 de tecido pela Presidência).
+      alertaRetiradaQtd: 500,
+    },
+    // Banco da torcida (depósito/saque nos logs de liderança). Saque acima
+    // disso vira alerta na hora.
+    caixa: {
+      alertaSaqueValor: 100000,
+    },
+  },
+
+  // Conta hackeada espalhando golpe pelo servidor (ver utils/antiSpam).
+  // Liderança, cargosIsentos e gestores de departamento nunca entram na detecção.
+  antiSpam: {
+    // 'alerta' = só avisa no canal quem TERIA sido pego (botão NÃO ERA SPAM pra
+    // marcar falso positivo); 'punir' = castiga e apaga sozinho. Em modo alerta
+    // desde 2026-09-13: revisar os alertas por ~1 semana antes de trocar.
+    modo: 'alerta',
+    // Alta certeza (os mesmos arquivos em vários canais — padrão real: 4 imagens
+    // em 5–6 canais): APAGA sozinho mesmo em modo alerta, sem castigo.
+    altaCerteza: { janelaSegundos: 60, arquivosMinimos: 2, canaisMinimos: 4 },
+    cargosIsentos: [cargos.recrutador], // atende vários tickets ao mesmo tempo
+    janelaSegundos: 30,
+    canaisMesmaMensagem: 3,    // mesma mensagem (texto ≥10 caracteres, link ou anexo) em N canais na janela
+    canaisQualquerMensagem: 5, // mensagens COM link ou anexo em N canais na janela (spammer que muda o texto)
+    historicoSegundos: 120,    // ao pegar, apaga tudo que ele mandou nesse período
+    apagarNaHoraSegundos: 60,  // depois de pego, o que ele ainda mandar some na hora
+    castigoHoras: 24,
   },
 
   confianca: {

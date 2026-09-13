@@ -1,0 +1,243 @@
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const config = require('../../config/index.js');
+const { registrarModulo } = require('../modulos');
+const { ehLideranca, temAlgumCargo, MSG_SO_LIDERANCA } = require('../permissoes');
+const { registrarLogGestao } = require('../logGestao');
+const { listarDepartamentos } = require('../departamentos/repositorio');
+const { assinaturaMensagem, temLinkOuAnexo, avaliarHistorico, avaliarAltaCerteza } = require('./regras');
+
+// antispam:banir:<userId> · antispam:liberar:<userId> · antispam:ignorar:<userId>
+
+const historicoPorUsuario = new Map(); // userId → [{ canalId, mensagemId, assinatura, linkOuAnexo, anexos, em, conteudo }]
+// Já pego. Com apagar: o spammer segue mandando depois de pego (o castigo leva
+// um instante pra valer, ou nem há castigo) — até `ate`, tudo que ele postar
+// some na hora. Sem apagar (só alerta): só não repete o alerta a cada mensagem.
+const pegoAte = new Map(); // userId → { ate: ms, apagar: boolean }
+
+const modoSoAlerta = () => config.antiSpam.modo !== 'punir';
+
+function limparMemoria() {
+  const agora = Date.now();
+  const limite = config.antiSpam.historicoSegundos * 1000;
+  for (const [userId, historico] of historicoPorUsuario) {
+    if (!historico.some(h => agora - h.em <= limite)) historicoPorUsuario.delete(userId);
+  }
+  for (const [userId, pego] of pegoAte) {
+    if (pego.ate <= agora) pegoAte.delete(userId);
+  }
+}
+setInterval(limparMemoria, 5 * 60 * 1000).unref();
+
+// Quem posta em vários canais de propósito: liderança (avisos), recrutador
+// (vários tickets ao mesmo tempo) e gestor de departamento (divulgação da área).
+async function isento(member) {
+  if (!member) return false;
+  if (ehLideranca(member)) return true;
+  if (temAlgumCargo(member, config.antiSpam.cargosIsentos)) return true;
+  const gestores = await listarDepartamentos({ apenasAtivos: true })
+    .then(areas => areas.map(a => a.cargo_gestor_id))
+    .catch(err => { console.error('[anti-spam] Erro ao ler gestores de departamento:', err.message); return []; });
+  return temAlgumCargo(member, gestores);
+}
+
+// true = a mensagem era spam e já foi tratada (o resto do messageCreate não roda)
+async function tratarSpam(message) {
+  if (!message.guild || message.author.bot || message.webhookId || message.system) return false;
+  const cfg = config.antiSpam;
+  const userId = message.author.id;
+  const agora = Date.now();
+
+  const pego = pegoAte.get(userId);
+  const jaPego = Boolean(pego && pego.ate > agora);
+  if (jaPego && pego.apagar) {
+    await message.delete().catch(() => {});
+    return true;
+  }
+  // Já alertado sem apagar: segue acumulando — a rajada pode crescer até alta
+  // certeza (a regra comum bate no 3º canal, a de alta certeza só no 4º).
+
+  const anexos = [...message.attachments.values()].map(a => ({ nome: a.name, tamanho: a.size }));
+  const historico = (historicoPorUsuario.get(userId) || [])
+    .filter(h => agora - h.em <= cfg.historicoSegundos * 1000);
+  historico.push({
+    canalId: message.channelId,
+    mensagemId: message.id,
+    assinatura: assinaturaMensagem({ conteudo: message.content, anexos, figurinhas: [...message.stickers.keys()] }),
+    linkOuAnexo: temLinkOuAnexo({ conteudo: message.content, anexos }),
+    anexos,
+    em: agora,
+    conteudo: message.content,
+  });
+  historicoPorUsuario.set(userId, historico);
+
+  const altaCerteza = avaliarAltaCerteza(historico, agora, cfg.altaCerteza);
+  const resultado = altaCerteza.spam ? altaCerteza : avaliarHistorico(historico, agora, cfg);
+  if (!resultado.spam) return false;
+  if (jaPego && !altaCerteza.spam) return false; // já alertado: não repete o mesmo alerta
+  // Isenção só é consultada quando a regra bate: evita ler cargos a cada mensagem
+  if (await isento(message.member)) return false;
+
+  // Alta certeza apaga mesmo em modo só alerta; o resto só apaga em modo punir
+  const apagar = !modoSoAlerta() || altaCerteza.spam;
+  pegoAte.set(userId, { ate: agora + cfg.apagarNaHoraSegundos * 1000, apagar });
+  // Só alerta: mantém o histórico pra poder escalar se a rajada continuar
+  if (apagar) historicoPorUsuario.delete(userId);
+
+  if (modoSoAlerta() && apagar) {
+    const { apagadas, total } = await apagarMensagens(message.guild, historico);
+    console.log(`[anti-spam] (alta certeza) ${message.author.tag} (${userId}): ${resultado.arquivos} arquivos em ${resultado.canais} canais — ${apagadas}/${total} apagadas`);
+    await enviarAlerta(message.guild, message.author, historico, resultado, {
+      acao: '🧹 APAGADO AUTOMATICAMENTE (ALTA CERTEZA) — SEM CASTIGO',
+      apagadas: `${apagadas} de ${total}`,
+    }).catch(err => console.error('[anti-spam] Erro ao alertar:', err));
+    return true;
+  }
+  if (modoSoAlerta()) {
+    console.log(`[anti-spam] (só alerta) ${message.author.tag} (${userId}): ${resultado.motivo} em ${resultado.canais} canais`);
+    await enviarAlerta(message.guild, message.author, historico, resultado, {
+      acao: '👀 MODO SÓ ALERTA — NADA FOI FEITO',
+      apagadas: 'nenhuma (modo só alerta)',
+    }).catch(err => console.error('[anti-spam] Erro ao alertar:', err));
+    return false;
+  }
+  await punir(message, historico, resultado).catch(err => console.error('[anti-spam] Erro ao punir:', err));
+  return true;
+}
+
+async function punir(message, historico, resultado) {
+  const { guild, author } = message;
+  const cfg = config.antiSpam;
+  const membro = message.member ?? await guild.members.fetch(author.id).catch(() => null);
+
+  let acao;
+  if (!membro) {
+    acao = '⚠️ SAIU DO SERVIDOR ANTES DO CASTIGO';
+  } else if (!membro.moderatable) {
+    acao = '⚠️ SEM CASTIGO: CARGO ACIMA DO BOT OU BOT SEM PERMISSÃO "CASTIGAR MEMBROS"';
+  } else {
+    acao = await membro.timeout(cfg.castigoHoras * 3600 * 1000, `Anti-spam: mesma mensagem em ${resultado.canais} canais`)
+      .then(() => `⏳ CASTIGO DE ${cfg.castigoHoras}H`)
+      .catch(err => `⚠️ CASTIGO FALHOU: ${err.message}`);
+  }
+
+  const { apagadas, total } = await apagarMensagens(guild, historico);
+  console.log(`[anti-spam] ${author.tag} (${author.id}): ${resultado.motivo} em ${resultado.canais} canais — ${acao}, ${apagadas}/${total} apagadas`);
+  await enviarAlerta(guild, author, historico, resultado, { acao, apagadas: `${apagadas} de ${total}` });
+}
+
+async function apagarMensagens(guild, historico) {
+  const idsPorCanal = new Map();
+  for (const h of historico) {
+    if (!idsPorCanal.has(h.canalId)) idsPorCanal.set(h.canalId, []);
+    idsPorCanal.get(h.canalId).push(h.mensagemId);
+  }
+  let apagadas = 0;
+  await Promise.all([...idsPorCanal].map(async ([canalId, ids]) => {
+    const canal = guild.channels.cache.get(canalId) ?? await guild.channels.fetch(canalId).catch(() => null);
+    if (!canal?.messages) return;
+    if (ids.length === 1) {
+      if (await canal.messages.delete(ids[0]).then(() => true).catch(() => false)) apagadas += 1;
+      return;
+    }
+    const removidas = await canal.bulkDelete(ids, true).catch(() => null);
+    apagadas += removidas?.size ?? 0;
+  }));
+  return { apagadas, total: historico.length };
+}
+
+function amostraDoTexto(historico) {
+  const texto = historico.find(h => h.conteudo)?.conteudo;
+  if (!texto) return '*(só anexo/figurinha)*';
+  return `\`\`\`${texto.replace(/`/g, 'ˋ').slice(0, 500)}\`\`\``;
+}
+
+async function enviarAlerta(guild, author, historico, resultado, { acao, apagadas }) {
+  const canalId = config.canais.antiSpam;
+  const canal = canalId ? await guild.channels.fetch(canalId).catch(() => null) : null;
+  if (!canal) {
+    console.warn('[anti-spam] Canal de alerta não configurado (config.canais.antiSpam) — alerta só no console.');
+    return;
+  }
+  const canais = [...new Set(historico.map(h => h.canalId))];
+  const listaCanais = canais.slice(0, 15).map(id => `<#${id}>`).join(' ') + (canais.length > 15 ? ` +${canais.length - 15}` : '');
+  const soAlerta = modoSoAlerta();
+  const altaCerteza = resultado.motivo === 'anexos_replicados';
+  const descricoes = {
+    anexos_replicados: `**${resultado.arquivos} arquivos iguais** replicados em **${resultado.canais} canais** em até ${config.antiSpam.altaCerteza.janelaSegundos}s.`,
+    mesma_mensagem: `Mesma mensagem em **${resultado.canais} canais** em até ${config.antiSpam.janelaSegundos}s.`,
+    varios_canais: `Mensagens com link/anexo em **${resultado.canais} canais diferentes** em até ${config.antiSpam.janelaSegundos}s.`,
+  };
+  let titulo = '🛡️ CONTA SUSPEITA DE HACK — SPAM EM VÁRIOS CANAIS';
+  let aviso = '';
+  if (soAlerta && altaCerteza) {
+    titulo = '🧹 SPAM APAGADO AUTOMATICAMENTE — ARQUIVOS REPLICADOS';
+    aviso = '\n\nSem castigo: se era spam de verdade, bana abaixo. Mensagens apagadas não voltam.';
+  } else if (soAlerta) {
+    titulo = '👀 TERIA SIDO PEGO PELO ANTI-SPAM';
+    aviso = '\n\nModo de teste: confira se era spam de verdade e marque abaixo.';
+  }
+
+  await canal.send({
+    embeds: [{
+      color: 0x000000,
+      title: titulo,
+      description: descricoes[resultado.motivo] + aviso,
+      thumbnail: { url: author.displayAvatarURL() },
+      fields: [
+        { name: 'MEMBRO', value: `<@${author.id}>\n\`${author.tag}\` · \`${author.id}\``, inline: true },
+        { name: 'AÇÃO AUTOMÁTICA', value: acao, inline: true },
+        { name: 'MENSAGENS APAGADAS', value: apagadas, inline: true },
+        { name: 'CANAIS ATINGIDOS', value: listaCanais || '—' },
+        { name: 'AMOSTRA', value: amostraDoTexto(historico) },
+        { name: 'DATA', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+      ],
+    }],
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`antispam:banir:${author.id}`).setLabel('BANIR').setEmoji('🔨').setStyle(ButtonStyle.Danger),
+      soAlerta
+        ? new ButtonBuilder().setCustomId(`antispam:ignorar:${author.id}`).setLabel('NÃO ERA SPAM').setEmoji('👍').setStyle(ButtonStyle.Secondary)
+        : new ButtonBuilder().setCustomId(`antispam:liberar:${author.id}`).setLabel('LIBERAR').setEmoji('✅').setStyle(ButtonStyle.Secondary),
+    )],
+    allowedMentions: { parse: [] },
+  });
+}
+
+registrarModulo('antispam', async interaction => {
+  if (!interaction.isButton()) return;
+  if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
+  const [, acao, userId] = interaction.customId.split(':');
+  const { guild, user: ator } = interaction;
+  await interaction.deferUpdate();
+
+  let decisao;
+  try {
+    if (acao === 'banir') {
+      await guild.members.ban(userId, { deleteMessageSeconds: 3600, reason: `Anti-spam: conta comprometida — banido por ${ator.tag}` });
+      decisao = '🔨 BANIDO';
+    } else if (acao === 'liberar') {
+      const membro = await guild.members.fetch(userId).catch(() => null);
+      if (!membro) return interaction.followUp({ content: '❌ ESSE MEMBRO NÃO ESTÁ MAIS NO SERVIDOR.', flags: 64 });
+      await membro.timeout(null, `Anti-spam: liberado por ${ator.tag}`);
+      pegoAte.delete(userId);
+      decisao = '✅ LIBERADO (CASTIGO REMOVIDO)';
+    } else if (acao === 'ignorar') {
+      decisao = '👍 NÃO ERA SPAM (FALSO POSITIVO)';
+    } else {
+      return;
+    }
+  } catch (err) {
+    // Alerta segue com os botões: nada foi feito de fato
+    return interaction.followUp({ content: `❌ NÃO FOI POSSÍVEL CONCLUIR: ${err.message}`, flags: 64 });
+  }
+
+  const embed = interaction.message.embeds[0]?.toJSON() ?? {};
+  embed.fields = [...(embed.fields || []), { name: 'DECISÃO', value: `${decisao} por <@${ator.id}>` }];
+  await interaction.editReply({ embeds: [embed], components: [] });
+  await registrarLogGestao(interaction.client, {
+    titulo: `🛡️ ANTI-SPAM — ${decisao}`,
+    ator: ator.id,
+    campos: [{ name: 'MEMBRO', value: `<@${userId}> · \`${userId}\``, inline: true }],
+  });
+});
+
+module.exports = { tratarSpam };

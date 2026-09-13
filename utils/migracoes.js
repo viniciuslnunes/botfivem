@@ -85,6 +85,14 @@ const MIGRACOES = [
   },
   { nome: 'idx_fichas_candidato', sql: 'CREATE INDEX IF NOT EXISTS idx_fichas_candidato ON fichas_recrutamento (discord_id, criado_em DESC)' },
   {
+    // Reprovação definitiva revista pela liderança: quem liberou, quando e por quê
+    nome: 'fichas_recrutamento.reenvio_liberado',
+    sql: `ALTER TABLE fichas_recrutamento
+      ADD COLUMN IF NOT EXISTS reenvio_liberado_por_id TEXT,
+      ADD COLUMN IF NOT EXISTS reenvio_liberado_em TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS reenvio_liberado_motivo TEXT`,
+  },
+  {
     nome: 'eventos',
     sql: `CREATE TABLE IF NOT EXISTS eventos (
       id BIGSERIAL PRIMARY KEY,

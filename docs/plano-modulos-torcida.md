@@ -453,6 +453,7 @@ recrutador: preencher `cargos.advRec`.
 | Área pretendida escolhida antes do formulário; vira cargo **só na aprovação** | `utils/recrutamento/fluxo.js` |
 | Botão "Aprovar sem área" quando a ficha tem área | `utils/recrutamentoButtons.js` |
 | Reprovação com laudo: categoria + pode/não pode tentar de novo + justificativa (15–1000), enviada por DM | `utils/recrutamento/fluxo.js` |
+| Canal `🔓・reprovados-definitivos` (abaixo do validar-setagem, só liderança): lista quem não pode tentar de novo e libera nova tentativa (botão → select → modal com motivo; tira o cargo de reprovado, avisa por DM, log de gestão) | `utils/recrutamento/painelReenvio.js` |
 | Carteirinha vigente · vencendo (≤ 30 dias) · vencida, derivada na leitura | `utils/carteirinha/regras.js` |
 | `/carteirinhas situacao` e `/carteirinhas renovar` (liderança; renovar antes de vencer não perde dias) | `commands/carteirinhas.js` |
 | DM 7 dias antes de vencer e no vencimento (uma vez por ciclo) | `utils/carteirinha/vencimentos.js` |

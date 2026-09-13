@@ -38,6 +38,31 @@ test('ficha lida do embed de análise', () => {
   assert.equal(R.slugDaAreaNoEmbed(campos.filter(c => c.name !== 'ÁREA PRETENDIDA'), [{ slug: 'bateria', nome: 'Bateria' }]), null);
 });
 
+test('liberação de reprovação definitiva exige motivo de 10 a 500 caracteres', () => {
+  assert.equal(R.validarMotivoLiberacao('curto').ok, false);
+  assert.equal(R.validarMotivoLiberacao('a'.repeat(501)).ok, false);
+  const ok = R.validarMotivoLiberacao('  Provou o manto depois, conversamos no ticket.  ');
+  assert.equal(ok.ok, true);
+  assert.equal(ok.motivo, 'Provou o manto depois, conversamos no ticket.');
+});
+
+test('busca de reprovados: números = ID FiveM exato; texto = parte do nome sem acento', () => {
+  const lista = [
+    { message_id: 'a', nome: 'João Jesus', id_fivem: '16993' },
+    { message_id: 'b', nome: 'Rarin', id_fivem: '169' },
+  ];
+  assert.deepEqual(R.filtrarReprovados(lista, '169').map(r => r.message_id), ['b']);
+  assert.deepEqual(R.filtrarReprovados(lista, ' joao ').map(r => r.message_id), ['a']);
+  assert.deepEqual(R.filtrarReprovados(lista, '   '), []);
+});
+
+test('opção do select de reprovado cabe no limite do Discord', () => {
+  const opcao = R.opcaoReprovado({ message_id: 'm1', nome: 'x'.repeat(120), id_fivem: '1', reprovado_categoria: 'manto' });
+  assert.equal(opcao.value, 'm1');
+  assert.ok(opcao.label.length <= 100);
+  assert.equal(opcao.description, 'Não enviou o manto');
+});
+
 test('rótulo de categoria desconhecida cai em "Outro motivo"', () => {
   assert.equal(R.rotuloCategoria('conduta'), 'Conduta ou histórico no servidor');
   assert.equal(R.rotuloCategoria('nao-existe'), 'Outro motivo');

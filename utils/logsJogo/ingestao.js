@@ -63,6 +63,28 @@ async function sincronizarCanal(client, canalId, { completo = false } = {}) {
   return { canalId, lidas, novas };
 }
 
+// Regra nova no parser não vale nada pro passado: o log antigo continua gravado
+// como 'desconhecido' (e o INSERT da sincronização não atualiza linha que já
+// existe — ON CONFLICT DO NOTHING). Aqui o embed cru que ficou guardado em
+// `bruto` é relido pelo parser atual e o registro é corrigido no lugar.
+//
+// Roda no arranque: é barato porque só olha o que AINDA é 'desconhecido' — depois
+// de um reprocessamento bem-sucedido não sobra quase nada pra reler. Só toca a
+// linha quando a ação realmente mudou.
+const REPROCESSAR_MAX = 20000;
+
+async function reprocessarDesconhecidos(limite = REPROCESSAR_MAX) {
+  const pendentes = await repo.desconhecidosComBruto(limite);
+  let corrigidos = 0;
+  for (const linha of pendentes) {
+    const novo = parseRegistro(linha.bruto);
+    if (novo.acao === 'desconhecido') continue;
+    await repo.atualizarRegistroReprocessado(linha.id, novo);
+    corrigidos++;
+  }
+  return { lidos: pendentes.length, corrigidos };
+}
+
 async function sincronizarCanaisDeLog(client, opcoes) {
   const resultados = [];
   for (const canalId of config.logsJogo.canais) {
@@ -76,4 +98,10 @@ async function sincronizarCanaisDeLog(client, opcoes) {
   return resultados;
 }
 
-module.exports = { ehMensagemDeLog, registrosDaMensagem, gravarRegistros, sincronizarCanaisDeLog };
+module.exports = {
+  ehMensagemDeLog,
+  registrosDaMensagem,
+  gravarRegistros,
+  sincronizarCanaisDeLog,
+  reprocessarDesconhecidos,
+};

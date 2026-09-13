@@ -7,6 +7,28 @@ const { agendarAtualizacaoReativa, atualizarPainelJogadores } = require('../util
 const { agendarAtualizacaoReativa: agendarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
 const { agendarAtualizacaoReativa: agendarIdsSemSocio } = require('../utils/logsJogo/idsSemSocio');
 const { incrementarSociosManual } = require('../utils/logsJogo/presencaInteracoes');
+const { agendarAtualizacaoReativa: agendarBau } = require('../utils/logsJogo/painelBau');
+const { agendarAtualizacaoReativa: agendarCaixa } = require('../utils/logsJogo/painelCaixa');
+const { agendarAtualizacaoReativa: agendarDisciplina } = require('../utils/logsJogo/painelDisciplina');
+const { agendarAtualizacaoReativa: agendarRestricoes } = require('../utils/logsJogo/painelRestricoes');
+const { agendarAtualizacaoReativa: agendarFechaduras } = require('../utils/logsJogo/painelFechaduras');
+const { agendarAtualizacaoReativa: agendarTags } = require('../utils/logsJogo/painelTags');
+const { agendarAtualizacaoReativa: agendarAuditoria } = require('../utils/logsJogo/painelAuditoria');
+const { agendarAtualizacaoReativa: agendarDesconhecidos } = require('../utils/logsJogo/painelDesconhecidos');
+const { agendarAtualizacaoReativa: agendarTerritorio } = require('../utils/logsJogo/painelTerritorio');
+const { tratarSpam } = require('../utils/antiSpam/servico');
+
+// Categoria do log (posta pelo parser) → canal de inteligência que ela alimenta.
+const PAINEIS_POR_CATEGORIA = [
+  ['bau', agendarBau],
+  ['economia', agendarCaixa],
+  ['disciplina', agendarDisciplina],
+  ['restricao', agendarRestricoes],
+  ['patrimonio', agendarFechaduras],
+  ['tag', agendarTags],
+  ['config', agendarAuditoria],
+  ['territorio', agendarTerritorio],
+];
 
 module.exports = (client) => {
   client.on('messageCreate', async message => {
@@ -35,6 +57,13 @@ module.exports = (client) => {
       if (novos.some(r => r.atorIdFivem || r.alvoIdFivem)) {
         agendarIdsSemSocio(client);
       }
+      // Cada canal de inteligência acorda só com o tipo de log que é dele
+      // (debounce próprio em cada painel, ver painelCanal.js) — em vez de os
+      // oito reprocessarem tudo a cada log que chega.
+      for (const [categoria, agendar] of PAINEIS_POR_CATEGORIA) {
+        if (novos.some(r => r.categoria === categoria)) agendar(client);
+      }
+      if (novos.some(r => r.acao === 'desconhecido')) agendarDesconhecidos(client);
       // "Fulano recrutou beltrano" no log do próprio jogo: soma 1 em SÓCIOS
       // SETADOS por recrutamento novo (só os que `gravarRegistros` não tinha
       // visto ainda — reprocessar um log antigo não conta de novo) e
@@ -47,6 +76,8 @@ module.exports = (client) => {
       return;
     }
     // ────────────────────────────────────────────────────────────────────────
+    // Conta hackeada espalhando golpe: castiga, apaga e avisa a staff
+    if (await tratarSpam(message).catch(err => { console.error('[anti-spam] Erro:', err); return false; })) return;
     if (message.content === '!ping') {
       message.reply('Pong!');
     }

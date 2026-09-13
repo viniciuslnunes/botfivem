@@ -3,18 +3,28 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('
 const config = require('../config/index.js');
 const { executarMigracoes } = require('../utils/migracoes');
 const { iniciarAgendador } = require('../utils/agendador');
-const { sincronizarCanaisDeLog } = require('../utils/logsJogo/ingestao');
+const { sincronizarCanaisDeLog, reprocessarDesconhecidos } = require('../utils/logsJogo/ingestao');
 const { iniciarPainelLogs } = require('../utils/logsJogo/painel');
 const { iniciarPainelJogadores } = require('../utils/logsJogo/painelJogadores');
 const { iniciarPainelSociosSemId } = require('../utils/logsJogo/painelSociosSemId');
 const { iniciarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
 const { iniciarIdsSemSocio } = require('../utils/logsJogo/idsSemSocio');
+const { iniciarPainelBau } = require('../utils/logsJogo/painelBau');
+const { iniciarPainelCaixa } = require('../utils/logsJogo/painelCaixa');
+const { iniciarPainelDisciplina } = require('../utils/logsJogo/painelDisciplina');
+const { iniciarPainelRestricoes } = require('../utils/logsJogo/painelRestricoes');
+const { iniciarPainelFechaduras } = require('../utils/logsJogo/painelFechaduras');
+const { iniciarPainelTags } = require('../utils/logsJogo/painelTags');
+const { iniciarPainelAuditoria } = require('../utils/logsJogo/painelAuditoria');
+const { iniciarPainelDesconhecidos } = require('../utils/logsJogo/painelDesconhecidos');
+const { iniciarPainelTerritorio } = require('../utils/logsJogo/painelTerritorio');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
 const { iniciarVerificacaoSeguranca } = require('../utils/logsJogo/seguranca');
 const { atualizarQuadroDepartamentos } = require('../utils/departamentos/quadro');
 const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
+const { iniciarPainelReenvio } = require('../utils/recrutamento/painelReenvio');
 
 module.exports = (client) => {
   client.once('clientReady', async () => {
@@ -28,6 +38,11 @@ module.exports = (client) => {
     // começam depois: postar antes mostraria tudo zerado até o backfill acabar.
     sincronizarCanaisDeLog(client)
       .then(resultados => console.log('[logs-jogo] Sincronização inicial:', resultados))
+      // Log antigo que caiu em 'desconhecido' e que o parser já aprende hoje:
+      // relido do embed cru e corrigido no banco, senão regra nova só valeria
+      // pro que chegar daqui pra frente e os painéis nasceriam sem histórico.
+      .then(() => reprocessarDesconhecidos())
+      .then(r => console.log(`[logs-jogo] Reprocessamento: ${r.corrigidos}/${r.lidos} registros reconhecidos.`))
       .catch(err => console.error('[logs-jogo] Erro na sincronização inicial:', err))
       .finally(() => {
         iniciarPainelLogs(client);
@@ -35,6 +50,17 @@ module.exports = (client) => {
         iniciarPainelSociosSemId(client);
         iniciarRegistrosDiarios(client);
         iniciarIdsSemSocio(client);
+        // Canais de inteligência por tipo de log (cada um monta o próprio canal
+        // na primeira execução e reedita as mesmas mensagens depois).
+        iniciarPainelBau(client);
+        iniciarPainelCaixa(client);
+        iniciarPainelDisciplina(client);
+        iniciarPainelRestricoes(client);
+        iniciarPainelFechaduras(client);
+        iniciarPainelTags(client);
+        iniciarPainelAuditoria(client);
+        iniciarPainelDesconhecidos(client);
+        iniciarPainelTerritorio(client);
       });
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
@@ -53,6 +79,8 @@ module.exports = (client) => {
     // Mensagem fixa do não recrutar com os botões de bloquear e remover ID
     garantirMensagemNaoRecrutar(client)
       .catch(err => console.error('[nao-recrutar] Erro ao atualizar mensagem fixa:', err));
+    // Reprovados sem nova tentativa, com o botão de liberar (abaixo do validar-setagem)
+    iniciarPainelReenvio(client);
 
     // Enviar mensagem fixa de recrutamento no canal de análise (somente se não existir)
     try {

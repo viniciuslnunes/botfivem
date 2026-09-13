@@ -57,4 +57,38 @@ async function decidirFicha(messageId, decisao, embedReserva) {
   );
 }
 
-module.exports = { registrarFicha, situacaoDoCandidato, buscarFicha, decidirFicha };
+// Quem está barrado hoje: a ÚLTIMA ficha de cada candidato é reprovação
+// definitiva (mesma regra de situacaoDoCandidato). O bloqueio mora aqui, não em
+// cargo — por isso sair e voltar do servidor não libera ninguém.
+async function listarReprovacoesDefinitivas() {
+  const { rows } = await db.query(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (discord_id)
+              message_id, discord_id, nome, id_fivem, status, permite_reenvio,
+              reprovado_categoria, reprovado_motivo, decidido_por_id, decidido_em, criado_em
+         FROM fichas_recrutamento
+        ORDER BY discord_id, criado_em DESC
+     ) ultima
+     WHERE status = 'REPROVADO' AND permite_reenvio = false
+     ORDER BY COALESCE(decidido_em, criado_em) DESC`
+  );
+  return rows;
+}
+
+// Só libera o que ainda está como definitiva: dois cliques simultâneos não
+// liberam (nem registram) duas vezes. null = já liberado ou ficha inexistente.
+async function liberarReenvio(messageId, { porId, motivo }) {
+  const { rows } = await db.query(
+    `UPDATE fichas_recrutamento
+        SET permite_reenvio = true, reenvio_liberado_por_id = $2,
+            reenvio_liberado_em = now(), reenvio_liberado_motivo = $3
+      WHERE message_id = $1 AND status = 'REPROVADO' AND permite_reenvio = false
+      RETURNING message_id, discord_id, nome, id_fivem, reprovado_categoria`,
+    [messageId, porId, motivo]
+  );
+  return rows[0] ?? null;
+}
+
+module.exports = {
+  registrarFicha, situacaoDoCandidato, buscarFicha, decidirFicha, listarReprovacoesDefinitivas, liberarReenvio,
+};

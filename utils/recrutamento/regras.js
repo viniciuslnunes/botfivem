@@ -43,6 +43,38 @@ function avaliarNovaSolicitacao(situacao, agora = Date.now()) {
   return { ok: true };
 }
 
+const MOTIVO_LIBERACAO_MIN = 10;
+const MOTIVO_LIBERACAO_MAX = 500;
+
+// Desfazer uma reprovação definitiva deixa rastro: o motivo vai pro log de gestão
+function validarMotivoLiberacao(motivo) {
+  const texto = String(motivo ?? '').trim();
+  if (texto.length < MOTIVO_LIBERACAO_MIN || texto.length > MOTIVO_LIBERACAO_MAX) {
+    return { ok: false, mensagem: `❌ O MOTIVO PRECISA TER ENTRE ${MOTIVO_LIBERACAO_MIN} E ${MOTIVO_LIBERACAO_MAX} CARACTERES.` };
+  }
+  return { ok: true, motivo: texto };
+}
+
+const semAcento = s => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+
+// Busca na lista de reprovados: só dígitos = ID FiveM exato; senão, pedaço do nome
+function filtrarReprovados(reprovados, termo) {
+  const alvo = semAcento(termo);
+  if (!alvo) return [];
+  if (/^\d+$/.test(alvo)) return reprovados.filter(r => String(r.id_fivem ?? '').trim() === alvo);
+  return reprovados.filter(r => semAcento(r.nome).includes(alvo));
+}
+
+// Opção do select (label e description têm no máximo 100 caracteres no Discord)
+function opcaoReprovado(r) {
+  const corta = (s, max) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+  return {
+    label: corta(`${r.nome || 'Sem nome'} · ID ${r.id_fivem || '?'}`, 100),
+    description: corta(rotuloCategoria(r.reprovado_categoria), 100),
+    value: r.message_id,
+  };
+}
+
 // Lê a ficha a partir dos campos do embed de análise (fichas anteriores ao banco)
 function lerFichaDoEmbed(campos = []) {
   const valor = nome => campos.find(c => c.name === nome)?.value ?? null;
@@ -72,6 +104,11 @@ module.exports = {
   rotuloCategoria,
   validarLaudo,
   avaliarNovaSolicitacao,
+  MOTIVO_LIBERACAO_MIN,
+  MOTIVO_LIBERACAO_MAX,
+  validarMotivoLiberacao,
+  filtrarReprovados,
+  opcaoReprovado,
   lerFichaDoEmbed,
   slugDaAreaNoEmbed,
 };

@@ -7,6 +7,7 @@ const fichas = require('./fichas');
 const regras = require('./regras');
 const { decisaoEmAndamento, travarFicha, liberarFicha } = require('./trava');
 const { registrarSinal } = require('../confianca/servico');
+const { agendarAtualizacaoReativa: agendarAtualizacaoReprovados } = require('./painelReenvio');
 
 const MSG_JA_ANALISADA = '⚠️ ESTA SOLICITAÇÃO JÁ ESTÁ SENDO (OU JÁ FOI) ANALISADA POR OUTRO RECRUTADOR.';
 
@@ -208,6 +209,7 @@ async function processarReprovacao(interaction, fichaId) {
       motivo: laudo.justificativa,
       permiteReenvio,
     }, embedOriginal).catch(err => console.error('[recrutamento] Erro ao registrar reprovação:', err));
+    if (!permiteReenvio) agendarAtualizacaoReprovados(interaction.client);
     if (dados.discordId) {
       await registrarSinal(interaction.client, { discordId: dados.discordId, sinal: 'REPROVACAO', origemTipo: 'ficha', origemId: fichaId })
         .catch(err => console.error('[recrutamento] Erro ao registrar sinal de confiança:', err));

@@ -146,9 +146,13 @@ test('saída de sócio: voluntária, expulsão e remoção automática por inati
   assert.equal(automatica.atorIdFivem, null); // ninguém agiu, foi o próprio sistema
 });
 
-test('remoção de blacklist/suspensão não é confundida com expulsão de sócio (sem segundo #ID de alvo)', () => {
+test('blacklist da torcida não é confundida com expulsão de sócio', () => {
   const r = parseRegistro({ title: 'blacklist', description: '#2190 Macaco Loko adicionou blacklist da torcida #7262 Pedro Pisico.' });
-  assert.equal(r.acao, 'desconhecido');
+  assert.equal(r.acao, 'blacklist_adicionou');
+  assert.equal(r.categoria, 'restricao');
+  assert.equal(r.atorNome, 'Macaco Loko');
+  assert.equal(r.alvoIdFivem, '7262');
+  assert.equal(r.alvoNome, 'Pedro Pisico');
 });
 
 test('formato desconhecido é mantido, com IDs e valor extraídos', () => {

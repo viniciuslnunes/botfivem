@@ -47,6 +47,28 @@ async function inserirRegistro(r) {
   return res.rowCount > 0;
 }
 
+// Registros gravados como 'desconhecido', com o embed cru — pra reprocessar
+// quando o parser aprende um formato novo (ver ingestao.reprocessarDesconhecidos).
+async function desconhecidosComBruto(limite) {
+  const res = await db.query(
+    `SELECT id, bruto FROM logs_jogo WHERE acao = 'desconhecido'
+      ORDER BY id LIMIT ${Number(limite)}`
+  );
+  return res.rows;
+}
+
+// Reescreve o que o parser passou a entender. Só o que ele extrai: message_id,
+// canal e ocorrido_em não mudam nunca (e `bruto` é a fonte, fica intacta).
+async function atualizarRegistroReprocessado(id, r) {
+  await db.query(
+    `UPDATE logs_jogo
+        SET categoria = $2, acao = $3, ator_nome = $4, ator_id_fivem = $5,
+            alvo_nome = $6, alvo_id_fivem = $7, valor = $8, titulo = $9, descricao = $10
+      WHERE id = $1`,
+    [id, r.categoria, r.acao, r.atorNome, r.atorIdFivem, r.alvoNome, r.alvoIdFivem, r.valor, r.titulo, r.descricao]
+  );
+}
+
 async function idsJaGravados(messageIds) {
   if (!messageIds.length) return new Set();
   const res = await db.query('SELECT DISTINCT message_id FROM logs_jogo WHERE message_id = ANY($1)', [messageIds]);
@@ -69,11 +91,20 @@ async function buscarLogs(filtro, pagina, porPagina) {
   return { total, pagina: paginaEfetiva, itens: itens.rows };
 }
 
+// `valor` guarda coisas de natureza diferente conforme a ação: dinheiro (R$),
+// quantidade de item do baú, coins de território e pontos de honra. "Dinheiro
+// movimentado" só pode somar as ações que são dinheiro de fato — antes do parser
+// aprender baú/banco, todo `valor` era dinheiro e o SUM cru estava certo; agora
+// somaria 5.477 tecidos com R$ 1.500.000. 'desconhecido' continua dentro: formato
+// novo com "$" no texto (extrairValor) ainda é dinheiro até ganhar regra.
+const ACOES_DINHEIRO = ['banco_depositou', 'banco_sacou', 'dinheiro_adicionado', 'dinheiro_conquista', 'comprou_roupa', 'comprou_item', 'desconhecido'];
+
 async function resumo(filtro) {
   const { condicoes, params } = montarFiltro(filtro);
+  params.push(ACOES_DINHEIRO);
   const res = await db.query(
     `SELECT COUNT(*)::int AS total,
-            COALESCE(SUM(valor), 0)::float AS valor_total,
+            COALESCE(SUM(valor) FILTER (WHERE acao = ANY($${params.length})), 0)::float AS valor_total,
             COUNT(DISTINCT COALESCE(ator_id_fivem, ator_nome))::int AS pessoas,
             MIN(ocorrido_em) AS primeira_em,
             MAX(ocorrido_em) AS ultima_em
@@ -186,11 +217,200 @@ async function contarPorAcoes(acoes, periodo) {
 }
 
 // Últimos eventos de um conjunto de ações, mais recentes primeiro — usado
-// pela lista de "últimas saídas" em montarEmbedChurn.
+// pela lista de "últimas saídas" em montarEmbedChurn e por todo estado
+// reconstruído de add/remove (analises.js: restrições, tags, advertências),
+// que depende de saber qual dos dois eventos veio por último. Por isso o
+// desempate por message_id/embed_indice: vários eventos podem cair no mesmo
+// `ocorrido_em` (é a hora da MENSAGEM, e uma mensagem carrega vários eventos —
+// ver o comentário de estadoDosJogadores), e sem ele um "adicionou" e um
+// "removeu" do mesmo jogador na mesma mensagem podem voltar invertidos.
 async function listarPorAcoes(acoes, periodo, limite) {
   const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
   const res = await db.query(
-    `SELECT acao, ator_nome, ator_id_fivem, alvo_nome, alvo_id_fivem, descricao, ocorrido_em
+    `SELECT acao, ator_nome, ator_id_fivem, alvo_nome, alvo_id_fivem, valor, titulo, descricao, ocorrido_em
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      ORDER BY ocorrido_em DESC, message_id::bigint DESC, embed_indice DESC
+      LIMIT ${Number(limite)}`,
+    params
+  );
+  return res.rows;
+}
+
+// Quando chegou o último log de um conjunto de ações — é o que deixa um painel
+// avisar "nenhum log desse tipo desde X" em vez de mostrar zero como se nada
+// tivesse acontecido (o canal logs-liderança parou em 2026-07 e ninguém notou).
+async function ultimaOcorrencia(acoes) {
+  const res = await db.query('SELECT MAX(ocorrido_em) AS ultima FROM logs_jogo WHERE acao = ANY($1)', [acoes]);
+  return res.rows[0]?.ultima ?? null;
+}
+
+// Quantos eventos de um conjunto de ações por dia — sparkline dos painéis novos
+// (caixa, baú), equivalente de contarPorDia pra mais de uma ação.
+async function contarPorDiaPorAcoes(acoes, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  const res = await db.query(
+    `SELECT to_char(ocorrido_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS dia, COUNT(*)::int AS total
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1 ORDER BY 1`,
+    params
+  );
+  return res.rows;
+}
+
+// Quantidade e soma de `valor` por ação — o painel de caixa vive disso
+// (quanto entrou no banco, quanto saiu, quanto os sócios gastaram).
+async function somarPorAcoes(acoes, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  const res = await db.query(
+    `SELECT acao, COUNT(*)::int AS total, COALESCE(SUM(valor), 0)::float AS soma
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY acao ORDER BY soma DESC, total DESC`,
+    params
+  );
+  return res.rows;
+}
+
+// Ranking por DINHEIRO (não por quantidade de eventos, como topAtoresPorAcoes):
+// quem mais depositou, quem mais gastou.
+async function topAtoresPorValor(acoes, periodo, limite) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  condicoes.push('valor IS NOT NULL', '(ator_id_fivem IS NOT NULL OR ator_nome IS NOT NULL)');
+  const res = await db.query(
+    `SELECT MAX(ator_id_fivem) AS id, MAX(ator_nome) AS nome,
+            COUNT(*)::int AS total, COALESCE(SUM(valor), 0)::float AS soma
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY COALESCE(ator_id_fivem, ator_nome)
+      ORDER BY soma DESC LIMIT ${Number(limite)}`,
+    params
+  );
+  return res.rows;
+}
+
+// Último apelido visto pra cada ID do jogo. O log do baú manda só o ID do
+// jogador (sem nome nenhum), então o nome é emprestado dos outros canais.
+async function nomesPorIds(ids) {
+  if (!ids.length) return new Map();
+  const res = await db.query(
+    `SELECT id, (array_agg(nome ORDER BY ocorrido_em DESC))[1] AS nome FROM (
+       SELECT ator_id_fivem AS id, ator_nome AS nome, ocorrido_em FROM logs_jogo
+        WHERE ator_id_fivem = ANY($1) AND ator_nome IS NOT NULL
+       UNION ALL
+       SELECT alvo_id_fivem AS id, alvo_nome AS nome, ocorrido_em FROM logs_jogo
+        WHERE alvo_id_fivem = ANY($1) AND alvo_nome IS NOT NULL
+     ) t GROUP BY id`,
+    [ids]
+  );
+  return new Map(res.rows.map(r => [r.id, r.nome]));
+}
+
+// Contagem, soma e último evento por ALVO e ação — o painel de território vive
+// disso (horas dominadas e conquistas por território, em `alvo_nome`).
+async function resumoPorAlvo(acoes, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  condicoes.push('alvo_nome IS NOT NULL');
+  const res = await db.query(
+    `SELECT alvo_nome AS alvo, acao, COUNT(*)::int AS total,
+            COALESCE(SUM(valor), 0)::float AS soma, MAX(ocorrido_em) AS ultima
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1, 2`,
+    params
+  );
+  return res.rows;
+}
+
+// Estado atual de cada fechadura numa consulta só: sem isso o painel teria que
+// ler os 15 mil eventos de patrimônio pra ficar com uma dezena de linhas.
+// `chave` junta as duas formas que o jogo usa (ações próprias de sede/portão e
+// o nome em alvo_nome das demais — ver analises.fechaduraDoEvento, que refaz a
+// mesma conta pra montar a linha).
+async function ultimoPorFechadura(acoes) {
+  const res = await db.query(
+    `SELECT DISTINCT ON (chave) acao, ator_nome, ator_id_fivem, alvo_nome, ocorrido_em
+       FROM (
+         SELECT CASE
+                  WHEN acao LIKE 'sede\\_%' THEN 'sede'
+                  WHEN acao LIKE 'portao\\_%' THEN 'portão'
+                  ELSE lower(trim(alvo_nome))
+                END AS chave,
+                acao, ator_nome, ator_id_fivem, alvo_nome, ocorrido_em, message_id, embed_indice
+           FROM logs_jogo WHERE acao = ANY($1)
+       ) t
+      WHERE chave IS NOT NULL AND chave <> ''
+      ORDER BY chave, ocorrido_em DESC, message_id::bigint DESC, embed_indice DESC`,
+    [acoes]
+  );
+  return res.rows;
+}
+
+const ACOES_BAU = ['bau_guardou', 'bau_removeu'];
+
+// Saldo LÍQUIDO por baú e item (guardou − removeu). Não é estoque: o jogo nunca
+// informa o que já estava dentro, então isso vale "desde o primeiro log lido" —
+// `desde` volta junto justamente pra o painel poder dizer isso na cara.
+// O baú sai do título ("Guardou [GDF Sócio]"), que é o único lugar onde o jogo
+// diz de qual compartimento se trata.
+async function saldoBau() {
+  const res = await db.query(
+    `SELECT CASE
+              -- "Baú de Recompensas [GDF] - Retirada (...)": o colchete é da
+              -- torcida, não do compartimento (mesma conta de E.bauDoTitulo)
+              WHEN titulo ILIKE 'Ba_ de Recompensas%' THEN 'Recompensas'
+              ELSE substring(titulo from '\\[(.+)\\]')
+            END AS bau,
+            alvo_nome AS item,
+            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE -valor END), 0)::float AS saldo,
+            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END), 0)::float AS guardou,
+            COALESCE(SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END), 0)::float AS removeu,
+            MIN(ocorrido_em) AS desde, MAX(ocorrido_em) AS ultima
+       FROM logs_jogo
+      WHERE acao = ANY($1) AND alvo_nome IS NOT NULL AND valor IS NOT NULL
+      GROUP BY 1, 2
+      ORDER BY 1, SUM(valor) DESC`,
+    // Por VOLUME movimentado (guardou + removeu), não por saldo: ordenar por
+    // saldo punha dezenas de camisas com saldo 0 no topo e escondia tecido,
+    // maconha e cocaína, que é o que realmente circula (prévia de 2026-09-13).
+    [ACOES_BAU]
+  );
+  return res.rows;
+}
+
+// Quem mexeu no baú num período: quanto guardou e quanto retirou cada um. Só o
+// ID vem do log (ver nomesPorIds).
+async function movimentoBauPorPessoa(periodo, limite) {
+  const { condicoes, params } = condicoesPorAcoes(ACOES_BAU, periodo);
+  condicoes.push('ator_id_fivem IS NOT NULL', 'valor IS NOT NULL');
+  const res = await db.query(
+    `SELECT ator_id_fivem AS id,
+            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END), 0)::float AS guardou,
+            COALESCE(SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END), 0)::float AS removeu,
+            COUNT(*)::int AS eventos
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1 ORDER BY removeu DESC, guardou DESC LIMIT ${Number(limite)}`,
+    params
+  );
+  return res.rows;
+}
+
+// Maiores retiradas de uma vez, pra auditoria (e é o mesmo critério do alerta
+// de retirada grande — ver alertas.js).
+async function maioresRetiradasBau(periodo, limite) {
+  const { condicoes, params } = condicoesPorAcoes(['bau_removeu'], periodo);
+  condicoes.push('valor IS NOT NULL');
+  const res = await db.query(
+    `SELECT ator_id_fivem AS id, alvo_nome AS item, valor::float AS quantidade, titulo, ocorrido_em
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      ORDER BY valor DESC LIMIT ${Number(limite)}`,
+    params
+  );
+  return res.rows;
+}
+
+// Registros que o parser não reconheceu, pro canal de logs não reconhecidos
+// agrupar por formato (analises.agruparDesconhecidos).
+async function desconhecidos(periodo, limite) {
+  const { condicoes, params } = condicoesPorAcoes(['desconhecido'], periodo);
+  const res = await db.query(
+    `SELECT canal_id, titulo, descricao, ocorrido_em
        FROM logs_jogo WHERE ${condicoes.join(' AND ')}
       ORDER BY ocorrido_em DESC LIMIT ${Number(limite)}`,
     params
@@ -290,6 +510,8 @@ async function eventosConexao(inicio, fim) {
 
 module.exports = {
   inserirRegistro,
+  desconhecidosComBruto,
+  atualizarRegistroReprocessado,
   idsJaGravados,
   buscarLogs,
   resumo,
@@ -307,5 +529,16 @@ module.exports = {
   topAtoresPorAcoes,
   contarPorAcoes,
   listarPorAcoes,
+  contarPorDiaPorAcoes,
+  ultimaOcorrencia,
+  resumoPorAlvo,
+  somarPorAcoes,
+  topAtoresPorValor,
+  nomesPorIds,
+  ultimoPorFechadura,
+  saldoBau,
+  movimentoBauPorPessoa,
+  maioresRetiradasBau,
+  desconhecidos,
   historicoCargo,
 };
