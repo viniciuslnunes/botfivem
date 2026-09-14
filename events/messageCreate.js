@@ -7,6 +7,7 @@ const { agendarAtualizacaoReativa, atualizarPainelJogadores } = require('../util
 const { agendarAtualizacaoReativa: agendarRegistrosDiarios } = require('../utils/logsJogo/registrosDiarios');
 const { agendarAtualizacaoReativa: agendarIdsSemSocio } = require('../utils/logsJogo/idsSemSocio');
 const { incrementarSociosManual } = require('../utils/logsJogo/presencaInteracoes');
+const { deltaCaixa, incrementarSaldoCaixaManual } = require('../utils/logsJogo/painelCaixaInteracoes');
 const { agendarAtualizacaoReativa: agendarBau } = require('../utils/logsJogo/painelBau');
 const { agendarAtualizacaoReativa: agendarCaixa } = require('../utils/logsJogo/painelCaixa');
 const { agendarAtualizacaoReativa: agendarDisciplina } = require('../utils/logsJogo/painelDisciplina');
@@ -68,6 +69,14 @@ module.exports = (client) => {
       if (recrutamentos > 0) {
         await incrementarSociosManual(recrutamentos).catch(err => console.error('[logs-jogo] Erro ao somar sócios setados:', err));
         await atualizarPainelJogadores(client).catch(err => console.error('[logs-jogo] Erro ao atualizar painel após recrutamento:', err));
+      }
+      // Depósito/saque novo: soma (ou subtrai) por cima do SALDO NO BANCO DA
+      // TORCIDA batido à mão (só ajusta se a liderança já setou algum valor
+      // pelo botão EDITAR — ver incrementarSaldoCaixaManual). O painel em si
+      // já atualiza pela categoria 'economia' acima (agendarCaixa).
+      const delta = deltaCaixa(novos);
+      if (delta) {
+        await incrementarSaldoCaixaManual(delta).catch(err => console.error('[logs-jogo] Erro ao ajustar saldo do caixa:', err));
       }
       return;
     }

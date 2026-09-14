@@ -21,15 +21,16 @@ function linhaAtiva(f) {
     + (f.porNome || f.porId ? ` · ${F.pessoa({ nome: f.porNome, id: f.porId })}` : '');
 }
 
-// Sem log recente: não é "estado atual" de verdade, só o último conhecido — uma
-// linha só com a data, sem "por fulano" (informação de baixa prioridade aqui).
-function linhaSemLog(f) {
-  return `**${f.fechadura.toUpperCase()}** — desde ${E.formatarDataHora(f.em)} (${f.destrancada ? 'destrancada' : 'trancada'})`;
-}
-
-// Situação vira 3 grupos visuais (fields) em vez de uma pilha só: é a mesma
-// informação de antes, mas separada por relevância — destrancada (pede ação),
-// trancada (ok) e sem log (baixa confiança), cada um com seu próprio respiro.
+// Situação vira grupos visuais (fields) em vez de uma pilha só: destrancada
+// (pede ação) e trancada (ok), cada um com seu próprio respiro.
+//
+// Fechadura sem log há mais de `fonteParadaDias` (`semLogRecente`) fica FORA
+// do embed de propósito (pedido do usuário em 2026-09-14, caso real: portão
+// parado desde 28/01/2026 — 4.139 registros virando uma linha morta no
+// painel, sem nada pra fazer a respeito). A inteligência continua íntegra:
+// os logs seguem no banco (não apagados) e valem pro ranking/ficha de
+// jogador (embedRanking, embedFichaJogador) — só a visão "estado atual" para
+// de listar o que não é mais estado atual de verdade.
 async function embedEstadoAtual() {
   const [eventos, arena] = await Promise.all([
     repo.ultimoPorFechadura(A.ACOES_FECHADURA),
@@ -38,13 +39,11 @@ async function embedEstadoAtual() {
   const estado = A.estadoFechaduras(eventos, { limiteMs: config.logsJogo.fonteParadaDias * E.DIA_MS });
   const destrancadas = estado.filter(f => f.destrancada && !f.semLogRecente);
   const trancadas = estado.filter(f => !f.destrancada && !f.semLogRecente);
-  const semLog = estado.filter(f => f.semLogRecente);
   const ultimaArena = arena[0] ?? null;
 
   const fields = [
     ...F.campoLista('🔓 DESTRANCADAS AGORA', destrancadas.map(linhaAtiva), 'Nenhuma.'),
     ...(trancadas.length ? F.campoLista('🔒 TRANCADAS', trancadas.map(linhaAtiva), '') : []),
-    ...(semLog.length ? F.campoLista(`SEM LOG HÁ MAIS DE ${config.logsJogo.fonteParadaDias} DIAS`, semLog.map(linhaSemLog), '') : []),
   ];
   if (ultimaArena) {
     const parada = F.avisoFonteParada(ultimaArena.ocorrido_em);

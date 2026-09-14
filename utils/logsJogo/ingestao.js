@@ -25,10 +25,24 @@ function registrosDaMensagem(message) {
   });
 }
 
-// Grava e devolve só os registros que ainda não existiam
+// Grava e devolve só os registros que ainda não existiam.
+//
+// Último ponto de checagem antes do banco (não só o primeiro, em
+// ehMensagemDeLog/sincronizarCanal): a contaminação de Fanáticos/Arena
+// (2 meses de logs-liderança misturados, ver `canais` em config/index.js)
+// só foi notada porque alguém reparou no painel — se o gate de entrada
+// (lista de canais + categoria) algum dia for refeito com um bug, sem essa
+// segunda checagem aqui o banco volta a acumular linha de outra comunidade
+// silenciosamente. `config.logsJogo.canais` é a lista definitiva de fonte
+// válida pra QUALQUER inteligência gerada (painéis, alertas, relatórios) —
+// nunca inserir nada fora dela, seja qual for o caminho que trouxe o registro.
 async function gravarRegistros(registros) {
   const novos = [];
   for (const registro of registros) {
+    if (!config.logsJogo.canais.includes(registro.canalId)) {
+      console.warn(`[logs-jogo] Registro de canal fora da lista permitida (${registro.canalId}) — ignorado, não gravado.`);
+      continue;
+    }
     if (await repo.inserirRegistro(registro)) novos.push(registro);
   }
   return novos;

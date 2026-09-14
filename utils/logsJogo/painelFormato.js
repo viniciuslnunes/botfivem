@@ -143,6 +143,37 @@ function campoLista(nome, linhas, vazio) {
   }));
 }
 
+// Bloco de código monoespaçado (```...```) com colunas alinhadas — é o mais
+// perto de tabela de verdade que o Discord tem; markdown normal não alinha
+// número nenhum lado a lado. Pensado pra ranking com várias colunas
+// numéricas (ex.: território: domínio, conquistas, coins) — feio como lista
+// numerada de texto corrido (ver painelTerritorioInteracoes.js, pedido do
+// usuário em 2026-09-14). Cabe na `description` do embed (LIMITE_DESCRICAO),
+// não num field: um field de 1024 estoura rápido com nome + 3 números por
+// linha; description tem quase 4x isso.
+//
+// `colunas`: `{ titulo, valor: (linha, indice) => texto, alinhar: 'esq'|'dir',
+// larguraMax? }`. Célula nunca quebra o bloco de fora: crase (```` ` ````)
+// vira aspa simples — nome de território/jogador vem cru do jogo, pode trazer
+// qualquer coisa.
+function celulaTabela(texto) {
+  return String(texto ?? '').replace(/`/g, "'");
+}
+
+function tabela(colunas, linhas) {
+  if (!linhas.length) return null;
+  const grade = linhas.map((linha, i) => colunas.map(c => {
+    const bruta = celulaTabela(c.valor(linha, i));
+    return c.larguraMax ? E.truncar(bruta, c.larguraMax) : bruta;
+  }));
+  const larguras = colunas.map((c, i) => Math.max(c.titulo.length, ...grade.map(l => l[i].length)));
+  const linhaTexto = celulas => celulas
+    .map((v, i) => (colunas[i].alinhar === 'dir' ? v.padStart(larguras[i]) : v.padEnd(larguras[i])))
+    .join('  ')
+    .trimEnd();
+  return ['```', linhaTexto(colunas.map(c => c.titulo)), ...grade.map(linhaTexto), '```'].join('\n');
+}
+
 // Embed padrão dos canais-painel interativos: description curta (2-4 linhas de
 // contexto, nunca a lista) + a lista sempre em field(s) via campoLista. Um
 // título e um rodapé prontos, pra cada painel só decidir o QUE mostrar.
@@ -172,4 +203,5 @@ module.exports = {
   blocosDeEmbeds,
   campoLista,
   embedComLista,
+  tabela,
 };

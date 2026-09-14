@@ -416,6 +416,19 @@ painel novo: um `CAMPOS_MANUAIS` próprio, uma chave de `bot_config` própria,
 os mesmos três customIds (`<modulo>:editar`, `:editarcampo`,
 `:editarmodal:<campo>`) — não inventar variação do fluxo.
 
+**Primeira replicação: SALDO NO BANCO DA TORCIDA (2026-09-14).** Painel
+🏦・caixa-do-jogo ganhou o mesmo fluxo pra um campo (`CAMPOS_MANUAIS` com
+`saldo` só, chave `painel_caixa_manual`), mas o valor aceita casas decimais
+(`lerDinheiroOuNulo`, não `lerInteiroOuNulo` — dinheiro do jogo vem com
+centavos) e some/diminui sozinho a cada depósito ou saque novo que o webhook
+loga, sem esperar o botão EDITAR de novo: `events/messageCreate.js` soma o
+delta (`painelCaixaInteracoes.js#deltaCaixa`) em cima do valor batido à mão
+via `incrementarSaldoCaixaManual` — só ajusta se a liderança já setou algum
+valor (sem baseline, não tem o que corrigir). Mostrado logo abaixo de
+"Líquido" no cabeçalho (`cabecalhoDinheiro`), tanto no painel fixo (sempre
+período "tudo") quanto em cada período explorado pelo select — mesmo padrão
+de `relatorios.js#linhasContexto` repetindo os números fixos em toda consulta.
+
 **Auditoria da fonte (2026-09-12).** Varredura completa dos 12.625 registros
 do canal logs-painel, não só dos formatos que os testes cobrem:
 - 100% batem em `Entrada`/`Saída` — zero `desconhecido`, zero sem ID, zero

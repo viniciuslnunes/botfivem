@@ -4,6 +4,7 @@ const F = require('./painelFormato');
 const repo = require('./repositorio');
 const { criarArmazemConsultas, mensagemErroConsulta } = require('./consultasEmMemoria');
 const { selectPeriodo, linhaBotao, linhaPaginacao } = require('./painelComponentesFixos');
+const { gerarGraficoTerritorios } = require('./graficoTerritorios');
 
 // Canal 🗺️・dominacao-territorios: mesmo padrão interativo do 📦・estoque-bau.
 // Coins de território não têm um "ator" (não é uma pessoa que gera o log, é o
@@ -28,17 +29,15 @@ function porTerritorio(linhas) {
   return [...mapa.values()].sort((a, b) => b.horas - a.horas || b.conquistas - a.conquistas || a.territorio.localeCompare(b.territorio, 'pt-BR'));
 }
 
-// Linha curta o bastante pra não quebrar em 2 no embed (o que criava um
-// "degrau" visual entre os números e o item seguinte): "de domínio" e
-// "última conquista" já ficam implícitos pelo título do campo RANKING e pelo
-// "há" no fim, então saem daqui — só o essencial por linha.
-function linhaTerritorio(t, i) {
-  return `${i + 1}. **${F.nomeSeguro(t.territorio)}** — ${E.formatarNumero(t.horas)}h · ${E.formatarNumero(t.conquistas)} ${t.conquistas === 1 ? 'conquista' : 'conquistas'} · ${E.formatarNumero(t.coins)} coins`
-    + (t.ultimaConquista ? ` · ${F.haQuantoTempo(t.ultimaConquista)}` : '');
-}
-
 const armazem = criarArmazemConsultas();
 
+// Gráfico de barras (canvas, ver graficoTerritorios.js) em vez da tabela em
+// texto que estava aqui antes — pedido do usuário em 2026-09-14 ("melhore
+// mais, com as melhores ferramentas ou bibliotecas pra este fluxo"): com 3
+// números por território (domínio, conquistas, coins), tanto a lista
+// numerada quanto a tabela em texto viravam parede difícil de comparar item
+// a item; barra ao lado de barra resolve isso de vez. Mesmo tratamento do
+// TOP fixo do painel (painelTerritorio.js).
 function renderizarRanking(consultaId, consulta) {
   const { itens, atual, totalPaginas } = armazem.pagina(consulta.territorios, consulta.pagina ?? 0);
   const horas = consulta.territorios.reduce((s, t) => s + t.horas, 0);
@@ -46,11 +45,25 @@ function renderizarRanking(consultaId, consulta) {
   const embed = {
     color: F.COR,
     title: `🗺️ DOMINAÇÃO — ${consulta.rotulo}`,
-    description: `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`,
-    fields: F.campoLista('RANKING', itens.map(linhaTerritorio), 'Nenhum território dominado no período.'),
+    description: itens.length
+      ? `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`
+      : `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios\n\n*Nenhum território dominado no período.*`,
     footer: { text: `${F.rodape('canal logs-banco')} · Página ${atual + 1}/${totalPaginas}` },
   };
-  return { embeds: [embed], components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })], allowedMentions: { parse: [] } };
+  // `attachments: []` é obrigatório em toda edição (não só na 1ª página): sem
+  // isso o Discord mantém o gráfico da página anterior e só ACRESCENTA o
+  // novo — clicar em ANTERIOR/PRÓXIMA repetidas vezes empilharia um PNG a
+  // mais por clique na mesma mensagem (ver mesmo comentário em
+  // painelTerritorio.js). `files` (se tiver itens) sobe o gráfico desta página.
+  const files = itens.length ? [{ attachment: gerarGraficoTerritorios(itens), name: 'dominacao.png' }] : [];
+  if (itens.length) embed.image = { url: 'attachment://dominacao.png' };
+  return {
+    embeds: [embed],
+    components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })],
+    attachments: [],
+    files,
+    allowedMentions: { parse: [] },
+  };
 }
 
 async function abrirRanking(interaction, periodo) {

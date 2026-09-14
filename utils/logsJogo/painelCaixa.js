@@ -2,7 +2,9 @@ const repo = require('./repositorio');
 const E = require('./estatisticas');
 const F = require('./painelFormato');
 const { criarPainelCanal } = require('./painelCanal');
-const { linhaComponentesCaixa, DINHEIRO, HONRA, ROUPA, ACOES_TODAS, cabecalhoDinheiro, linhaResumo } = require('./painelCaixaInteracoes');
+const {
+  linhaComponentesCaixa, DINHEIRO, HONRA, ROUPA, ACOES_TODAS, cabecalhoDinheiro, linhaResumo, lerManualCaixa,
+} = require('./painelCaixaInteracoes');
 
 // Canal 🏦・caixa-do-jogo: dinheiro e honra da torcida a partir dos logs do
 // jogo. Mensagem fixa curta (padrão interativo, ver painelBau.js e
@@ -12,17 +14,18 @@ const SLUG = 'caixa_jogo';
 
 async function montarBlocos() {
   const tudo = E.resolverPeriodo('tudo');
-  const [somasTudo, ultima, ultimaRoupa] = await Promise.all([
+  const [somasTudo, ultima, ultimaRoupa, manual] = await Promise.all([
     repo.somarPorAcoes(ACOES_TODAS, tudo),
     repo.ultimaOcorrencia(DINHEIRO),
     repo.ultimaOcorrencia(ROUPA),
+    lerManualCaixa(),
   ]);
 
   const avisoRoupa = F.avisoFonteParada(ultimaRoupa);
   const embed = {
     color: F.COR,
     title: '🏦 CAIXA DO JOGO — GAVIÕES DA FIEL FIVEM',
-    description: cabecalhoDinheiro(somasTudo, 'DESDE O PRIMEIRO LOG LIDO', F.avisoFonteParada(ultima)),
+    description: cabecalhoDinheiro(somasTudo, 'DESDE O PRIMEIRO LOG LIDO', F.avisoFonteParada(ultima), manual.saldo),
     fields: F.campoLista('MOVIMENTO POR TIPO', somasTudo.map(linhaResumo), 'Nenhum registro de dinheiro ainda.'),
     footer: {
       text: `${F.rodape('canal logs-banco')}`
