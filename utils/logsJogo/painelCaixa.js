@@ -25,7 +25,7 @@ async function montarBlocos() {
     description: cabecalhoDinheiro(somasTudo, 'DESDE O PRIMEIRO LOG LIDO', F.avisoFonteParada(ultima)),
     fields: F.campoLista('MOVIMENTO POR TIPO', somasTudo.map(linhaResumo), 'Nenhum registro de dinheiro ainda.'),
     footer: {
-      text: `${F.rodape('canais logs-banco e logs-liderança')}`
+      text: `${F.rodape('canal logs-banco')}`
         + (avisoRoupa && somasTudo.some(l => ROUPA.includes(l.acao)) ? ' · roupa sem log recente (fonte parada)' : ''),
     },
     timestamp: new Date().toISOString(),

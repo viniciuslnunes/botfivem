@@ -16,26 +16,10 @@ function mencoes() {
 }
 
 const REGRAS = [
-  {
-    nome: 'novato',
-    async montar(registro, client) {
-      if (registro.acao !== 'novato_entrou') return null;
-      // ID bloqueado não é candidato a recrutamento — quem decide já foi
-      // avisado pela regra id_bloqueado_no_jogo, no histórico-não-recrutar.
-      if (registro.atorIdFivem && await buscarBloqueio(client, registro.atorIdFivem)) return null;
-      const alerta = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle('🆕 NOVO NOVATO DETECTADO')
-        .setDescription('Um novo jogador entrou na torcida como **Novato** no jogo.\nRecrute-o para o servidor do Discord!')
-        .addFields(
-          { name: '👤 Nome no Jogo', value: registro.atorNome ?? 'Desconhecido', inline: true },
-          { name: '🆔 ID FiveM', value: registro.atorIdFivem ?? 'N/A', inline: true }
-        )
-        .setFooter({ text: 'Detectado automaticamente via logs-liderança' })
-        .setTimestamp();
-      return { content: mencoes(), embeds: [alerta] };
-    },
-  },
+  // Regra 'novato' removida em 2026-09-13: `novato_entrou` só era logado pelo
+  // canal 1461544673825783929 ("logs-liderança"), que pertence à categoria
+  // "LOGS FANÁTICOS/ARENA" — outra comunidade, não o Hoolibras. Sem fonte de
+  // verdade pro Hoolibras, essa regra nunca mais dispara.
   {
     nome: 'id_bloqueado_no_jogo',
     // Vai para o histórico de não recrutar, não para novatos: o ID já é
@@ -106,7 +90,7 @@ const REGRAS = [
           { name: '💰 Valor', value: E.formatarDinheiro(valor), inline: true },
           { name: '👤 Quem', value: registro.atorNome ?? registro.atorIdFivem ?? 'N/A', inline: true }
         )
-        .setFooter({ text: `Alerta a partir de ${E.formatarDinheiro(config.logsJogo.caixa.alertaSaqueValor)} · canal logs-liderança` })
+        .setFooter({ text: `Alerta a partir de ${E.formatarDinheiro(config.logsJogo.caixa.alertaSaqueValor)} · canal logs-banco` })
         .setTimestamp();
       return { content: mencoes(), embeds: [alerta] };
     },

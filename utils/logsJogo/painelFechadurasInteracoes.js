@@ -12,7 +12,7 @@ const { selectPeriodo, selectBuscarJogador, linhaBotao } = require('./painelComp
 // ESTADO ATUAL mostra todas de uma vez; período fica pro ranking de quem mexeu.
 const MODULO = 'fechaduras';
 const ACOES_ARENA = ['arena_bloqueou', 'arena_desbloqueou'];
-const ORIGEM = 'canais logs-registros e logs-liderança';
+const ORIGEM = 'canal logs-registros';
 
 // Ativa (log recente): estado + há quanto tempo + quem mexeu — é o que pede
 // ação, então leva o detalhe todo.

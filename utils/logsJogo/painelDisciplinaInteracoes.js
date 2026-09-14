@@ -56,7 +56,7 @@ function renderizarAdvertencias(consultaId, consulta) {
       '*Aberta = o último evento do jogador foi uma advertência; cumprir ("FINALIZOU") ou ser perdoado encerra.*',
     ].join('\n'),
     fields: F.campoLista('ADVERTÊNCIAS', itens.map(linhaAdvertencia), 'Sem advertências nesta página.'),
-    footer: { text: `${F.rodape('canal logs-liderança')} · Página ${atual + 1}/${totalPaginas}` },
+    footer: { text: `Sem fonte de log de advertência pro Hoolibras · Página ${atual + 1}/${totalPaginas}` },
   };
   return { embeds: [embed], components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas)], allowedMentions: { parse: [] } };
 }
@@ -99,7 +99,7 @@ async function embedFluxo(periodo) {
       ...(multas.length ? [{ name: 'MULTAS DO PERÍODO', value: E.truncar(multas.map(linhaMulta).join('\n'), 1024) }] : []),
       ...(perdoes.length ? [{ name: 'PERDÕES DO PERÍODO', value: E.truncar(perdoes.map(linhaPerdao).join('\n'), 1024) }] : []),
     ],
-    footer: { text: F.rodape('canais logs-registros e logs-liderança') },
+    footer: { text: F.rodape('canal logs-registros') },
   };
 }
 
@@ -123,7 +123,7 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
     fields: F.campoLista('HISTÓRICO RECENTE', eventos.slice(0, 8).map(e => (e.acao === 'multou'
       ? linhaMulta(e)
       : `• ${e.acao} — ${E.formatarDataHora(e.ocorrido_em)}${e.ator_nome ? ` · por ${F.nomeSeguro(e.ator_nome)}` : ''}`)), 'Nenhum evento registrado.'),
-    footer: { text: F.rodape('canais logs-registros e logs-liderança') },
+    footer: { text: F.rodape('canal logs-registros') },
   };
 }
 

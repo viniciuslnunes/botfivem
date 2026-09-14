@@ -20,7 +20,15 @@ async function montarBlocos() {
   ]);
   const ativas = A.advertenciasAtivas(eventosAdv);
   const servicosPendentes = ativas.reduce((t, a) => t + (a.servicos ?? 0), 0);
-  const avisoAdv = F.avisoFonteParada(ultimaAdv);
+  // `ultimaAdv` null (não só "sem log recente", sem log NENHUM) quer dizer
+  // que não existe fonte de advertência pro Hoolibras — o canal que logava
+  // isso (logs-liderança) era de outra comunidade (Fanáticos), removido em
+  // 2026-09-13. Sem esse aviso, "0" parece disciplina em dia, não "métrica
+  // sem fonte alguma pra medir".
+  const semFonteAdv = !ultimaAdv;
+  const avisoAdv = semFonteAdv
+    ? '*Sem fonte de log de advertência pro Hoolibras — este número nunca sai de 0.*'
+    : F.avisoFonteParada(ultimaAdv);
   const avisoMulta = F.avisoFonteParada(ultimaMulta);
 
   const embed = {
@@ -33,7 +41,7 @@ async function montarBlocos() {
       `**SERVIÇOS PENDENTES:** ${E.formatarNumero(servicosPendentes)}`,
       `**MULTAS (HISTÓRICO):** ${E.formatarNumero(totalMultas[0]?.total ?? 0)}`,
     ].join('\n'),
-    footer: { text: F.rodape('canais logs-registros e logs-liderança') },
+    footer: { text: F.rodape('canal logs-registros') },
     timestamp: new Date().toISOString(),
   };
   return [{ embeds: [embed], components: linhaComponentesDisciplina(), allowedMentions: { parse: [] } }];

@@ -161,7 +161,7 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
       depositou[0] ? `**Depositado (total):** ${E.formatarDinheiro(depositou[0].soma)} em ${E.formatarNumero(depositou[0].total)}×` : null,
     ].filter(Boolean).join('\n'),
     fields: F.campoLista('ÚLTIMOS MOVIMENTOS', eventos.map(linhaMovimento), 'Nenhum movimento registrado.'),
-    footer: { text: F.rodape('canais logs-banco e logs-liderança') },
+    footer: { text: F.rodape('canal logs-banco') },
   };
 }
 
