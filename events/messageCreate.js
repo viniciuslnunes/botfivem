@@ -13,7 +13,6 @@ const { agendarAtualizacaoReativa: agendarDisciplina } = require('../utils/logsJ
 const { agendarAtualizacaoReativa: agendarRestricoes } = require('../utils/logsJogo/painelRestricoes');
 const { agendarAtualizacaoReativa: agendarFechaduras } = require('../utils/logsJogo/painelFechaduras');
 const { agendarAtualizacaoReativa: agendarTags } = require('../utils/logsJogo/painelTags');
-const { agendarAtualizacaoReativa: agendarAuditoria } = require('../utils/logsJogo/painelAuditoria');
 const { agendarAtualizacaoReativa: agendarTerritorio } = require('../utils/logsJogo/painelTerritorio');
 const { tratarSpam } = require('../utils/antiSpam/servico');
 
@@ -25,7 +24,6 @@ const PAINEIS_POR_CATEGORIA = [
   ['restricao', agendarRestricoes],
   ['patrimonio', agendarFechaduras],
   ['tag', agendarTags],
-  ['config', agendarAuditoria],
   ['territorio', agendarTerritorio],
 ];
 

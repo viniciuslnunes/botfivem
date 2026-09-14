@@ -40,6 +40,14 @@ async function gravarRegistros(registros) {
 async function sincronizarCanal(client, canalId, { completo = false } = {}) {
   const canal = await client.channels.fetch(canalId).catch(() => null);
   if (!canal?.isTextBased()) return { canalId, lidas: 0, novas: 0, erro: 'canal não encontrado' };
+  // Recusa qualquer canal fora da categoria de logs do Hoolibras — foi assim
+  // que 1461544673825783929 ("logs-liderança", categoria "LOGS
+  // FANÁTICOS/ARENA", outra comunidade) ficou 2 meses na lista sem ninguém
+  // notar, misturando dado de fechadura/novato/advertência/roupa de outro
+  // servidor com o nosso. Confirmado pela API do Discord em 2026-09-13.
+  if (config.logsJogo.categoriaLogs && canal.parentId !== config.logsJogo.categoriaLogs) {
+    return { canalId, lidas: 0, novas: 0, erro: `canal fora da categoria de logs (parent ${canal.parentId}) — ignorado` };
+  }
 
   let antes;
   let lidas = 0;

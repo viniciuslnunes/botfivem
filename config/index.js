@@ -101,12 +101,23 @@ module.exports = {
     // Canal novo na lista faz a sincronização inicial ler o histórico INTEIRO
     // dele uma vez (ver ingestao.sincronizarCanal). Os nomes aqui são os do
     // Discord (conferidos pela API em 2026-09-13) e aparecem nos painéis como
-    // origem do dado.
-    canais: ['1461544673825783929', '1531478268975251496', '1439061028515090524', '1198743171765637123', '1518021496662917216'],
+    // origem do dado. Todos precisam estar dentro de `categoriaLogs` — ver
+    // comentário logo abaixo.
+    canais: ['1531478268975251496', '1439061028515090524', '1198743171765637123', '1518021496662917216'],
+    // Categoria "⏰・LOGS HOOLIBRAS" (conferida pela API em 2026-09-13) — todo
+    // canal em `canais` PRECISA estar dentro dela; ingestao.sincronizarCanaisDeLog
+    // recusa e avisa qualquer um que não esteja. Existia um 5º canal aqui,
+    // `1461544673825783929` ("logs-liderança"), que na verdade mora na
+    // categoria "⏰・LOGS FANÁTICOS/ARENA" — outra comunidade, mesmo servidor
+    // Discord. 2.970 registros (fechadura, novato_entrou, advertido, roupa,
+    // banco...) de lá vieram misturados com os do Hoolibras por 2 meses até
+    // ser notado (2026-09-13), contaminando painéis como fechaduras (estado
+    // "sem log recente" de fechaduras que nem existem aqui) e o alerta de
+    // novato. Removido da lista; os registros antigos ficam no banco pra
+    // quem quiser investigar, mas nenhuma consulta nova deve incluir
+    // `canal_id = '1461544673825783929'`.
+    categoriaLogs: '1356017370304348251',
     nomesCanais: {
-      // "O jogador X (ID: n) ..." — advertência, banco em R$, roupa, fechaduras
-      // da sede. PAROU de receber log em 2026-07-26: o que vem dele é histórico.
-      '1461544673825783929': 'logs-liderança',
       '1531478268975251496': 'logs-painel',     // entrada/saída do servidor
       // "#ID Nome ..." — recrutou, promoveu, expulsou, tag, blacklist,
       // impedimento, multa, arena, sede/portão, config
@@ -115,9 +126,9 @@ module.exports = {
       '1518021496662917216': 'logs-banco',      // Coins (dominação de território)
     },
     // Fonte sem log há mais que isso = o painel avisa que o dado pode estar
-    // parado (canal de log que o jogo deixou de usar, webhook trocado — ver
-    // painelAuditoria.js). Também separa, no painel de fechaduras, "estado atual"
-    // de "último estado conhecido".
+    // parado (canal de log que o jogo deixou de usar, webhook trocado). Também
+    // separa, no painel de fechaduras, "estado atual" de "último estado
+    // conhecido".
     fonteParadaDias: 3,
     canalAlertas: '1490536504748150925',
     mencionarAlertas: [cargos.presidente, cargos.vicePresidente, cargos.velhaGuarda, cargos.diretoria, cargos.recrutador],
