@@ -5,14 +5,34 @@ const E = require('./estatisticas');
 const F = require('./painelFormato');
 const A = require('./analises');
 const repo = require('./repositorio');
-const { selectPeriodo, selectBuscarJogador, linhaBotao } = require('./painelComponentesFixos');
+const { selectPeriodo, selectBuscarJogador } = require('./painelComponentesFixos');
 
 // Canal 🔐・fechaduras: mesmo padrão interativo do 📦・estoque-bau. São só ~10
-// fechaduras conhecidas (cabe numa mensagem só, sem paginação) — o botão
-// ESTADO ATUAL mostra todas de uma vez; período fica pro ranking de quem mexeu.
+// fechaduras conhecidas (cabe numa mensagem só, sem paginação) — a mensagem
+// fixa (embedEstadoAtual) já mostra o estado + quem mexeu, então não existe
+// botão "ESTADO ATUAL" aqui (removido em 2026-09-15: virou redundante assim
+// que o card fixo passou a trazer essa informação). Período fica pro
+// histórico de movimentos (embedHistorico).
 const MODULO = 'fechaduras';
 const ACOES_ARENA = ['arena_bloqueou', 'arena_desbloqueou'];
 const ORIGEM = 'canal logs-registros';
+const LIMITE_HISTORICO = 50;
+
+// Rótulo curto de um evento pra linha de histórico/ficha — mesma ideia do
+// fechaduraDoEvento de analises.js, mas já com o verbo (trancou/destrancou/
+// bloqueou/liberou) pra não repetir "sede" duas vezes na mesma linha como o
+// `acao` cru fazia (ex.: "sede_trancou — sede").
+function rotuloEvento(e) {
+  if (ACOES_ARENA.includes(e.acao)) return e.acao === 'arena_bloqueou' ? 'bloqueou a arena' : 'liberou a arena';
+  const trancou = e.acao.endsWith('trancou');
+  if (e.acao.startsWith('sede_')) return `${trancou ? 'trancou' : 'destrancou'} a sede`;
+  if (e.acao.startsWith('portao_')) return `${trancou ? 'trancou' : 'destrancou'} o portão`;
+  return `${trancou ? 'trancou' : 'destrancou'} ${F.nomeSeguro(e.alvo_nome ?? 'a fechadura')}`;
+}
+
+function linhaMovimento(e) {
+  return `${F.pessoa({ nome: e.ator_nome, id: e.ator_id_fivem })} — ${rotuloEvento(e)} — ${E.formatarDataHora(e.ocorrido_em)}`;
+}
 
 // Ativa (log recente): estado + há quanto tempo + quem mexeu — é o que pede
 // ação, então leva o detalhe todo.
@@ -28,9 +48,9 @@ function linhaAtiva(f) {
 // do embed de propósito (pedido do usuário em 2026-09-14, caso real: portão
 // parado desde 28/01/2026 — 4.139 registros virando uma linha morta no
 // painel, sem nada pra fazer a respeito). A inteligência continua íntegra:
-// os logs seguem no banco (não apagados) e valem pro ranking/ficha de
-// jogador (embedRanking, embedFichaJogador) — só a visão "estado atual" para
-// de listar o que não é mais estado atual de verdade.
+// os logs seguem no banco (não apagados) e valem pro histórico/ficha de
+// jogador (embedHistorico, embedFichaJogador) — só a visão "estado atual"
+// para de listar o que não é mais estado atual de verdade.
 async function embedEstadoAtual() {
   const [eventos, arena] = await Promise.all([
     repo.ultimoPorFechadura(A.ACOES_FECHADURA),
@@ -64,17 +84,23 @@ async function embedEstadoAtual() {
   };
 }
 
-async function embedRanking(periodo) {
+// Histórico (não ranking): quem mexeu, quando e o que fez, em ordem
+// cronológica — pedido do usuário em 2026-09-15 pra poder responder "nessa
+// data, qual foi a movimentação de fechaduras?" em vez de só "quem mais
+// mexeu". A contagem por tipo de evento continua junto, como resumo do
+// período.
+async function embedHistorico(periodo) {
   const acoes = [...A.ACOES_FECHADURA, ...ACOES_ARENA];
-  const [topMexeu, contagens] = await Promise.all([
-    repo.topAtoresPorAcoes(acoes, periodo, 10),
+  const [eventos, contagens] = await Promise.all([
+    repo.listarPorAcoes(acoes, periodo, LIMITE_HISTORICO),
     repo.contarPorAcoes(acoes, periodo),
   ]);
   return {
     color: F.COR,
-    title: `🏆 QUEM MAIS MEXEU EM FECHADURA — ${periodo.rotulo}`,
+    title: `🔐 HISTÓRICO DE FECHADURAS — ${periodo.rotulo}`,
+    description: eventos.length === LIMITE_HISTORICO ? `Últimos ${LIMITE_HISTORICO} movimentos do período.` : undefined,
     fields: [
-      ...F.campoLista('RANKING', topMexeu.map((l, i) => `${i + 1}. ${F.pessoa(l)} — ${E.formatarNumero(l.total)} ${l.total === 1 ? 'vez' : 'vezes'}`), 'Sem dados no período.'),
+      ...F.campoLista('MOVIMENTOS', eventos.map(linhaMovimento), 'Sem dados no período.'),
       ...(contagens.length ? [{ name: 'POR TIPO DE EVENTO', value: E.truncar(contagens.map(c => `• ${c.acao}: ${E.formatarNumero(c.total)}`).join('\n'), 1024) }] : []),
     ],
     footer: { text: F.rodape(ORIGEM) },
@@ -83,33 +109,25 @@ async function embedRanking(periodo) {
 }
 
 async function embedFichaJogador(idFivem, nomeConhecido) {
-  const eventos = await repo.eventosDoAtor(idFivem, [...A.ACOES_FECHADURA, ...ACOES_ARENA], 10);
+  const eventos = await repo.eventosDoAtor(idFivem, [...A.ACOES_FECHADURA, ...ACOES_ARENA], LIMITE_HISTORICO);
   return {
     color: F.COR,
     title: `🔐 ${F.nomeSeguro(nomeConhecido ?? idFivem)} — FECHADURAS`,
     description: [`**ID:** \`${idFivem}\``, `**Total de eventos:** ${E.formatarNumero(eventos.length)}`].join('\n'),
-    fields: F.campoLista('ÚLTIMOS MOVIMENTOS', eventos.map(e => `• ${e.acao} — ${F.nomeSeguro(e.alvo_nome ?? 'sede')} — ${E.formatarDataHora(e.ocorrido_em)}`), 'Nenhum movimento registrado.'),
+    fields: F.campoLista('ÚLTIMOS MOVIMENTOS', eventos.map(linhaMovimento), 'Nenhum movimento registrado.'),
     footer: { text: F.rodape(ORIGEM) },
   };
 }
 
 function linhaComponentesFechaduras() {
   return [
-    linhaBotao(MODULO, 'estado', 'ESTADO ATUAL', { emoji: '🔐' }),
     selectBuscarJogador(MODULO),
-    selectPeriodo(MODULO, { placeholder: 'VER RANKING DE UM PERÍODO' }),
+    selectPeriodo(MODULO, { placeholder: 'VER HISTÓRICO DE UM PERÍODO' }),
   ];
 }
 
 registrarModulo(MODULO, async interaction => {
   const acao = interaction.customId.split(':')[1];
-
-  if (interaction.isButton() && acao === 'estado') {
-    if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    await interaction.deferReply({ flags: 64 });
-    await interaction.editReply({ embeds: [await embedEstadoAtual()] });
-    return;
-  }
 
   if (interaction.isUserSelectMenu() && acao === 'buscarjogador') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
@@ -126,7 +144,7 @@ registrarModulo(MODULO, async interaction => {
   if (interaction.isStringSelectMenu() && acao === 'selperiodo') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     await interaction.deferReply({ flags: 64 });
-    await interaction.editReply({ embeds: [await embedRanking(E.resolverPeriodo(interaction.values[0]))] });
+    await interaction.editReply({ embeds: [await embedHistorico(E.resolverPeriodo(interaction.values[0]))] });
     return;
   }
 });

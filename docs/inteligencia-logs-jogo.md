@@ -138,7 +138,7 @@ período: cada canal usa o eixo que faz sentido pro dado dele —
 | caixa-do-jogo | período (resumo, sem paginação) | sim | RANKING → período |
 | disciplina-jogo | botão ADVERTÊNCIAS ABERTAS (paginado, estado atual) | sim | período → fluxo |
 | banidos-e-impedidos | tipo (blacklist/suspensão/impedimento, paginado) | sim (cruza c/ não-recrutar) | período → fluxo |
-| fechaduras | botão ESTADO ATUAL (cabe numa mensagem, sem paginação) | sim | período → ranking |
+| fechaduras | sem 1º select/botão (mensagem fixa já é o estado atual) | sim | período → histórico |
 | tags-do-jogo | tag (dinâmico, paginado) | sim | período → fluxo |
 | auditoria-config | botão HISTÓRICO COMPLETO (paginado) | sim | período → fluxo |
 | logs-nao-reconhecidos | período (paginado) | não se aplica | botão TODO O HISTÓRICO |
