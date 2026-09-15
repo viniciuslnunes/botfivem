@@ -268,6 +268,70 @@ test('território: horas = logs de dominação, ordenado por horas', () => {
   assert.deepEqual(t.map(x => [x.territorio, x.horas, x.conquistas, x.coins]), [['Metrô', 9, 0, 27], ['Farol', 5, 2, 35]]);
 });
 
+// Gráfico por dia (ver graficoTerritoriosPorDia.js): "disputa" precisa
+// distinguir "5 conquistas em 5 territórios diferentes" (sem disputa) de "o
+// MESMO território retomado 5x" (disputa ativa) — as duas situações têm o
+// mesmo total de conquistas do dia, só a quebra por território diferencia.
+test('território: disputaPorDia pega o MAIOR total de um único território por dia, não a soma do dia', () => {
+  const { disputaPorDia, textoDisputa } = require('../utils/logsJogo/painelTerritorioInteracoes');
+  // 13/09: Farol e Metrô, 1 conquista cada (sem disputa) — 14/09: só Farol, 3x (disputa real)
+  const linhasDiaAlvo = [
+    { dia: '2026-09-13', alvo: 'Farol', total: 1 },
+    { dia: '2026-09-13', alvo: 'Metrô', total: 1 },
+    { dia: '2026-09-14', alvo: 'Farol', total: 3 },
+  ];
+  const mapa = disputaPorDia(linhasDiaAlvo);
+  assert.equal(mapa.get('2026-09-13').total, 1, 'dia sem disputa: maior território do dia é 1x');
+  assert.equal(mapa.get('2026-09-14').total, 3, 'dia com disputa: Farol sozinho puxou 3x');
+  const texto = textoDisputa(mapa);
+  assert.match(texto, /Farol/);
+  assert.match(texto, /3x/);
+  assert.match(texto, /14\/09/);
+});
+
+test('território: textoDisputa devolve null quando nenhum dia teve o mesmo território 2x+', () => {
+  const { disputaPorDia, textoDisputa } = require('../utils/logsJogo/painelTerritorioInteracoes');
+  const mapa = disputaPorDia([
+    { dia: '2026-09-13', alvo: 'Farol', total: 1 },
+    { dia: '2026-09-14', alvo: 'Metrô', total: 1 },
+  ]);
+  assert.equal(textoDisputa(mapa), null);
+});
+
+// serieTerritorioPorDia é o que alimenta o eixo X do gráfico — o filtro de
+// prazo (período escolhido no select) só está correto se o dia sem log
+// aparecer como zero (não sumir do eixo) e se as três séries (horas,
+// conquistas, disputa) ficarem alinhadas no MESMO dia.
+test('território: serieTerritorioPorDia zera dias sem log e alinha horas/conquistas/disputa no mesmo dia', () => {
+  const { disputaPorDia, serieTerritorioPorDia } = require('../utils/logsJogo/painelTerritorioInteracoes');
+  const linhasDiaAcao = [
+    { dia: '2026-09-10', acao: 'coins_dominacao', total: 4 },
+    { dia: '2026-09-12', acao: 'coins_dominacao', total: 6 },
+    { dia: '2026-09-12', acao: 'coins_conquista', total: 2 },
+  ];
+  const mapaDisputa = disputaPorDia([{ dia: '2026-09-12', alvo: 'Farol', total: 2 }]);
+  const periodo = { inicio: new Date('2026-09-10T00:00:00-03:00'), fim: new Date('2026-09-12T23:00:00-03:00') };
+  const serie = serieTerritorioPorDia(linhasDiaAcao, mapaDisputa, periodo);
+  assert.deepEqual(serie.map(s => s.dia), ['2026-09-10', '2026-09-11', '2026-09-12']);
+  assert.deepEqual(serie.map(s => s.horas), [4, 0, 6], '11/09 sem log vira barra zerada, não some do eixo');
+  assert.deepEqual(serie.map(s => s.conquistas), [0, 0, 2]);
+  assert.deepEqual(serie.map(s => s.disputa), [0, 0, 2]);
+});
+
+// Período "tudo" (resolverPeriodo) não tem `inicio` fixo — serieTerritorioPorDia
+// precisa cair pro dia mais antigo que apareceu nos dados, sem cortar nenhum
+// dia de fora nem quebrar quando não há dado nenhum.
+test('território: serieTerritorioPorDia sem período fixo (\"tudo\") usa o dia mais antigo dos dados como início', () => {
+  const { disputaPorDia, serieTerritorioPorDia } = require('../utils/logsJogo/painelTerritorioInteracoes');
+  const linhasDiaAcao = [
+    { dia: '2026-09-05', acao: 'coins_dominacao', total: 1 },
+    { dia: '2026-09-07', acao: 'coins_conquista', total: 1 },
+  ];
+  const periodo = { inicio: null, fim: new Date('2026-09-07T23:00:00-03:00') };
+  const serie = serieTerritorioPorDia(linhasDiaAcao, disputaPorDia([]), periodo);
+  assert.deepEqual(serie.map(s => s.dia), ['2026-09-05', '2026-09-06', '2026-09-07']);
+});
+
 test('baú de recompensas: compartimento próprio, personagem com ID e nome', () => {
   const ret = parseRegistro({
     title: 'Baú de Recompensas [GDF] - Retirada (Torcida)',

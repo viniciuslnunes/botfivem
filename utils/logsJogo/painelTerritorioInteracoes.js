@@ -4,7 +4,7 @@ const F = require('./painelFormato');
 const repo = require('./repositorio');
 const { criarArmazemConsultas, mensagemErroConsulta } = require('./consultasEmMemoria');
 const { selectPeriodo, linhaBotao, linhaPaginacao } = require('./painelComponentesFixos');
-const { gerarGraficoTerritorios } = require('./graficoTerritorios');
+const { gerarGraficoTerritoriosPorDia } = require('./graficoTerritoriosPorDia');
 
 // Canal 🗺️・dominacao-territorios: mesmo padrão interativo do 📦・estoque-bau.
 // Coins de território não têm um "ator" (não é uma pessoa que gera o log, é o
@@ -31,45 +31,121 @@ function porTerritorio(linhas) {
 
 const armazem = criarArmazemConsultas();
 
-// Gráfico de barras (canvas, ver graficoTerritorios.js) em vez da tabela em
-// texto que estava aqui antes — pedido do usuário em 2026-09-14 ("melhore
-// mais, com as melhores ferramentas ou bibliotecas pra este fluxo"): com 3
-// números por território (domínio, conquistas, coins), tanto a lista
-// numerada quanto a tabela em texto viravam parede difícil de comparar item
-// a item; barra ao lado de barra resolve isso de vez. Mesmo tratamento do
-// TOP fixo do painel (painelTerritorio.js).
+// `linhasDiaAlvo` = repo.conquistasPorDiaEAlvo(periodo): [{ dia, alvo, total }],
+// uma linha por (dia, território) — não agregado. Reduz pro MAIOR total de um
+// único território em cada dia: é o que diferencia "5 conquistas espalhadas
+// em 5 territórios" (sem disputa) de "o mesmo território retomado 5x"
+// (disputa ativa). Devolve Map(dia -> { alvo, total }), só com dias que
+// tiveram pelo menos 1 conquista.
+function disputaPorDia(linhasDiaAlvo) {
+  const porDia = new Map();
+  for (const l of linhasDiaAlvo) {
+    const atual = porDia.get(l.dia);
+    if (!atual || l.total > atual.total) porDia.set(l.dia, { alvo: l.alvo, total: l.total });
+  }
+  return porDia;
+}
+
+// "🔥 Mais disputado: Hipódromo trocou de mão 5x em 13/09" — só quando algum
+// dia teve o MESMO território retomado mais de uma vez (disputa de verdade,
+// não só "teve conquista nesse dia").
+function textoDisputa(mapaDisputa) {
+  let pico = null;
+  let diaPico = null;
+  for (const [dia, d] of mapaDisputa) {
+    if (d.total > 1 && (!pico || d.total > pico.total)) { pico = d; diaPico = dia; }
+  }
+  if (!pico) return null;
+  return `🔥 **Mais disputado:** ${F.nomeSeguro(pico.alvo)} trocou de mão ${E.formatarNumero(pico.total)}x em ${E.formatarDiaCurto(diaPico)}.`;
+}
+
+// `linhasDiaAcao` = repo.porDiaEAcao(ACOES, periodo): [{ dia, acao, total }].
+// `mapaDisputa` = disputaPorDia(repo.conquistasPorDiaEAlvo(...)) — vira a
+// terceira série do gráfico (`disputa`): quantas vezes o território MAIS
+// disputado daquele dia trocou de mão, pedido do usuário em 2026-09-15 pra
+// essa informação estar DENTRO do gráfico, não só numa frase acima dele.
+// Três séries contínuas (E.serieDiaria zera os dias sem log — sem isso um
+// dia parado sumiria do eixo em vez de aparecer como barra/ponto zerado) no
+// mesmo formato que graficoTerritoriosPorDia espera. Período "tudo" não tem
+// `inicio` fixo (ver estatisticas.resolverPeriodo) — usa o dia mais antigo
+// que apareceu nos dados como início da série.
+function serieTerritorioPorDia(linhasDiaAcao, mapaDisputa, periodo) {
+  const porAcao = acao => linhasDiaAcao.filter(l => l.acao === acao).map(l => ({ dia: l.dia, total: l.total }));
+  const fim = periodo.fim ?? new Date();
+  let inicio = periodo.inicio;
+  if (!inicio) {
+    const dias = linhasDiaAcao.map(l => l.dia);
+    inicio = dias.length ? new Date(`${dias.reduce((a, b) => (a < b ? a : b))}T00:00:00-03:00`) : fim;
+  }
+  const horas = E.serieDiaria(porAcao(DOMINACAO), inicio, fim);
+  const conquistas = E.serieDiaria(porAcao(CONQUISTA), inicio, fim);
+  const disputaLinhas = [...mapaDisputa].map(([dia, d]) => ({ dia, total: d.total }));
+  const disputa = E.serieDiaria(disputaLinhas, inicio, fim);
+  return horas.map((h, i) => ({
+    dia: h.dia,
+    horas: h.total,
+    conquistas: conquistas[i]?.total ?? 0,
+    disputa: disputa[i]?.total ?? 0,
+  }));
+}
+
+// "1. Hipódromo — 68h de domínio · 15 conquistas · 354 coins · última
+// conquista há 15h28min" — volta pra lista em texto (pedido do usuário em
+// 2026-09-15, comparando com outro bot da comunidade: o gráfico de barras
+// que existia aqui antes (2026-09-14, ver histórico do arquivo) ficou pouco
+// intuitivo e escondia o detalhe — texto é selecionável/copiável, não
+// depende de imagem carregar, e cabe o dado que a barra não mostrava (última
+// conquista). `indice` é a posição GLOBAL no ranking (não a da página), pra
+// não reiniciar a numeração em "1." a cada PRÓXIMA.
+function linhaTerritorio(t, indice) {
+  const ultima = t.ultimaConquista ?? t.ultimaDominacao;
+  const conquistas = `${E.formatarNumero(t.conquistas)} ${t.conquistas === 1 ? 'conquista' : 'conquistas'}`;
+  return `**${indice + 1}. ${F.nomeSeguro(t.territorio)}** — ${Math.round(t.horas)}h de domínio · ${conquistas} · ${E.formatarNumero(Math.round(t.coins))} coins`
+    + (ultima ? ` · última conquista ${F.haQuantoTempo(ultima)}` : '');
+}
+
+// `consulta.chart` (PNG do domínio por dia, ver abrirRanking) é o mesmo em
+// toda página — não depende do ranking paginado, só do período escolhido —
+// mas precisa ir de novo em toda edição (`attachments: []` zera o anexo
+// anterior a cada troca de página, mesmo motivo do painel fixo, ver
+// painelTerritorio.js).
 function renderizarRanking(consultaId, consulta) {
   const { itens, atual, totalPaginas } = armazem.pagina(consulta.territorios, consulta.pagina ?? 0);
   const horas = consulta.territorios.reduce((s, t) => s + t.horas, 0);
   const conquistas = consulta.territorios.reduce((s, t) => s + t.conquistas, 0);
+  const offset = atual * armazem.porPagina;
+  const disputa = consulta.disputaTexto;
   const embed = {
     color: F.COR,
     title: `🗺️ DOMINAÇÃO — ${consulta.rotulo}`,
-    description: itens.length
-      ? `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`
-      : `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios\n\n*Nenhum território dominado no período.*`,
+    description: [
+      `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`,
+      ...(disputa ? [disputa] : []),
+    ].join('\n'),
+    fields: F.campoLista('RANKING', itens.map((t, i) => linhaTerritorio(t, offset + i)), 'Nenhum território dominado no período.', { numerar: false }),
+    image: consulta.chart ? { url: 'attachment://dominacao-dias.png' } : undefined,
     footer: { text: `${F.rodape('canal logs-banco')} · Página ${atual + 1}/${totalPaginas}` },
   };
-  // `attachments: []` é obrigatório em toda edição (não só na 1ª página): sem
-  // isso o Discord mantém o gráfico da página anterior e só ACRESCENTA o
-  // novo — clicar em ANTERIOR/PRÓXIMA repetidas vezes empilharia um PNG a
-  // mais por clique na mesma mensagem (ver mesmo comentário em
-  // painelTerritorio.js). `files` (se tiver itens) sobe o gráfico desta página.
-  const files = itens.length ? [{ attachment: gerarGraficoTerritorios(itens), name: 'dominacao.png' }] : [];
-  if (itens.length) embed.image = { url: 'attachment://dominacao.png' };
   return {
     embeds: [embed],
     components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })],
     attachments: [],
-    files,
+    files: consulta.chart ? [{ attachment: consulta.chart, name: 'dominacao-dias.png' }] : [],
     allowedMentions: { parse: [] },
   };
 }
 
 async function abrirRanking(interaction, periodo) {
-  const linhas = await repo.resumoPorAlvo(ACOES, periodo);
+  const [linhas, linhasDia, linhasDiaAlvo] = await Promise.all([
+    repo.resumoPorAlvo(ACOES, periodo),
+    repo.porDiaEAcao(ACOES, periodo),
+    repo.conquistasPorDiaEAlvo(periodo),
+  ]);
   const territorios = porTerritorio(linhas);
-  const dados = { territorios, rotulo: periodo.rotulo, pagina: 0 };
+  const mapaDisputa = disputaPorDia(linhasDiaAlvo);
+  const serie = serieTerritorioPorDia(linhasDia, mapaDisputa, periodo);
+  const chart = serie.some(s => s.horas || s.conquistas) ? await gerarGraficoTerritoriosPorDia(serie) : null;
+  const dados = { territorios, rotulo: periodo.rotulo, pagina: 0, disputaTexto: textoDisputa(mapaDisputa), chart };
   const consultaId = armazem.salvar(interaction.user.id, dados);
   await interaction.editReply(renderizarRanking(consultaId, dados));
 }
@@ -125,4 +201,6 @@ registrarModulo(MODULO, async interaction => {
   }
 });
 
-module.exports = { linhaComponentesTerritorio, porTerritorio };
+module.exports = {
+  linhaComponentesTerritorio, porTerritorio, linhaTerritorio, disputaPorDia, textoDisputa, serieTerritorioPorDia,
+};

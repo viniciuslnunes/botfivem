@@ -80,7 +80,14 @@ function tituloDia(dia) {
 function linhaJogador(entrada, indice) {
   const nome = escapeMarkdown(entrada.nome ?? '?');
   const id = escapeMarkdown(String(entrada.id));
-  return `${indice + 1}. **${nome}** \`${id}\` — ${E.formatarDuracao(entrada.ms)}`;
+  // Número em negrito (não "92. texto" cru): uma linha começando com dígito+ponto
+  // é lista numerada pro parser do Discord, que assume a própria numeração — na
+  // borda entre a lista (description) e os fields que vêm na sequência (dados.resumo,
+  // ver montarEmbedsRegistro), o client do Discord chega a desenhar 1-2 marcadores
+  // fantasmas a mais (ex.: "99." e "100." sem conteúdo nenhum depois, mesmo a lista
+  // real acabando em 98 — bug reportado com print pelo usuário em 2026-09-15).
+  // Começar com "**" em vez de dígito tira a linha do parser de lista do Discord.
+  return `**${indice + 1}.** **${nome}** \`${id}\` — ${E.formatarDuracao(entrada.ms)}`;
 }
 
 // Quebra uma lista de linhas em pedaços que caibam num orçamento de

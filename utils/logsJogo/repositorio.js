@@ -318,6 +318,40 @@ async function resumoPorAlvo(acoes, periodo) {
   return res.rows;
 }
 
+// Contagem por dia E por ação, separadas (diferente de contarPorDiaPorAcoes,
+// que soma tudo junto) — o painel de território usa pra ter, no mesmo eixo de
+// dias, "horas de domínio" (1 log coins_dominacao = 1h) e "conquistas" como
+// duas séries distintas.
+async function porDiaEAcao(acoes, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  const res = await db.query(
+    `SELECT to_char(ocorrido_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS dia, acao, COUNT(*)::int AS total
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1, 2 ORDER BY 1`,
+    params
+  );
+  return res.rows;
+}
+
+// Conquistas por DIA e por TERRITÓRIO (não agregado como porDiaEAcao) — a
+// linha "conquistas" do gráfico soma TODOS os territórios; isso aqui é o que
+// diz se um dia com 5 conquistas foi 5 territórios diferentes (sem disputa)
+// ou o MESMO território retomado 5x (disputa ativa de verdade — pedido do
+// usuário em 2026-09-15). `disputaPorDia`/`serieTerritorioPorDia` (ver
+// painelTerritorioInteracoes.js) transformam isso na série extra plotada no
+// gráfico e no destaque textual, a partir da mesma consulta.
+async function conquistasPorDiaEAlvo(periodo) {
+  const { condicoes, params } = condicoesPorAcoes(['coins_conquista'], periodo);
+  condicoes.push('alvo_nome IS NOT NULL');
+  const res = await db.query(
+    `SELECT to_char(ocorrido_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS dia, alvo_nome AS alvo, COUNT(*)::int AS total
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1, 2 ORDER BY 1`,
+    params
+  );
+  return res.rows;
+}
+
 // Estado atual de cada fechadura numa consulta só: sem isso o painel teria que
 // ler os 15 mil eventos de patrimônio pra ficar com uma dezena de linhas.
 // `chave` junta as duas formas que o jogo usa (ações próprias de sede/portão e
@@ -370,32 +404,6 @@ async function saldoBau() {
     // saldo punha dezenas de camisas com saldo 0 no topo e escondia tecido,
     // maconha e cocaína, que é o que realmente circula (prévia de 2026-09-13).
     [ACOES_BAU]
-  );
-  return res.rows;
-}
-
-// Mesma conta de saldoBau, só que recortada num período — é o que o painel
-// interativo usa quando a liderança escolhe "últimos 7 dias" em vez do
-// acumulado. Sem limite de linhas: pagina quem chama (a lista de itens pode
-// passar de 25 fácil).
-async function saldoBauPeriodo(periodo) {
-  const { condicoes, params } = condicoesPorAcoes(ACOES_BAU, periodo);
-  condicoes.push('alvo_nome IS NOT NULL', 'valor IS NOT NULL');
-  const res = await db.query(
-    `SELECT CASE
-              WHEN titulo ILIKE 'Ba_ de Recompensas%' THEN 'Recompensas'
-              ELSE substring(titulo from '\\[(.+)\\]')
-            END AS bau,
-            alvo_nome AS item,
-            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE -valor END), 0)::float AS saldo,
-            COALESCE(SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END), 0)::float AS guardou,
-            COALESCE(SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END), 0)::float AS removeu,
-            MIN(ocorrido_em) AS desde, MAX(ocorrido_em) AS ultima
-       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
-      GROUP BY 1, 2
-      ORDER BY 1, (SUM(CASE WHEN acao = 'bau_guardou' THEN valor ELSE 0 END)
-                    + SUM(CASE WHEN acao = 'bau_removeu' THEN valor ELSE 0 END)) DESC`,
-    params
   );
   return res.rows;
 }
@@ -590,6 +598,8 @@ module.exports = {
   contarPorDiaPorAcoes,
   ultimaOcorrencia,
   resumoPorAlvo,
+  porDiaEAcao,
+  conquistasPorDiaEAlvo,
   eventosDoAtor,
   eventosDoAlvo,
   somarPorAcoes,
@@ -597,7 +607,6 @@ module.exports = {
   nomesPorIds,
   ultimoPorFechadura,
   saldoBau,
-  saldoBauPeriodo,
   atividadeBauPorId,
   movimentoBauPorPessoa,
   maioresRetiradasBau,

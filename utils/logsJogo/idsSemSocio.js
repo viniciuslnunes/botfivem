@@ -331,7 +331,11 @@ function linhaCandidato(entrada, indice) {
   const ultima = entrada.ultima ? new Date(entrada.ultima).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '?';
   // escapeMarkdown: apelido cru do jogo pode ter "**"/"||"/"`" e quebrar a
   // formatação da linha (ver mesmo fix em registrosDiarios.js/presencaInteracoes.js).
-  return `${indice + 1}. **${escapeMarkdown(entrada.nome ?? '?')}** \`${entrada.id}\` — ${entrada.total}x · última: ${ultima}`;
+  // Número em negrito, não "1. texto" cru — mesmo fix de linhaJogador em
+  // registrosDiarios.js: dígito+ponto no início da linha é lista numerada pro
+  // Discord, que na borda entre a description (lista) e os fields chega a
+  // desenhar 1-2 marcadores fantasmas sem conteúdo nenhum no fim da lista.
+  return `**${indice + 1}.** **${escapeMarkdown(entrada.nome ?? '?')}** \`${entrada.id}\` — ${entrada.total}x · última: ${ultima}`;
 }
 
 // Mesmo motivo do registro diário: description em texto corrido, nunca

@@ -121,7 +121,10 @@ const LIMITE_FIELD = 1024; // limite do Discord pro `value` de um field
 // parecerem uma parede de texto. Quebra em mais de um field só se passar do
 // limite de 1024 caracteres (25 fields cabem num embed, bem mais que qualquer
 // lista destes painéis precisa).
-function campoLista(nome, linhas, vazio) {
+// `numerar: false` mantém o mesmo `nome` em todo grupo, sem "(1/4)" etc. —
+// pra lista que já é uma sequência única (ex.: histórico cronológico), onde a
+// numeração sugere blocos separados que não existem de verdade.
+function campoLista(nome, linhas, vazio, { numerar = true } = {}) {
   if (!linhas.length) return [{ name: nome, value: `*${vazio}*` }];
   const grupos = [];
   let atual = [];
@@ -138,7 +141,7 @@ function campoLista(nome, linhas, vazio) {
   }
   if (atual.length) grupos.push(atual);
   return grupos.map((grupo, i) => ({
-    name: grupos.length > 1 ? `${nome} (${i + 1}/${grupos.length})` : nome,
+    name: numerar && grupos.length > 1 ? `${nome} (${i + 1}/${grupos.length})` : nome,
     value: grupo.join('\n'),
   }));
 }

@@ -134,11 +134,11 @@ período: cada canal usa o eixo que faz sentido pro dado dele —
 
 | Canal | 1º select/botão | 2º (buscar jogador) | 3º |
 |---|---|---|---|
-| estoque-bau | período (lista paginada + filtro por baú) | sim | RANKING → período |
+| estoque-bau | período (histórico cronológico paginado + filtro por baú, período inteiro) | sim | RANKING → período |
 | caixa-do-jogo | período (resumo, sem paginação) | sim | RANKING → período |
-| disciplina-jogo | botão ADVERTÊNCIAS ABERTAS (paginado, estado atual) | sim | período → fluxo |
+| disciplina-jogo | sem 1º select/botão (advertências abertas já saem na mensagem fixa) | sim | período → fluxo |
 | banidos-e-impedidos | tipo (blacklist/suspensão/impedimento, paginado) | sim (cruza c/ não-recrutar) | período → fluxo |
-| fechaduras | sem 1º select/botão (mensagem fixa já é o estado atual) | sim | período → histórico |
+| fechaduras | sem 1º select/botão (mensagem fixa já é o estado atual) | sim | período → histórico paginado (período inteiro, cronológico) |
 | tags-do-jogo | tag (dinâmico, paginado) | sim | período → fluxo |
 | auditoria-config | botão HISTÓRICO COMPLETO (paginado) | sim | período → fluxo |
 | logs-nao-reconhecidos | período (paginado) | não se aplica | botão TODO O HISTÓRICO |
@@ -182,6 +182,13 @@ contagem e exemplo. Para resolver:
   `E.bauDoTitulo` e `repositorio.saldoBau` tratam esse caso nos dois lugares.
 - **Baú ordena por volume** (guardou + removeu), não por saldo. Ordenado por
   saldo, dezenas de camisas com saldo 0 escondiam tecido, maconha e cocaína.
+- **Baú: histórico cronológico, não saldo agregado** (pedido do usuário em
+  2026-09-15, mesma virada já feita em fechaduras). Um saldo por item
+  ("entrou 95 · saiu 89") não diz QUEM guardou nem QUEM retirou — só o total.
+  Escolher um período no canal 📦・estoque-bau abre a lista de EVENTOS
+  individuais (quem, ação, item, quantidade, baú, quando), período inteiro,
+  paginada; o filtro por compartimento e a busca (por item, ID ou nome) atuam
+  sobre essa mesma lista de eventos, não sobre um resumo por item.
 - **Cruzamento com o não-recrutar é só blacklist.** Suspensão é temporária, e
   impedimento é ligado e desligado com segundos de diferença, inclusive entre
   líderes (visto nos logs de 2026-09-13). Tratar os dois como "não recrutar"

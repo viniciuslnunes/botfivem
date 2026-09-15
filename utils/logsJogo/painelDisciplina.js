@@ -6,8 +6,8 @@ const { criarPainelCanal } = require('./painelCanal');
 const { linhaComponentesDisciplina } = require('./painelDisciplinaInteracoes');
 
 // Canal ⚖️・disciplina-jogo: mensagem fixa curta (padrão interativo, ver
-// painelBau.js) — o detalhe (advertências abertas, ficha por jogador, fluxo do
-// período) mora em painelDisciplinaInteracoes.js.
+// painelBau.js) — advertências abertas já saem aqui; o detalhe (ficha por
+// jogador, fluxo do período) mora em painelDisciplinaInteracoes.js.
 const SLUG = 'disciplina_jogo';
 const ACOES_MULTA = ['multou'];
 

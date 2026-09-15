@@ -1,5 +1,5 @@
 const {
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, UserSelectMenuBuilder,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
   ModalBuilder, TextInputBuilder, TextInputStyle,
 } = require('discord.js');
 const config = require('../../config/index.js');
@@ -9,16 +9,22 @@ const E = require('./estatisticas');
 const F = require('./painelFormato');
 const repo = require('./repositorio');
 const { criarArmazemConsultas, mensagemErroConsulta } = require('./consultasEmMemoria');
-const { PERIODOS } = require('./painelConsulta');
+const { selectPeriodo, selectBuscarJogador, linhaPaginacao } = require('./painelComponentesFixos');
 
-// Piloto do padrão "canal-painel interativo": a mensagem fixa do canal fica
-// curta (só os números-chave) e toda a exploração — período, filtro por baú,
-// busca por item/jogador, ranking — mora atrás de botões/selects, sempre numa
-// resposta EPHEMERAL (só quem clicou vê), do mesmo jeito que o painel de
-// jogadores (utils/logsJogo/presencaInteracoes.js) já faz. Validado aqui
-// primeiro (canal 📦・estoque-bau); dando certo, os outros 8 canais de log
-// trocam a listagem direta no canal por este mesmo mecanismo.
+// Piloto do padrão "canal-painel interativo" (ver docs/inteligencia-logs-jogo.md
+// § "Padrão de UI"). Escolher período, filtrar por baú, buscar item/jogador e
+// ranking são tudo botão/select que abre uma resposta EPHEMERAL.
+//
+// Histórico cronológico, não saldo agregado (pedido do usuário em 2026-09-15,
+// mesma virada já feita em fechaduras): um saldo por item ("guardou 95 ·
+// saiu 89") não diz QUEM guardou nem QUEM retirou — só o total. Escolher um
+// período agora abre a lista de EVENTOS individuais (quem, o quê, quanto,
+// qual baú, quando), igual ao histórico de fechaduras — período inteiro
+// (sem teto real), pagina como antes.
 const MODULO = 'estoquebau';
+const ACOES_BAU = ['bau_guardou', 'bau_removeu'];
+const TETO_HISTORICO = 100000; // não é um corte real, só o LIMIT do SQL
+const LIMITE_FICHA = 50;
 const armazem = criarArmazemConsultas();
 
 function qtd(n) {
@@ -27,34 +33,6 @@ function qtd(n) {
 
 // ── Componentes da mensagem fixa (o que este módulo empresta a painelBau.js) ─
 
-function selectPeriodo() {
-  return new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`${MODULO}:selperiodo`)
-      .setPlaceholder('ESCOLHA UM PERÍODO')
-      .addOptions(PERIODOS.map(p => ({ label: p.label, value: p.chave })))
-  );
-}
-
-function selectBuscarJogador() {
-  return new ActionRowBuilder().addComponents(
-    new UserSelectMenuBuilder()
-      .setCustomId(`${MODULO}:buscarjogador`)
-      .setPlaceholder('🔎 BUSCAR JOGADOR (DISCORD)')
-  );
-}
-
-function linhaBotoesAcao() {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`${MODULO}:ranking`).setLabel('RANKING').setEmoji('🏆').setStyle(ButtonStyle.Secondary)
-  );
-}
-
-// Atalho pra ir direto num compartimento sem passar por período primeiro —
-// antes só dava pra filtrar por baú DEPOIS de já ter aberto um período (select
-// FILTRAR POR BAÚ dentro da consulta). Abre em "tudo" (histórico inteiro),
-// já filtrado; muda de período de dentro da consulta continua não dando (só
-// abrindo outra, mesma limitação de sempre).
 function selectCompartimento(baus) {
   if (!baus.length) return null;
   return new ActionRowBuilder().addComponents(
@@ -65,34 +43,42 @@ function selectCompartimento(baus) {
   );
 }
 
+function linhaBotoesAcao() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`${MODULO}:ranking`).setLabel('RANKING').setEmoji('🏆').setStyle(ButtonStyle.Secondary)
+  );
+}
+
 // As linhas de componente da mensagem fixa do canal — importado por
 // painelBau.js pra colar na mesma mensagem do embed resumo. `baus` vem do
 // próprio painelBau.js (já calcula a lista pro "COMPARTIMENTOS: N" do embed).
 function linhaComponentesBau(baus = []) {
-  return [selectPeriodo(), selectBuscarJogador(), selectCompartimento(baus), linhaBotoesAcao()].filter(Boolean);
+  return [selectPeriodo(MODULO), selectBuscarJogador(MODULO), selectCompartimento(baus), linhaBotoesAcao()].filter(Boolean);
 }
 
-// ── Dados por período (uma consulta = um período + filtro de baú opcional) ──
+// ── Histórico cronológico (uma consulta = um período + filtro de baú opcional) ─
 
-async function comNomes(linhas) {
-  return F.comNomes(linhas);
+function bausDaLista(eventos) {
+  return [...new Set(eventos.map(e => e.bau).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
-function bausDaLista(itens) {
-  return [...new Set(itens.map(i => i.bau).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+// Carrega TODOS os eventos do período (guardou/removeu, qualquer baú) e
+// resolve o nome de quem mexeu pelo último apelido visto (o log do baú comum
+// só traz o ID — Baú de Recompensas já vem com nome, F.comNomes não toca
+// linha que já tem `ator_nome`).
+async function buscarDadosHistorico(periodo) {
+  const brutos = await repo.listarPorAcoes(ACOES_BAU, periodo, TETO_HISTORICO);
+  const comBau = brutos.map(e => ({ ...e, bau: E.bauDoTitulo(e.titulo) ?? '?' }));
+  const eventos = await F.comNomes(comBau, { id: 'ator_id_fivem', nome: 'ator_nome' });
+  return { periodo, bauFiltro: null, pagina: 0, eventos, baus: bausDaLista(eventos) };
 }
 
-async function buscarDadosPeriodo(periodo) {
-  const itensTodos = await repo.saldoBauPeriodo(periodo);
-  return { periodo, bauFiltro: null, pagina: 0, itensTodos, baus: bausDaLista(itensTodos) };
-}
+// ── Renderização da lista paginada de eventos ────────────────────────────────
 
-// ── Renderização da lista paginada de itens ──────────────────────────────────
-
-function linhaItem(l, comBau) {
-  const sinal = l.saldo > 0 ? '▲' : l.saldo < 0 ? '▼' : '➖';
-  const prefixo = comBau ? `**[${F.nomeSeguro(l.bau)}]** ` : '';
-  return `${prefixo}${sinal} **${F.nomeSeguro(l.item)}** — saldo **${qtd(l.saldo)}** (entrou ${qtd(l.guardou)} · saiu ${qtd(l.removeu)})`;
+function linhaEvento(e, comBau) {
+  const sinal = e.acao === 'bau_guardou' ? '📥 guardou' : '📤 retirou';
+  const prefixo = comBau ? `**[${F.nomeSeguro(e.bau)}]** ` : '';
+  return `${prefixo}${F.pessoa({ nome: e.ator_nome, id: e.ator_id_fivem })} ${sinal} **${qtd(e.valor)}× ${F.nomeSeguro(e.alvo_nome)}** — ${E.formatarDataHora(e.ocorrido_em)}`;
 }
 
 function selectFiltroBau(consultaId, baus, atual) {
@@ -107,56 +93,44 @@ function selectFiltroBau(consultaId, baus, atual) {
   return new ActionRowBuilder().addComponents(select);
 }
 
-function renderizarListaItens(consultaId, consulta) {
-  const itensFiltrados = consulta.bauFiltro ? consulta.itensTodos.filter(i => i.bau === consulta.bauFiltro) : consulta.itensTodos;
-  const { itens, atual, totalPaginas } = armazem.pagina(itensFiltrados, consulta.pagina);
-  const negativos = itensFiltrados.filter(i => i.saldo < 0).length;
+function eventosFiltrados(consulta) {
+  return consulta.bauFiltro ? consulta.eventos.filter(e => e.bau === consulta.bauFiltro) : consulta.eventos;
+}
+
+function totais(eventos) {
+  const guardou = eventos.filter(e => e.acao === 'bau_guardou').reduce((t, e) => t + Number(e.valor || 0), 0);
+  const removeu = eventos.filter(e => e.acao === 'bau_removeu').reduce((t, e) => t + Number(e.valor || 0), 0);
+  return { guardou, removeu };
+}
+
+function renderizarHistorico(consultaId, consulta) {
+  const filtrados = eventosFiltrados(consulta);
+  const { itens, atual, totalPaginas } = armazem.pagina(filtrados, consulta.pagina);
+  const { guardou, removeu } = totais(filtrados);
 
   const embed = {
     color: F.COR,
     title: `📦 BAÚ — ${consulta.periodo.rotulo}${consulta.bauFiltro ? ` · ${consulta.bauFiltro.toUpperCase()}` : ''}`,
     description: [
-      `**${itensFiltrados.length}** ${itensFiltrados.length === 1 ? 'item movimentado' : 'itens movimentados'}`
-        + (negativos ? ` · **${negativos}** com saldo negativo` : ''),
-      '*Saldo líquido do período (guardou − removeu) — não é o estoque total.*',
+      `**${qtd(filtrados.length)}** ${filtrados.length === 1 ? 'movimento' : 'movimentos'} no período`
+        + ` · guardou **${qtd(guardou)}** · retirou **${qtd(removeu)}**`,
+      '*Cada linha é um evento do jogo — quem mexeu, o que fez e quando. Não é saldo agregado.*',
     ].join('\n'),
-    fields: F.campoLista('ITENS', itens.map(l => linhaItem(l, !consulta.bauFiltro)), 'Sem itens nesta página.'),
+    fields: F.campoLista('MOVIMENTOS', itens.map(e => linhaEvento(e, !consulta.bauFiltro)), 'Sem movimentos nesta página.', { numerar: false }),
     footer: { text: `${F.rodape('canal logs-baú')} · Página ${atual + 1}/${totalPaginas}` },
   };
 
   const linhaFiltro = selectFiltroBau(consultaId, consulta.baus, consulta.bauFiltro);
-  const temAnterior = atual > 0;
-  const temProxima = atual < totalPaginas - 1;
-  const botoes = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${MODULO}:pag:${consultaId}:${atual - 1}`)
-      .setLabel(temAnterior ? `◀ ANTERIOR (${atual}/${totalPaginas})` : '◀ ANTERIOR')
-      .setStyle(ButtonStyle.Secondary).setDisabled(!temAnterior),
-    new ButtonBuilder()
-      .setCustomId(`${MODULO}:pag:${consultaId}:${atual + 1}`)
-      .setLabel(temProxima ? `PRÓXIMA ▶ (${atual + 2}/${totalPaginas})` : 'PRÓXIMA ▶')
-      .setStyle(ButtonStyle.Secondary).setDisabled(!temProxima),
-    new ButtonBuilder().setCustomId(`${MODULO}:buscar:${consultaId}`).setLabel('🔎 BUSCAR').setStyle(ButtonStyle.Secondary)
-  );
-  return { embeds: [embed], components: [linhaFiltro, botoes].filter(Boolean), allowedMentions: { parse: [] } };
+  return { embeds: [embed], components: [linhaFiltro, linhaPaginacao(MODULO, consultaId, atual, totalPaginas)].filter(Boolean), allowedMentions: { parse: [] } };
 }
 
 async function abrirEstoqueBau(interaction, periodo) {
-  const dados = await buscarDadosPeriodo(periodo);
+  const dados = await buscarDadosHistorico(periodo);
   const consultaId = armazem.salvar(interaction.user.id, dados);
-  await interaction.editReply(renderizarListaItens(consultaId, dados));
+  await interaction.editReply(renderizarHistorico(consultaId, dados));
 }
 
 // ── Ranking (mesmo fluxo do painel de jogadores: botão → select de período) ──
-
-function selectPeriodoRanking() {
-  return new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`${MODULO}:selrankingperiodo`)
-      .setPlaceholder('ESCOLHA UM PERÍODO PARA O RANKING')
-      .addOptions(PERIODOS.map(p => ({ label: p.label, value: p.chave })))
-  );
-}
 
 function linhaRanking(l, i) {
   return `${i + 1}. ${F.pessoa(l)} — retirou **${qtd(l.removeu)}** · guardou ${qtd(l.guardou)}`;
@@ -169,8 +143,8 @@ function linhaRetirada(l) {
 
 async function embedRanking(periodo) {
   const [pessoas, retiradas] = await Promise.all([
-    repo.movimentoBauPorPessoa(periodo, 10).then(comNomes),
-    repo.maioresRetiradasBau(periodo, 5).then(comNomes),
+    repo.movimentoBauPorPessoa(periodo, 10).then(F.comNomes),
+    repo.maioresRetiradasBau(periodo, 5).then(F.comNomes),
   ]);
   return {
     color: F.COR,
@@ -187,44 +161,38 @@ async function embedRanking(periodo) {
   };
 }
 
-// ── Busca por item ou jogador (modal → select de resultado → ficha) ─────────
+// ── Busca dentro do período aberto (item OU ID/nome de jogador) ─────────────
 
 function modalBuscar(consultaId) {
   return new ModalBuilder()
     .setCustomId(`${MODULO}:buscarmodal:${consultaId}`)
     .setTitle('BUSCAR NO BAÚ')
     .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-      .setCustomId('termo').setLabel('ITEM OU JOGADOR (NOME/ID)')
+      .setCustomId('termo').setLabel('ITEM, ID OU NOME DE JOGADOR')
       .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(50)));
 }
 
-// Busca só entre os ITENS da consulta aberta — buscar por jogador é sempre por
-// ID (o log do baú não traz nome, ver o "if" de dígitos no handler do modal).
-function buscarItens(consulta, termoBruto) {
-  const termo = E.normalizarBusca(termoBruto.trim());
+// Busca nos EVENTOS do período inteiro (não só na página aberta, nem só no
+// filtro de baú atual) — pra "nessa data, quem mexeu nesse item" achar tudo.
+function buscarEventos(consulta, termoBruto) {
+  const termoDigitado = termoBruto.trim();
+  const termo = E.normalizarBusca(termoDigitado);
   if (!termo) return [];
-  return consulta.itensTodos
-    .filter(l => E.normalizarBusca(l.item).includes(termo))
-    .map(l => ({
-      valor: `item:${l.bau}|${l.item}`,
-      label: `${l.item} (${l.bau})`.slice(0, 100),
-      description: `saldo ${qtd(l.saldo)} · entrou ${qtd(l.guardou)} · saiu ${qtd(l.removeu)}`.slice(0, 100),
-    }));
+  return consulta.eventos.filter(e => E.normalizarBusca(e.alvo_nome ?? '').includes(termo)
+    || (termoDigitado && String(e.ator_id_fivem ?? '') === termoDigitado)
+    || E.normalizarBusca(e.ator_nome ?? '').includes(termo));
 }
 
-function embedFichaItem(consulta, bau, item) {
-  const linha = consulta.itensTodos.find(l => l.bau === bau && l.item === item);
-  if (!linha) return { color: F.COR, title: '📦 Item não encontrado nesta consulta', description: 'Pode ter saído da lista — abra o período de novo.' };
+function embedResultadoBusca(termo, periodo, eventos) {
+  const { guardou, removeu } = totais(eventos);
   return {
     color: F.COR,
-    title: `📦 ${F.nomeSeguro(item)} — ${F.nomeSeguro(bau)}`,
-    description: [
-      `**Saldo no período:** ${qtd(linha.saldo)}`,
-      `**Entrou:** ${qtd(linha.guardou)}`,
-      `**Saiu:** ${qtd(linha.removeu)}`,
-      linha.ultima ? `**Última movimentação:** ${E.formatarDataHora(linha.ultima)}` : null,
-    ].filter(Boolean).join('\n'),
-    footer: { text: F.rodape('canal logs-baú') },
+    title: `🔎 BAÚ — "${termo.toUpperCase()}" EM ${periodo.rotulo.toUpperCase()}`,
+    description: eventos.length
+      ? `**${qtd(eventos.length)}** ${eventos.length === 1 ? 'movimento encontrado' : 'movimentos encontrados'} · guardou **${qtd(guardou)}** · retirou **${qtd(removeu)}**`
+      : 'Nenhum movimento encontrado nesse período.',
+    fields: F.campoLista('MOVIMENTOS', eventos.slice(0, 100).map(e => linhaEvento(e, true)), 'Nenhum movimento encontrado.', { numerar: false }),
+    footer: { text: `${F.rodape('canal logs-baú')}${eventos.length > 100 ? ' · mostrando os 100 mais recentes' : ''}` },
   };
 }
 
@@ -234,7 +202,7 @@ function linhaEventoPessoa(e) {
 }
 
 async function embedFichaPessoa(idFivem, nomeConhecido) {
-  const dados = await repo.atividadeBauPorId(idFivem, 8);
+  const dados = await repo.atividadeBauPorId(idFivem, LIMITE_FICHA);
   return {
     color: F.COR,
     title: `📦 ${F.nomeSeguro(nomeConhecido ?? idFivem)} — ATIVIDADE NO BAÚ`,
@@ -264,10 +232,10 @@ registrarModulo(MODULO, async interaction => {
   if (interaction.isStringSelectMenu() && acao === 'selcompartimento') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
     await interaction.deferReply({ flags: 64 });
-    const dados = await buscarDadosPeriodo(E.resolverPeriodo('tudo'));
+    const dados = await buscarDadosHistorico(E.resolverPeriodo('tudo'));
     dados.bauFiltro = interaction.values[0];
     const consultaId = armazem.salvar(interaction.user.id, dados);
-    await interaction.editReply(renderizarListaItens(consultaId, dados));
+    await interaction.editReply(renderizarHistorico(consultaId, dados));
     return;
   }
 
@@ -288,7 +256,7 @@ registrarModulo(MODULO, async interaction => {
 
   if (interaction.isButton() && acao === 'ranking') {
     if (!ehLideranca(interaction.member)) return interaction.reply({ content: MSG_SO_LIDERANCA, flags: 64 });
-    return interaction.reply({ components: [selectPeriodoRanking()], flags: 64 });
+    return interaction.reply({ components: [selectPeriodo(MODULO, { acao: 'selrankingperiodo', placeholder: 'ESCOLHA UM PERÍODO PARA O RANKING' })], flags: 64 });
   }
 
   if (interaction.isStringSelectMenu() && acao === 'selrankingperiodo') {
@@ -305,7 +273,7 @@ registrarModulo(MODULO, async interaction => {
     if (erro) return interaction.reply({ content: mensagemErroConsulta(erro), flags: 64 });
     const bauEscolhido = interaction.values[0] === '*' ? null : interaction.values[0];
     const atualizada = armazem.atualizar(a, { bauFiltro: bauEscolhido, pagina: 0 });
-    await interaction.update(renderizarListaItens(a, atualizada));
+    await interaction.update(renderizarHistorico(a, atualizada));
     return;
   }
 
@@ -313,7 +281,7 @@ registrarModulo(MODULO, async interaction => {
     const { erro } = armazem.obter(a, interaction.user.id);
     if (erro) return interaction.update({ content: mensagemErroConsulta(erro), embeds: [], components: [] });
     const atualizada = armazem.atualizar(a, { pagina: Number(b) || 0 });
-    await interaction.update(renderizarListaItens(a, atualizada));
+    await interaction.update(renderizarHistorico(a, atualizada));
     return;
   }
 
@@ -327,32 +295,8 @@ registrarModulo(MODULO, async interaction => {
     const { consulta, erro } = armazem.obter(a, interaction.user.id);
     if (erro) return interaction.reply({ content: mensagemErroConsulta(erro), flags: 64 });
     const termo = interaction.fields.getTextInputValue('termo');
-    // Termo só de dígitos: trata como ID de jogador direto (o log do baú não
-    // guarda nome, então buscar "jogador" é sempre por ID, nunca por nome).
-    if (/^\d+$/.test(termo.trim())) {
-      const nomes = await repo.nomesPorIds([termo.trim()]);
-      return interaction.reply({ embeds: [await embedFichaPessoa(termo.trim(), nomes.get(termo.trim()))], flags: 64 });
-    }
-    const resultados = buscarItens(consulta, termo);
-    if (!resultados.length) {
-      return interaction.reply({ content: `❌ NENHUM ITEM ENCONTRADO PARA \`${termo}\`. PRA BUSCAR JOGADOR, DIGITE SÓ O ID.`, flags: 64 });
-    }
-    const select = new StringSelectMenuBuilder()
-      .setCustomId(`${MODULO}:sel:${a}`)
-      .setPlaceholder(`RESULTADO (${resultados.length}) — ESCOLHA O ITEM`)
-      .addOptions(resultados.slice(0, 25).map(r => ({ label: r.label, value: r.valor, description: r.description })));
-    return interaction.reply({ content: `🔎 BUSCA POR \`${termo}\`:`, components: [new ActionRowBuilder().addComponents(select)], flags: 64 });
-  }
-
-  if (interaction.isStringSelectMenu() && acao === 'sel') {
-    const { consulta, erro } = armazem.obter(a, interaction.user.id);
-    if (erro) return interaction.reply({ content: mensagemErroConsulta(erro), flags: 64 });
-    const [tipo, resto] = interaction.values[0].split(':');
-    if (tipo === 'item') {
-      const [bau, item] = resto.split('|');
-      return interaction.reply({ embeds: [embedFichaItem(consulta, bau, item)], flags: 64 });
-    }
-    return interaction.reply({ content: '❌ RESULTADO DESCONHECIDO.', flags: 64 });
+    const encontrados = buscarEventos(consulta, termo);
+    return interaction.reply({ embeds: [embedResultadoBusca(termo, consulta.periodo, encontrados)], flags: 64 });
   }
 });
 
