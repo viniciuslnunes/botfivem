@@ -194,6 +194,7 @@ module.exports = {
     historicoSegundos: 120,    // ao pegar, apaga tudo que ele mandou nesse período
     apagarNaHoraSegundos: 60,  // depois de pego, o que ele ainda mandar some na hora
     castigoHoras: 24,
+    castigoManualDias: 7, // botão CASTIGO no alerta — usado em modo alerta pra já bloquear a conta sem banir
   },
 
   confianca: {
