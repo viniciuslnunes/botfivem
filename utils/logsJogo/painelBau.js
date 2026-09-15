@@ -24,15 +24,44 @@ function qtd(n) {
   return E.formatarNumero(Math.round(Number(n) || 0));
 }
 
+// Peças de patrimônio (bandeira/faixa/mastro) cujo último evento foi
+// "removeu": estão fora do baú e ainda não voltaram. Entra como linhas extras
+// na MESMA mensagem fixa (como avisoAdv/avisoMulta em painelDisciplina.js) —
+// nunca como mensagem própria: o número de mensagens do painel tem que ficar
+// fixo, senão a edição por índice (ver painelCanal.criarPainelCanal) passa a
+// reeditar a mensagem errada toda vez que a lista fica vazia ou deixa de estar.
+async function linhasPatrimonioEmAberto() {
+  const estado = await repo.ultimoPorPatrimonio();
+  // ultimoPorPatrimonio devolve TODO item de baú (tecido, droga, munição
+  // incluídos) — E.nomePatrimonio filtra só o que é patrimônio de verdade.
+  const emAberto = estado
+    .filter(e => e.acao === 'patrimonio_removeu' || e.acao === 'bau_removeu')
+    .map(e => ({ ...e, rotulo: E.nomePatrimonio(e.alvo_nome) }))
+    .filter(e => e.rotulo);
+  if (!emAberto.length) return [];
+
+  const nomes = await repo.nomesPorIds([...new Set(emAberto.map(e => e.ator_id_fivem).filter(Boolean))]);
+  const linhas = emAberto
+    .sort((a, b) => new Date(a.ocorrido_em) - new Date(b.ocorrido_em))
+    .map(e => {
+      const quem = e.ator_id_fivem ? (nomes.get(e.ator_id_fivem) ?? e.ator_id_fivem) : 'desconhecido';
+      return `• **${e.rotulo}** — com ${quem} desde ${E.formatarDataHora(e.ocorrido_em)}`;
+    });
+  return [`**🚩 PATRIMÔNIO EM ABERTO (${linhas.length}):**`, ...linhas, ''];
+}
+
 async function montarBlocos() {
-  const saldos = await repo.saldoBau();
+  const [saldos, patrimonio] = await Promise.all([repo.saldoBau(), linhasPatrimonioEmAberto()]);
   if (!saldos.length) {
     return [{
       embeds: [{
         color: F.COR,
         title: '📦 BAÚ DA TORCIDA — GAVIÕES DA FIEL FIVEM',
-        description: 'Nenhum movimento de baú registrado ainda. Assim que o jogo publicar o primeiro '
-          + '"Guardou/Removeu" no canal de logs do baú, os números aparecem aqui.',
+        description: [
+          ...patrimonio,
+          'Nenhum movimento de baú registrado ainda. Assim que o jogo publicar o primeiro '
+            + '"Guardou/Removeu" no canal de logs do baú, os números aparecem aqui.',
+        ].join('\n'),
         footer: { text: F.rodape('canal logs-baú') },
       }],
       components: linhaComponentesBau(),
@@ -49,6 +78,7 @@ async function montarBlocos() {
     color: F.COR,
     title: '📦 BAÚ DA TORCIDA — GAVIÕES DA FIEL FIVEM',
     description: [
+      ...patrimonio,
       `**COMPARTIMENTOS:** ${baus.length}`,
       `**ITENS COM MOVIMENTO:** ${qtd(saldos.length)}${negativos ? ` (${qtd(negativos)} com saldo negativo)` : ''}`,
       maiorRetirador?.[0] ? `**QUEM MAIS RETIROU (30 DIAS):** ${maiorRetirador[0].nome ?? maiorRetirador[0].id} (${qtd(maiorRetirador[0].removeu)})` : null,

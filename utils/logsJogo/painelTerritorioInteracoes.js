@@ -1,9 +1,16 @@
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { registrarModulo } = require('../modulos');
 const E = require('./estatisticas');
 const F = require('./painelFormato');
 const repo = require('./repositorio');
 const { criarArmazemConsultas, mensagemErroConsulta } = require('./consultasEmMemoria');
-const { selectPeriodo, linhaBotao, linhaPaginacao } = require('./painelComponentesFixos');
+const { selectPeriodo, linhaPaginacao } = require('./painelComponentesFixos');
+const { gerarGraficoTerritoriosPorDia } = require('./graficoTerritoriosPorDia');
+
+// Período padrão do botão RANKING — mesmo período que o card fixo resume
+// (painelTerritorio.js usa '30d'), pra abrir exatamente o que a mensagem
+// principal já está descrevendo, sem precisar escolher no select primeiro.
+const PERIODO_RANKING_PADRAO = '30d';
 
 // Canal 🗺️・dominacao-territorios: mesmo padrão interativo do 📦・estoque-bau.
 // Coins de território não têm um "ator" (não é uma pessoa que gera o log, é o
@@ -106,41 +113,42 @@ function linhaTerritorio(t, indice) {
 
 // Versão curta pro bloco **HOJE** do painel fixo (painelTerritorio.js): só o
 // que responde "quantas vezes e quantas horas HOJE", sem coins/última
-// conquista (redundante quando o período já é o próprio dia).
+// conquista (redundante quando o período já é o próprio dia). Mesma ordem
+// (horas de domínio primeiro, depois conquistas) e o mesmo "de domínio" que
+// linhaTerritorio usa no ranking completo — "Xh hoje" sozinho (versão
+// anterior) ficou seco/ambíguo, pedido do usuário em 2026-09-15.
 function linhaTerritorioHoje(t) {
   const conquistas = `${E.formatarNumero(t.conquistas)} ${t.conquistas === 1 ? 'conquista' : 'conquistas'}`;
-  return `**${F.nomeSeguro(t.territorio)}** — ${conquistas} · ${Math.round(t.horas)}h hoje`;
+  return `**${F.nomeSeguro(t.territorio)}** — ${Math.round(t.horas)}h de domínio hoje · ${conquistas}`;
 }
 
-// Sem PNG (Chart.js, ver histórico do arquivo até 2026-09-15) — mesmo padrão
-// de tendência que o painel fixo usa agora (sparkline de texto + intervalo de
-// datas). Só aparece com mais de um dia de dados: período "Hoje" tem um único
-// ponto, sparkline não diz nada aí.
+// `consulta.chart` (PNG do domínio por dia, ver abrirRanking) é o mesmo em
+// toda página — não depende do ranking paginado, só do período escolhido —
+// mas precisa ir de novo em toda edição (`attachments: []` zera o anexo
+// anterior a cada troca de página, mesmo motivo do painel fixo, ver
+// painelTerritorio.js).
 function renderizarRanking(consultaId, consulta) {
   const { itens, atual, totalPaginas } = armazem.pagina(consulta.territorios, consulta.pagina ?? 0);
   const horas = consulta.territorios.reduce((s, t) => s + t.horas, 0);
   const conquistas = consulta.territorios.reduce((s, t) => s + t.conquistas, 0);
   const offset = atual * armazem.porPagina;
   const disputa = consulta.disputaTexto;
-  const tendencia = consulta.serie.length > 1 && consulta.serie.some(s => s.horas)
-    ? [`\`${E.sparkline(consulta.serie.map(s => s.horas))}\` horas de domínio/dia`, `${E.formatarDiaCurto(consulta.serie[0].dia)} → ${E.formatarDiaCurto(consulta.serie[consulta.serie.length - 1].dia)}`]
-    : [];
   const embed = {
     color: F.COR,
     title: `🗺️ DOMINAÇÃO — ${consulta.rotulo}`,
     description: [
       `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`,
       ...(disputa ? [disputa] : []),
-      ...(tendencia.length ? ['', ...tendencia] : []),
     ].join('\n'),
     fields: F.campoLista('RANKING', itens.map((t, i) => linhaTerritorio(t, offset + i)), 'Nenhum território dominado no período.', { numerar: false }),
+    image: consulta.chart ? { url: 'attachment://dominacao-dias.png' } : undefined,
     footer: { text: `${F.rodape('canal logs-banco')} · Página ${atual + 1}/${totalPaginas}` },
   };
   return {
     embeds: [embed],
     components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })],
     attachments: [],
-    files: [],
+    files: consulta.chart ? [{ attachment: consulta.chart, name: 'dominacao-dias.png' }] : [],
     allowedMentions: { parse: [] },
   };
 }
@@ -154,7 +162,8 @@ async function abrirRanking(interaction, periodo) {
   const territorios = porTerritorio(linhas);
   const mapaDisputa = disputaPorDia(linhasDiaAlvo);
   const serie = serieTerritorioPorDia(linhasDia, mapaDisputa, periodo);
-  const dados = { territorios, rotulo: periodo.rotulo, pagina: 0, disputaTexto: textoDisputa(mapaDisputa), serie };
+  const chart = serie.some(s => s.horas || s.conquistas) ? await gerarGraficoTerritoriosPorDia(serie) : null;
+  const dados = { territorios, rotulo: periodo.rotulo, pagina: 0, disputaTexto: textoDisputa(mapaDisputa), chart };
   const consultaId = armazem.salvar(interaction.user.id, dados);
   await interaction.editReply(renderizarRanking(consultaId, dados));
 }
@@ -179,10 +188,19 @@ async function embedPerdidos() {
   };
 }
 
+// RANKING ao lado de TERRITÓRIOS PERDIDOS, na mesma linha — pedido do
+// usuário em 2026-09-15: a listagem completa (24 territórios) saiu do card
+// fixo (ficou grande demais sempre visível) e só abre por aqui agora, com o
+// período padrão (30d, mesmo que o resumo do card descreve) sem precisar
+// escolher no select primeiro. O select de período continua existindo pra
+// abrir o MESMO ranking em qualquer outro período.
 function linhaComponentesTerritorio() {
   return [
     selectPeriodo(MODULO, { placeholder: 'VER DOMINAÇÃO DE UM PERÍODO' }),
-    linhaBotao(MODULO, 'perdidos', 'TERRITÓRIOS PERDIDOS', { emoji: '⚠️' }),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${MODULO}:ranking`).setLabel('RANKING').setStyle(ButtonStyle.Secondary).setEmoji('🏆'),
+      new ButtonBuilder().setCustomId(`${MODULO}:perdidos`).setLabel('TERRITÓRIOS PERDIDOS').setStyle(ButtonStyle.Secondary).setEmoji('⚠️'),
+    ),
   ];
 }
 
@@ -192,6 +210,12 @@ registrarModulo(MODULO, async interaction => {
   if (interaction.isStringSelectMenu() && acao === 'selperiodo') {
     await interaction.deferReply({ flags: 64 });
     await abrirRanking(interaction, E.resolverPeriodo(interaction.values[0]));
+    return;
+  }
+
+  if (interaction.isButton() && acao === 'ranking') {
+    await interaction.deferReply({ flags: 64 });
+    await abrirRanking(interaction, E.resolverPeriodo(PERIODO_RANKING_PADRAO));
     return;
   }
 

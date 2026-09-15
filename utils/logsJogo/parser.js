@@ -3,7 +3,7 @@
 // sendo gravado como 'desconhecido' — nunca descartado. Regra nova aqui é
 // aplicada retroativamente ao histórico já gravado por
 // ingestao.reprocessarDesconhecidos, rodada a cada arranque do bot.
-const { corrigirMojibake } = require('./estatisticas');
+const { corrigirMojibake, nomePatrimonio } = require('./estatisticas');
 
 // O jogo manda HTML em alguns logs ("Renato Lhp <b>adicionou tag</b> #1588"),
 // que colava a tag no verbo e fazia a regra não casar — some junto com o
@@ -203,6 +203,29 @@ const REGRAS = [
     acao: 'bau_removeu',
     teste: (d, t) => /^Removeu\s*\[/i.test(t) && /Usu[aá]rio:/i.test(d),
     extrair: d => extrairBau(d),
+  },
+
+  // ── Patrimônio da torcida (bandeiras, faixas, mastros, bateria) ──────────
+  // Mesmo canal logs-baú, webhook diferente do baú comum ("Captain Hook"):
+  // título "Retirou <cargo>" / "Guardou <cargo>" (sem colchete — não é
+  // compartimento, por isso não colide com bau_guardou/bau_removeu acima) e
+  // descrição em campos colchetados: "[Id do Usuário]: 1969 [Item]: TOR
+  // Faixa 01 [Spawn Item]: hoolibras_tor_retangular_01-... [Quantidade]: 1".
+  // ESSE MESMO FORMATO é usado pra QUALQUER item do baú (munição, droga,
+  // roupa, adrenalina — levantamento de 2026-09-15 achou 90+ nomes diferentes
+  // nele), não só patrimônio — por isso o teste também exige que `[Item]`
+  // seja reconhecido como peça de patrimônio (E.nomePatrimonio), senão
+  // "Retirou 40x Munição de Pistola" viraria alerta de patrimônio. O resto
+  // (a maioria) continua caindo em 'desconhecido', como sempre caiu.
+  {
+    acao: 'patrimonio_guardou',
+    teste: (d, t) => /^Guardou\b/i.test(t) && /\[Id do Usu[aá]rio\]/i.test(d) && Boolean(nomePatrimonio(extrairPatrimonio(d).alvoNome)),
+    extrair: d => extrairPatrimonio(d),
+  },
+  {
+    acao: 'patrimonio_removeu',
+    teste: (d, t) => /^Retirou\b/i.test(t) && /\[Id do Usu[aá]rio\]/i.test(d) && Boolean(nomePatrimonio(extrairPatrimonio(d).alvoNome)),
+    extrair: d => extrairPatrimonio(d),
   },
 
   // ── Fechaduras que não são sede nem portão ───────────────────────────────
@@ -616,6 +639,20 @@ function extrairAtorEAlvo(d, verboRegex, extra = {}) {
 function extrairFechadura(d, verboRegex) {
   const nome = d.match(new RegExp(`${verboRegex.source}\\s+a\\s+(.+?)\\s*\\.?\\s*$`, 'i'))?.[1]?.trim() ?? null;
   return { ...extrairAtorQualquer(d, verboRegex), alvoNome: nome, categoria: 'patrimonio' };
+}
+
+// "[Id do Usuário]: 1969 [Item]: TOR Faixa 01 [Spawn Item]: hoolibras_tor_...
+// [Quantidade]: 1" (canal logs-baú, webhook do patrimônio). `[Spawn Item]`
+// carrega o identificador cru da peça no jogo (ignorado aqui — `[Item]` já
+// vem com o nome amigável, que é o que interessa pra alerta e auditoria).
+function extrairPatrimonio(d) {
+  return {
+    atorIdFivem: d.match(/\[Id do Usu[aá]rio\]:\s*(\d+)/i)?.[1] ?? null,
+    atorNome: null,
+    alvoNome: d.match(/\[Item\]:\s*(.+?)\s*(?=\[|$)/i)?.[1]?.trim() || null,
+    valor: Number(d.match(/\[Quantidade\]:\s*(\d+)/i)?.[1]) || null,
+    categoria: 'patrimonio',
+  };
 }
 
 // "Usuário: 19578 Item: tecido Quantidade: 1" (canal logs-baú). Quantidade vai

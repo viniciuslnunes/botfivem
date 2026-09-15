@@ -3,8 +3,9 @@ const F = require('./painelFormato');
 const repo = require('./repositorio');
 const { criarPainelCanal } = require('./painelCanal');
 const {
-  linhaComponentesTerritorio, porTerritorio, linhaTerritorio, linhaTerritorioHoje, disputaPorDia, textoDisputa, serieTerritorioPorDia,
+  linhaComponentesTerritorio, porTerritorio, linhaTerritorioHoje, disputaPorDia, textoDisputa, serieTerritorioPorDia,
 } = require('./painelTerritorioInteracoes');
+const { gerarGraficoTerritoriosPorDia } = require('./graficoTerritoriosPorDia');
 
 // Canal 🗺️・dominacao-territorios: mensagem fixa curta (padrão interativo, ver
 // painelBau.js). Público — conquista é orgulho da torcida, não auditoria.
@@ -13,18 +14,15 @@ const {
 const SLUG = 'dominacao_territorios';
 const ACOES = ['coins_dominacao', 'coins_conquista'];
 
-// Ranking completo (todos os territórios, não só um TOP) direto na mensagem
-// fixa — pedido do usuário em 2026-09-15: cortar em 10 escondia mais de
-// metade dos territórios (24 no total) atrás do select. `campoLista` já
-// quebra em mais de um field sozinho se passar de 1024 caracteres, então
-// listar todos não tem custo.
-// Sem gráfico de imagem (Chart.js/PNG, ver histórico do arquivo até
-// 2026-09-15): confuso pra ler de relance. No lugar, o mesmo padrão que
-// /estatisticas já usa (relatorios.js: sparkline de texto + intervalo de
-// datas) pra tendência dos 30 dias, e uma lista à parte **HOJE** — nome do
-// território, quantas vezes foi dominado e quantas horas, só do dia atual —
-// que é a pergunta que o usuário quer responder de relance sem clicar em
-// nada (o select continua servindo pra qualquer outro período).
+// Card fixo enxuto: resumo (30 dias) + destaque de disputa + gráfico por dia
+// (graficoTerritoriosPorDia.js) + **HOJE** (nome do território, quantas
+// vezes foi dominado e quantas horas, só do dia atual). O ranking COMPLETO
+// (todos os territórios) saiu daqui — pedido do usuário em 2026-09-15: com
+// 24 territórios, listar todos deixava a mensagem sempre visível grande
+// demais. Agora só abre no botão RANKING (linhaComponentesTerritorio, em
+// painelTerritorioInteracoes.js), do lado de TERRITÓRIOS PERDIDOS — mesmo
+// padrão de "card curto + exploração sob demanda" que o resto dos
+// canais-painel interativos usa (ver painelBau.js).
 async function montarBlocos() {
   const mes = E.resolverPeriodo('30d');
   const hoje = E.resolverPeriodo('hoje');
@@ -43,9 +41,7 @@ async function montarBlocos() {
   const mapaDisputa = disputaPorDia(linhasDiaAlvo);
   const disputa = textoDisputa(mapaDisputa);
   const serie = serieTerritorioPorDia(linhasDia, mapaDisputa, mes);
-  const tendencia = serie.some(s => s.horas)
-    ? [`\`${E.sparkline(serie.map(s => s.horas))}\` horas de domínio/dia`, `${E.formatarDiaCurto(serie[0].dia)} → ${E.formatarDiaCurto(serie[serie.length - 1].dia)}`]
-    : [];
+  const chart = serie.some(s => s.horas || s.conquistas) ? await gerarGraficoTerritoriosPorDia(serie) : null;
 
   const embed = {
     color: F.COR,
@@ -54,17 +50,20 @@ async function montarBlocos() {
       ...(aviso ? [aviso, ''] : []),
       `**ÚLTIMOS 30 DIAS:** ${E.formatarNumero(horas)}h de domínio · ${E.formatarNumero(conquistas)} conquistas · ${E.formatarNumero(territorios.length)} territórios`,
       ...(disputa ? [disputa] : []),
-      ...(tendencia.length ? ['', ...tendencia] : []),
       ...(territorios.length ? [] : ['', '*Nenhum território dominado nos últimos 30 dias.*']),
     ].join('\n'),
-    fields: [
-      ...F.campoLista('HOJE', territoriosHoje.map(t => linhaTerritorioHoje(t)), 'Nenhum território dominado hoje ainda.'),
-      ...(territorios.length ? F.campoLista(`RANKING (${territorios.length})`, territorios.map((t, i) => linhaTerritorio(t, i)), '') : []),
-    ],
+    fields: F.campoLista('HOJE', territoriosHoje.map(t => linhaTerritorioHoje(t)), 'Nenhum território dominado hoje ainda.'),
+    image: chart ? { url: 'attachment://dominacao-dias.png' } : undefined,
     footer: { text: F.rodape('canal logs-banco') },
     timestamp: new Date().toISOString(),
   };
-  return [{ embeds: [embed], components: linhaComponentesTerritorio(), attachments: [], files: [], allowedMentions: { parse: [] } }];
+  // `attachments: []` é obrigatório em toda edição, senão o Discord mantém o
+  // gráfico da edição anterior e só ACRESCENTA o novo — como este painel
+  // reedita a cada ciclo/log novo (às vezes a cada 30s), a mensagem
+  // acumularia um PNG a mais por ciclo até estourar o limite de anexos do
+  // Discord e o painel parar de atualizar sem aviso nenhum.
+  const files = chart ? [{ attachment: chart, name: 'dominacao-dias.png' }] : [];
+  return [{ embeds: [embed], components: linhaComponentesTerritorio(), attachments: [], files, allowedMentions: { parse: [] } }];
 }
 
 const painel = criarPainelCanal({

@@ -588,6 +588,29 @@ async function eventosConexao(inicio, fim) {
   return res.rows;
 }
 
+// Dois formatos reais carregam patrimônio (ver E.nomePatrimonio): o webhook
+// novo (`patrimonio_*`, sempre patrimônio) e o baú comum antigo (`bau_*`, que
+// também carrega tecido/droga/etc — quem chama filtra pelo nome do item).
+const ACOES_PATRIMONIO = ['patrimonio_guardou', 'patrimonio_removeu', 'bau_guardou', 'bau_removeu'];
+
+// Último evento (guardou/removeu, de qualquer um dos dois formatos) por nome
+// de item — decide se a peça está no baú ou "em aberto" (removida e ainda
+// não devolvida). Mesma lógica de ultimoPorFechadura, mas por `alvo_nome`
+// (nome do item ou código de spawn), não por fechadura fixa. Devolve TODO
+// item que já passou pelas ações de baú (não só patrimônio) — quem chama
+// filtra com E.nomePatrimonio, senão a linha "presidente"/"tecido" nunca sai
+// da consulta e não dá pra saber quais das ~90 são patrimônio de verdade.
+async function ultimoPorPatrimonio() {
+  const res = await db.query(
+    `SELECT DISTINCT ON (alvo_nome) acao, ator_id_fivem, alvo_nome, ocorrido_em
+       FROM logs_jogo
+      WHERE acao = ANY($1) AND alvo_nome IS NOT NULL
+      ORDER BY alvo_nome, ocorrido_em DESC, message_id::bigint DESC, embed_indice DESC`,
+    [ACOES_PATRIMONIO]
+  );
+  return res.rows;
+}
+
 module.exports = {
   inserirRegistro,
   desconhecidosComBruto,
@@ -621,6 +644,7 @@ module.exports = {
   topAtoresPorValor,
   nomesPorIds,
   ultimoPorFechadura,
+  ultimoPorPatrimonio,
   saldoBau,
   atividadeBauPorId,
   movimentoBauPorPessoa,

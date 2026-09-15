@@ -356,6 +356,56 @@ test('baú de recompensas: compartimento próprio, personagem com ID e nome', ()
   assert.equal(E.bauDoTitulo('Guardou [GDF Sócio]'), 'GDF Sócio');
 });
 
+test('patrimônio (bandeiras/faixas/mastros): webhook próprio no canal logs-baú, título sem colchete', () => {
+  const retirou = parseRegistro({
+    title: 'Retirou presidente',
+    description: '[Id do Usuário]: 1969\n[Item]: TOR Faixa 01\n[Spawn Item]: hoolibras_tor_retangular_01-1728582654-1730418296\n[Quantidade]: 1',
+  });
+  assert.equal(retirou.acao, 'patrimonio_removeu');
+  assert.equal(retirou.categoria, 'patrimonio');
+  assert.equal(retirou.atorIdFivem, '1969');
+  assert.equal(retirou.atorNome, null);
+  assert.equal(retirou.alvoNome, 'TOR Faixa 01');
+  assert.equal(retirou.valor, 1);
+
+  const guardou = parseRegistro({
+    title: 'Guardou presidente',
+    description: '[Id do Usuário]: 1969\n[Item]: GDF Faixa 01\n[Spawn Item]: hoolibras_gdf_retangular_01-1735196337\n[Quantidade]: 1',
+  });
+  assert.equal(guardou.acao, 'patrimonio_guardou');
+  assert.equal(guardou.alvoNome, 'GDF Faixa 01');
+
+  // Não pode colidir com o baú comum (título sem colchete = não é compartimento)
+  assert.notEqual(parseRegistro({ title: 'Guardou presidente', description: 'Usuário: 1 Item: tecido Quantidade: 1' }).acao, 'patrimonio_guardou');
+
+  // Mesmo formato de colchetes vale pra QUALQUER item do baú (munição, droga,
+  // roupa) — só vira 'patrimonio_*' quando o item É patrimônio de verdade.
+  const municao = parseRegistro({
+    title: 'Retirou diretor',
+    description: '[Id do Usuário]: 39018\n[Item]: Munição de Pistola\n[Spawn Item]: WEAPON_PISTOL_AMMO\n[Quantidade]: 40',
+  });
+  assert.equal(municao.acao, 'desconhecido');
+
+  const caixa = parseRegistro({
+    title: 'Guardou presidente',
+    description: '[Id do Usuário]: 1969\n[Item]: GDF Caixa\n[Spawn Item]: hoolibras_gdf_caixa-123\n[Quantidade]: 1',
+  });
+  assert.equal(caixa.acao, 'patrimonio_guardou');
+  assert.equal(caixa.alvoNome, 'GDF Caixa');
+});
+
+test('E.nomePatrimonio: reconhece os dois formatos reais (nome amigável novo e código de spawn antigo)', () => {
+  assert.equal(E.nomePatrimonio('GDF Mastro 01'), 'GDF Mastro 01');
+  assert.equal(E.nomePatrimonio('TOR Faixa 01'), 'TOR Faixa 01');
+  assert.equal(E.nomePatrimonio('GDF Caixa'), 'GDF Caixa');
+  assert.equal(E.nomePatrimonio('hoolibras_gdf_mastro_02'), 'GDF Mastro 02');
+  assert.equal(E.nomePatrimonio('hoolibras_gdf_quadrada_01'), 'GDF Bandeira Quadrada 01');
+  assert.equal(E.nomePatrimonio('hoolibras_gdf_retangular_01'), 'GDF Bandeira Retangular 01');
+  assert.equal(E.nomePatrimonio('Munição de Pistola'), null);
+  assert.equal(E.nomePatrimonio('Camiseta GDF'), null);
+  assert.equal(E.nomePatrimonio('tecido'), null);
+});
+
 test('tags: grafia antiga da mesma tag é a mesma tag, e quem saiu da torcida perde todas', () => {
   const eventos = [
     ev('tag_adicionou', { alvo_id_fivem: '9', alvo_nome: 'Voltou', descricao: 'adicionou tag #9 Voltou (RSJ).' }, 1),

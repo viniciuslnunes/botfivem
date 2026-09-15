@@ -19,7 +19,6 @@ const { iniciarPainelTerritorio } = require('../utils/logsJogo/painelTerritorio'
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
-const { iniciarVerificacaoSeguranca } = require('../utils/logsJogo/seguranca');
 const { atualizarQuadroDepartamentos } = require('../utils/departamentos/quadro');
 const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
 const { iniciarPainelReenvio } = require('../utils/recrutamento/painelReenvio');
@@ -67,8 +66,9 @@ module.exports = (client) => {
     iniciarVerificacaoVencimentos(client);
     // Novatos do jogo que não pediram recrutamento no Discord (a cada 6h)
     iniciarAlertaNovatos(client);
-    // Sede/portão destrancados sem ninguém online no jogo (a cada 10min)
-    iniciarVerificacaoSeguranca(client);
+    // Alerta automático de sede/portão destrancados desativado (2026-09-15):
+    // estava poluindo o canal de novatos. O estado sob demanda continua em
+    // /estatisticas seguranca e no painel de fechaduras.
     // Quadro de departamentos em dia com quem entrou/saiu das áreas com o bot desligado
     atualizarQuadroDepartamentos(client)
       .catch(err => console.error('[departamentos] Erro ao atualizar quadro:', err));

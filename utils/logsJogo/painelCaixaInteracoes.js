@@ -150,7 +150,7 @@ function moeda(acao, valor) {
 }
 
 function linhaResumo(l) {
-  return `${ROTULOS[l.acao] ?? l.acao} — **${moeda(l.acao, l.soma)}** em ${E.formatarNumero(l.total)} ${l.total === 1 ? 'registro' : 'registros'}`;
+  return `**${ROTULOS[l.acao] ?? l.acao}** — ${moeda(l.acao, l.soma)} em ${E.formatarNumero(l.total)} ${l.total === 1 ? 'registro' : 'registros'}`;
 }
 
 function linhaPessoaValor(l, i) {

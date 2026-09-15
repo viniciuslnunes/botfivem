@@ -1,8 +1,35 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ChannelType } = require('discord.js');
 const config = require('../../config/index.js');
+const { lerConfig, gravarConfig } = require('../botConfig');
 const { buscarBloqueio } = require('../naoRecrutar');
 const repo = require('./repositorio');
 const E = require('./estatisticas');
+
+const CHAVE_CANAL_ALERTA_BAU = 'canal_alerta_bau';
+
+// Canal dedicado pro alerta de retirada grande do baú (nasce na primeira vez
+// que o alerta dispara, ID salvo em bot_config). Antes caía no canal de
+// alerta de novatos (config.logsJogo.canalAlertas) por não ter `canal:`
+// próprio — confundia alerta de patrimônio com recrutamento.
+async function garantirCanalAlertaBau(client) {
+  const guild = await client.guilds.fetch(config.guildId);
+  const salvoId = await lerConfig(CHAVE_CANAL_ALERTA_BAU);
+  const salvo = salvoId && await guild.channels.fetch(salvoId).catch(() => null);
+  if (salvo) return salvo.id;
+
+  const referencia = await guild.channels.fetch(config.logsJogo.canalAlertas).catch(() => null);
+  const canal = await guild.channels.create({
+    name: '🚨・alerta-baú',
+    type: ChannelType.GuildText,
+    parent: referencia?.parentId ?? null,
+    permissionOverwrites: referencia
+      ? referencia.permissionOverwrites.cache.map(o => ({ id: o.id, allow: o.allow, deny: o.deny }))
+      : [],
+    reason: 'Alerta de retirada grande do baú da torcida',
+  });
+  await gravarConfig(CHAVE_CANAL_ALERTA_BAU, canal.id);
+  return canal.id;
+}
 
 // Regras avaliadas só para log que acabou de chegar — nunca na sincronização
 // do histórico, senão cada registro antigo viraria um alerta.
@@ -13,6 +40,13 @@ const ultimosAlertasBloqueio = new Map(); // idFivem -> timestamp
 
 function mencoes() {
   return config.logsJogo.mencionarAlertas.map(id => `<@&${id}>`).join(' ');
+}
+
+// Movimentação de patrimônio (bandeira/faixa/mastro) menciona só quem decide
+// sobre patrimônio da torcida — não a equipe de recrutamento, que entra em
+// `mencoes()` mas não tem nada a ver com isso.
+function mencoesPatrimonio() {
+  return [config.cargos.presidente, config.cargos.velhaGuarda, config.cargos.diretoria].map(id => `<@&${id}>`).join(' ');
 }
 
 const REGRAS = [
@@ -49,6 +83,7 @@ const REGRAS = [
   },
   {
     nome: 'retirada_grande_bau',
+    canal: (client) => garantirCanalAlertaBau(client),
     // Retirada grande é o único evento do baú que precisa de alguém olhando na
     // hora: material do baú é da torcida, e o log não diz pra onde foi. O nome
     // do jogador é emprestado dos outros canais — o log do baú só manda o ID.
@@ -72,6 +107,40 @@ const REGRAS = [
         .setFooter({ text: `Alerta a partir de ${E.formatarNumero(config.logsJogo.bau.alertaRetiradaQtd)} unidades · canal logs-baú` })
         .setTimestamp();
       return { content: mencoes(), embeds: [alerta] };
+    },
+  },
+  {
+    nome: 'patrimonio_bau',
+    canal: (client) => garantirCanalAlertaBau(client),
+    // Bandeira/faixa/mastro/instrumento saindo ou voltando pro baú — sem
+    // limiar de quantidade, ao contrário da retirada grande: cada peça é
+    // única, então toda movimentação importa pra saber quem está com o quê.
+    // Dois formatos reais viram esse alerta (ver E.nomePatrimonio): o webhook
+    // novo (`patrimonio_guardou`/`patrimonio_removeu`, sempre patrimônio) e o
+    // baú comum antigo (`bau_guardou`/`bau_removeu`, que também carrega
+    // tecido/droga/etc — só entra aqui quando o item bate com o padrão de
+    // patrimônio).
+    async montar(registro) {
+      const formatoNovo = registro.acao === 'patrimonio_guardou' || registro.acao === 'patrimonio_removeu';
+      const formatoAntigo = registro.acao === 'bau_guardou' || registro.acao === 'bau_removeu';
+      if (!formatoNovo && !formatoAntigo) return null;
+      const rotulo = formatoNovo ? registro.alvoNome : E.nomePatrimonio(registro.alvoNome);
+      if (!rotulo) return null;
+
+      const retirou = registro.acao === 'patrimonio_removeu' || registro.acao === 'bau_removeu';
+      const nome = registro.atorIdFivem
+        ? (await repo.nomesPorIds([registro.atorIdFivem])).get(registro.atorIdFivem)
+        : null;
+      const alerta = new EmbedBuilder()
+        .setColor(retirou ? 0xFF0000 : 0x00AA00)
+        .setTitle(retirou ? '🚩 PATRIMÔNIO RETIRADO DO BAÚ' : '🚩 PATRIMÔNIO GUARDADO NO BAÚ')
+        .addFields(
+          { name: '🎌 Item', value: rotulo, inline: true },
+          { name: '👤 Quem', value: nome ? `${nome} (${registro.atorIdFivem})` : (registro.atorIdFivem ?? 'N/A'), inline: true }
+        )
+        .setFooter({ text: 'Detectado automaticamente pelos logs do jogo · canal logs-baú' })
+        .setTimestamp();
+      return { content: mencoesPatrimonio(), embeds: [alerta] };
     },
   },
   {
@@ -114,7 +183,7 @@ async function avaliarAlertas(client, registros) {
       try {
         const mensagem = await regra.montar(registro, client);
         if (!mensagem) continue;
-        const idCanal = regra.canal ? regra.canal() : config.logsJogo.canalAlertas;
+        const idCanal = regra.canal ? await regra.canal(client) : config.logsJogo.canalAlertas;
         const canal = await resolverCanal(client, idCanal);
         if (canal) await canal.send(mensagem);
       } catch (err) {

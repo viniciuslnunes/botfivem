@@ -259,8 +259,29 @@ async function reprocessarFormatacaoDiasFechados(client) {
   return reeditados;
 }
 
+// Fila de execução única: o ciclo por tempo, o reativo (debounce) e o
+// reprocessamento manual (/registros-diarios-reformatar) chamam a mesma
+// mensagem do canal. Sem isso, uma atualização lenta (editar várias mensagens
+// com retry de rate limit do Discord pode levar vários segundos) e um evento
+// novo chegando no meio dela liberavam DUAS execuções em paralelo — cada uma
+// calculando o total de jogadores a partir de um instante diferente, e se a
+// mais lenta (com MENOS jogadores contados) terminasse por último, ela
+// sobrescrevia a mensagem com um número menor que o já publicado. Sintoma
+// relatado pelo usuário em 2026-09-15: o registro de hoje "travando" ora em
+// 66, ora em 59 — cada corrida vencedora dependia do timing de quem
+// entrava/saía naquele instante. Serializar garante que a próxima atualização
+// só começa depois que a anterior termina de verdade (edições já confirmadas
+// no Discord), nunca duas ao mesmo tempo.
+let filaAtual = Promise.resolve();
+function serializado(fn) {
+  const execucao = filaAtual.then(fn, fn);
+  filaAtual = execucao.catch(() => {}); // uma falha não trava as próximas da fila
+  return execucao;
+}
+
 function iniciarRegistrosDiarios(client) {
-  const atualizar = () => atualizarRegistrosDiarios(client).catch(err => console.error('[registros-diarios] Erro ao atualizar:', err));
+  const atualizar = () => serializado(() => atualizarRegistrosDiarios(client))
+    .catch(err => console.error('[registros-diarios] Erro ao atualizar:', err));
   atualizar();
   // O ciclo por tempo fica só como rede de segurança (mesmo padrão do painel
   // de jogadores — ver painelJogadores.js): a atualização de verdade é
@@ -281,7 +302,8 @@ function agendarAtualizacaoReativa(client) {
   if (timerPendente) return;
   timerPendente = setTimeout(() => {
     timerPendente = null;
-    atualizarRegistrosDiarios(client).catch(err => console.error('[registros-diarios] Erro ao atualizar (reativo):', err));
+    serializado(() => atualizarRegistrosDiarios(client))
+      .catch(err => console.error('[registros-diarios] Erro ao atualizar (reativo):', err));
   }, DEBOUNCE_MS);
 }
 
@@ -289,5 +311,9 @@ module.exports = {
   iniciarRegistrosDiarios,
   atualizarRegistrosDiarios,
   agendarAtualizacaoReativa,
-  reprocessarFormatacaoDiasFechados,
+  // Na mesma fila do ciclo reativo/por tempo: sem isso, rodar o comando
+  // enquanto uma atualização reativa está no meio de editar as mesmas
+  // mensagens (ex.: reformatar "ontem" bem na hora em que o ciclo normal
+  // fecha "ontem" de verdade) cria a mesma corrida descrita acima.
+  reprocessarFormatacaoDiasFechados: client => serializado(() => reprocessarFormatacaoDiasFechados(client)),
 };
