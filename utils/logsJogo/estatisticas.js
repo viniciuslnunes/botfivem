@@ -60,6 +60,17 @@ function inicioDaHoraSP(data) {
   return new Date(`${dia}T${horaRotulo.replace('h', '')}:00:00-03:00`);
 }
 
+// Início da semana civil (segunda 00h, fuso SP) que contém `data`. Diferente
+// de resolverPeriodo('7d'), que é janela rolante de 7 dias — isso aqui é a
+// semana de calendário de verdade: zera na virada de domingo pra segunda,
+// não vai "descontando" um recrutamento de cada vez conforme envelhece.
+function inicioDaSemanaSP(data) {
+  const meiaNoite = inicioDoDiaSP(data);
+  const diaSemana = meiaNoite.getUTCDay(); // 0=domingo .. 6=sábado
+  const diasDesdeSegunda = (diaSemana + 6) % 7; // segunda=0 .. domingo=6
+  return new Date(meiaNoite.getTime() - diasDesdeSegunda * DIA_MS);
+}
+
 // Baldes de tempo consecutivos cobrindo [início, fim), no tamanho `passoMs`
 function gerarBaldes(inicio, fim, passoMs, chaveFn, inicioBaldeFn) {
   const baldes = [];
@@ -281,6 +292,7 @@ module.exports = {
   inicioDoDiaSP,
   chaveHora,
   inicioDaHoraSP,
+  inicioDaSemanaSP,
   gerarBaldes,
   resolverPeriodo,
   serieDiaria,

@@ -7,6 +7,15 @@ test('dia civil é o de São Paulo, não o UTC', () => {
   assert.equal(E.inicioDoDiaSP('2026-09-11T02:00:00Z').toISOString(), '2026-09-10T03:00:00.000Z');
 });
 
+test('início da semana civil é sempre segunda 00h em SP, não janela rolante', () => {
+  // sexta 11/09/2026, 12h em SP → semana começou na segunda 07/09
+  assert.equal(E.inicioDaSemanaSP('2026-09-11T15:00:00Z').toISOString(), '2026-09-07T03:00:00.000Z');
+  // domingo 13/09/2026 ainda é da mesma semana (começada na segunda anterior)
+  assert.equal(E.inicioDaSemanaSP('2026-09-13T15:00:00Z').toISOString(), '2026-09-07T03:00:00.000Z');
+  // segunda 14/09/2026: virou a semana, início é o próprio dia
+  assert.equal(E.inicioDaSemanaSP('2026-09-14T15:00:00Z').toISOString(), '2026-09-14T03:00:00.000Z');
+});
+
 test('período de 7 dias e janela anterior de mesma duração', () => {
   const agora = new Date('2026-09-11T15:00:00Z');
   const p = E.resolverPeriodo('7d', agora);

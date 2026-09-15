@@ -360,16 +360,19 @@ async function picoHistoricoRegistrado() {
   return P.picoComInstante([], eventosAjustados);
 }
 
-// Quantos "fulano recrutou beltrano" o webhook logou hoje e nos últimos 7
-// dias — o "+X/hoje +Y/semana" ao lado de SÓCIOS SETADOS. Mesma ação que
-// incrementarSociosManual soma (ver events/messageCreate.js), só que aqui é
-// uma contagem no período, direto do histórico gravado, não o acumulado
-// manual — não precisa (nem pode) ser editado à mão.
+// Quantos "fulano recrutou beltrano" o webhook logou hoje e nesta semana
+// civil (segunda 00h até agora, fuso SP) — o "+X/hoje +Y/semana" ao lado de
+// SÓCIOS SETADOS. Mesma ação que incrementarSociosManual soma (ver
+// events/messageCreate.js), só que aqui é uma contagem no período, direto do
+// histórico gravado (ocorrido_em = timestamp do webhook), não o acumulado
+// manual — não precisa (nem pode) ser editado à mão. `semana` é semana de
+// calendário, não janela rolante de 7 dias: zera de vez na virada de domingo
+// pra segunda, junto com `hoje` zerando na virada do dia.
 async function recrutamentosRecentes(agora = new Date()) {
   const filtroBase = { acao: 'jogador_recrutou', fim: agora };
   const [hoje, semana] = await Promise.all([
     repo.resumo({ ...filtroBase, inicio: E.inicioDoDiaSP(agora) }),
-    repo.resumo({ ...filtroBase, inicio: E.resolverPeriodo('7d', agora).inicio }),
+    repo.resumo({ ...filtroBase, inicio: E.inicioDaSemanaSP(agora) }),
   ]);
   return { hoje: hoje.total, semana: semana.total };
 }
