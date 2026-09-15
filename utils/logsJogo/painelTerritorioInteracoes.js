@@ -4,7 +4,6 @@ const F = require('./painelFormato');
 const repo = require('./repositorio');
 const { criarArmazemConsultas, mensagemErroConsulta } = require('./consultasEmMemoria');
 const { selectPeriodo, linhaBotao, linhaPaginacao } = require('./painelComponentesFixos');
-const { gerarGraficoTerritoriosPorDia } = require('./graficoTerritoriosPorDia');
 
 // Canal 🗺️・dominacao-territorios: mesmo padrão interativo do 📦・estoque-bau.
 // Coins de território não têm um "ator" (não é uma pessoa que gera o log, é o
@@ -66,7 +65,8 @@ function textoDisputa(mapaDisputa) {
 // essa informação estar DENTRO do gráfico, não só numa frase acima dele.
 // Três séries contínuas (E.serieDiaria zera os dias sem log — sem isso um
 // dia parado sumiria do eixo em vez de aparecer como barra/ponto zerado) no
-// mesmo formato que graficoTerritoriosPorDia espera. Período "tudo" não tem
+// mesmo array que alimenta a sparkline de tendência (ver painelTerritorio.js
+// e renderizarRanking). Período "tudo" não tem
 // `inicio` fixo (ver estatisticas.resolverPeriodo) — usa o dia mais antigo
 // que apareceu nos dados como início da série.
 function serieTerritorioPorDia(linhasDiaAcao, mapaDisputa, periodo) {
@@ -104,33 +104,43 @@ function linhaTerritorio(t, indice) {
     + (ultima ? ` · última conquista ${F.haQuantoTempo(ultima)}` : '');
 }
 
-// `consulta.chart` (PNG do domínio por dia, ver abrirRanking) é o mesmo em
-// toda página — não depende do ranking paginado, só do período escolhido —
-// mas precisa ir de novo em toda edição (`attachments: []` zera o anexo
-// anterior a cada troca de página, mesmo motivo do painel fixo, ver
-// painelTerritorio.js).
+// Versão curta pro bloco **HOJE** do painel fixo (painelTerritorio.js): só o
+// que responde "quantas vezes e quantas horas HOJE", sem coins/última
+// conquista (redundante quando o período já é o próprio dia).
+function linhaTerritorioHoje(t) {
+  const conquistas = `${E.formatarNumero(t.conquistas)} ${t.conquistas === 1 ? 'conquista' : 'conquistas'}`;
+  return `**${F.nomeSeguro(t.territorio)}** — ${conquistas} · ${Math.round(t.horas)}h hoje`;
+}
+
+// Sem PNG (Chart.js, ver histórico do arquivo até 2026-09-15) — mesmo padrão
+// de tendência que o painel fixo usa agora (sparkline de texto + intervalo de
+// datas). Só aparece com mais de um dia de dados: período "Hoje" tem um único
+// ponto, sparkline não diz nada aí.
 function renderizarRanking(consultaId, consulta) {
   const { itens, atual, totalPaginas } = armazem.pagina(consulta.territorios, consulta.pagina ?? 0);
   const horas = consulta.territorios.reduce((s, t) => s + t.horas, 0);
   const conquistas = consulta.territorios.reduce((s, t) => s + t.conquistas, 0);
   const offset = atual * armazem.porPagina;
   const disputa = consulta.disputaTexto;
+  const tendencia = consulta.serie.length > 1 && consulta.serie.some(s => s.horas)
+    ? [`\`${E.sparkline(consulta.serie.map(s => s.horas))}\` horas de domínio/dia`, `${E.formatarDiaCurto(consulta.serie[0].dia)} → ${E.formatarDiaCurto(consulta.serie[consulta.serie.length - 1].dia)}`]
+    : [];
   const embed = {
     color: F.COR,
     title: `🗺️ DOMINAÇÃO — ${consulta.rotulo}`,
     description: [
       `**${E.formatarNumero(horas)}h** de domínio · **${E.formatarNumero(conquistas)}** conquistas · **${consulta.territorios.length}** territórios`,
       ...(disputa ? [disputa] : []),
+      ...(tendencia.length ? ['', ...tendencia] : []),
     ].join('\n'),
     fields: F.campoLista('RANKING', itens.map((t, i) => linhaTerritorio(t, offset + i)), 'Nenhum território dominado no período.', { numerar: false }),
-    image: consulta.chart ? { url: 'attachment://dominacao-dias.png' } : undefined,
     footer: { text: `${F.rodape('canal logs-banco')} · Página ${atual + 1}/${totalPaginas}` },
   };
   return {
     embeds: [embed],
     components: [linhaPaginacao(MODULO, consultaId, atual, totalPaginas, { comBusca: false })],
     attachments: [],
-    files: consulta.chart ? [{ attachment: consulta.chart, name: 'dominacao-dias.png' }] : [],
+    files: [],
     allowedMentions: { parse: [] },
   };
 }
@@ -144,8 +154,7 @@ async function abrirRanking(interaction, periodo) {
   const territorios = porTerritorio(linhas);
   const mapaDisputa = disputaPorDia(linhasDiaAlvo);
   const serie = serieTerritorioPorDia(linhasDia, mapaDisputa, periodo);
-  const chart = serie.some(s => s.horas || s.conquistas) ? await gerarGraficoTerritoriosPorDia(serie) : null;
-  const dados = { territorios, rotulo: periodo.rotulo, pagina: 0, disputaTexto: textoDisputa(mapaDisputa), chart };
+  const dados = { territorios, rotulo: periodo.rotulo, pagina: 0, disputaTexto: textoDisputa(mapaDisputa), serie };
   const consultaId = armazem.salvar(interaction.user.id, dados);
   await interaction.editReply(renderizarRanking(consultaId, dados));
 }
@@ -202,5 +211,5 @@ registrarModulo(MODULO, async interaction => {
 });
 
 module.exports = {
-  linhaComponentesTerritorio, porTerritorio, linhaTerritorio, disputaPorDia, textoDisputa, serieTerritorioPorDia,
+  linhaComponentesTerritorio, porTerritorio, linhaTerritorio, linhaTerritorioHoje, disputaPorDia, textoDisputa, serieTerritorioPorDia,
 };

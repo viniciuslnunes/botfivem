@@ -1,3 +1,4 @@
+const { SnowflakeUtil } = require('discord.js');
 const config = require('../../config/index.js');
 const { parseRegistro } = require('./parser');
 const repo = require('./repositorio');
@@ -25,6 +26,35 @@ function registrosDaMensagem(message) {
   });
 }
 
+// "#15277 Fulano recrutou #19465 Beltrano." prova que o recrutado JÁ ESTÁ no
+// servidor agora — mas o "entrou no servidor" dele (canal logs-painel) pode
+// ter se perdido, mesma perda de pacote documentada em presenca.js. Sem
+// isso, ele fica de fora da presença até o jogo mandar uma saída, o que
+// nunca acontece pra quem nunca foi marcado online (pedido do usuário,
+// 2026-09-15: recrutados do dia não apareciam como online mesmo estando).
+// messageId sintético via SnowflakeUtil: precisa ser um número (comparações
+// `message_id::bigint` em toda consulta de conexão, ver estadoDosJogadores),
+// só não pode colidir com o message_id real do próprio log de recrutamento —
+// daí não reaproveitar o mesmo id.
+function montarEntradaImplicita(registro) {
+  return {
+    messageId: SnowflakeUtil.generate({ timestamp: registro.ocorridoEm }).toString(),
+    embedIndice: 0,
+    canalId: registro.canalId,
+    categoria: 'conexao',
+    acao: 'jogador_entrou',
+    atorNome: registro.alvoNome,
+    atorIdFivem: registro.alvoIdFivem,
+    alvoNome: null,
+    alvoIdFivem: null,
+    valor: null,
+    titulo: null,
+    descricao: `Entrada implícita: recrutado por ${registro.atorNome ?? `#${registro.atorIdFivem}`} em jogo, sem log de conexão próprio.`,
+    ocorridoEm: registro.ocorridoEm,
+    bruto: { sintetico: true, origemAcao: 'jogador_recrutou', mensagemId: registro.messageId, embedIndice: registro.embedIndice },
+  };
+}
+
 // Grava e devolve só os registros que ainda não existiam.
 //
 // Último ponto de checagem antes do banco (não só o primeiro, em
@@ -43,7 +73,16 @@ async function gravarRegistros(registros) {
       console.warn(`[logs-jogo] Registro de canal fora da lista permitida (${registro.canalId}) — ignorado, não gravado.`);
       continue;
     }
-    if (await repo.inserirRegistro(registro)) novos.push(registro);
+    if (!(await repo.inserirRegistro(registro))) continue;
+    novos.push(registro);
+
+    if (registro.acao === 'jogador_recrutou' && registro.alvoIdFivem) {
+      const ultimaAcao = await repo.ultimaAcaoDeConexao(registro.alvoIdFivem);
+      if (ultimaAcao !== 'jogador_entrou') {
+        const implicita = montarEntradaImplicita(registro);
+        if (await repo.inserirRegistro(implicita)) novos.push(implicita);
+      }
+    }
   }
   return novos;
 }
@@ -123,6 +162,7 @@ async function sincronizarCanaisDeLog(client, opcoes) {
 module.exports = {
   ehMensagemDeLog,
   registrosDaMensagem,
+  montarEntradaImplicita,
   gravarRegistros,
   sincronizarCanaisDeLog,
   reprocessarDesconhecidos,

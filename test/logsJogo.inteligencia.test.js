@@ -268,7 +268,7 @@ test('território: horas = logs de dominação, ordenado por horas', () => {
   assert.deepEqual(t.map(x => [x.territorio, x.horas, x.conquistas, x.coins]), [['Metrô', 9, 0, 27], ['Farol', 5, 2, 35]]);
 });
 
-// Gráfico por dia (ver graficoTerritoriosPorDia.js): "disputa" precisa
+// Sparkline por dia (ver painelTerritorio.js): "disputa" precisa
 // distinguir "5 conquistas em 5 territórios diferentes" (sem disputa) de "o
 // MESMO território retomado 5x" (disputa ativa) — as duas situações têm o
 // mesmo total de conquistas do dia, só a quebra por território diferencia.

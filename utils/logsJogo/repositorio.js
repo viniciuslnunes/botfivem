@@ -563,6 +563,20 @@ async function estadoDosJogadores(instante = new Date()) {
 // tempo de simultâneos dentro do período. Ver o comentário de
 // estadoDosJogadores sobre por que o desempate por message_id/embed_indice é
 // necessário, não só um capricho de determinismo.
+// Último evento de conexão de UM id — usado antes de gerar uma entrada
+// implícita (ver ingestao.montarEntradaImplicita) pra não duplicar quem já
+// está com sessão aberta de verdade.
+async function ultimaAcaoDeConexao(idFivem) {
+  const res = await db.query(
+    `SELECT acao FROM logs_jogo
+      WHERE acao = ANY($1) AND ator_id_fivem = $2
+      ORDER BY ocorrido_em DESC, message_id::bigint DESC, embed_indice DESC
+      LIMIT 1`,
+    [ACOES_CONEXAO, idFivem]
+  );
+  return res.rows[0]?.acao ?? null;
+}
+
 async function eventosConexao(inicio, fim) {
   const res = await db.query(
     `SELECT ator_id_fivem AS id, ator_nome AS nome, acao, ocorrido_em
@@ -591,6 +605,7 @@ module.exports = {
   idsFrequentes,
   estadoDosJogadores,
   eventosConexao,
+  ultimaAcaoDeConexao,
   ultimoEvento,
   topAtoresPorAcoes,
   contarPorAcoes,
