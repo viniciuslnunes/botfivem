@@ -14,15 +14,17 @@ const { gerarGraficoTerritoriosPorDia } = require('./graficoTerritoriosPorDia');
 const SLUG = 'dominacao_territorios';
 const ACOES = ['coins_dominacao', 'coins_conquista'];
 
-// Card fixo enxuto: resumo (30 dias) + destaque de disputa + gráfico por dia
-// (graficoTerritoriosPorDia.js) + **HOJE** (nome do território, quantas
-// vezes foi dominado e quantas horas, só do dia atual). O ranking COMPLETO
-// (todos os territórios) saiu daqui — pedido do usuário em 2026-09-15: com
-// 24 territórios, listar todos deixava a mensagem sempre visível grande
-// demais. Agora só abre no botão RANKING (linhaComponentesTerritorio, em
-// painelTerritorioInteracoes.js), do lado de TERRITÓRIOS PERDIDOS — mesmo
-// padrão de "card curto + exploração sob demanda" que o resto dos
-// canais-painel interativos usa (ver painelBau.js).
+// Card fixo: resumo (30 dias) + destaque de disputa + gráfico por dia
+// (graficoTerritoriosPorDia.js) + tabela compacta com TODOS os territórios
+// do período (nome, horas de domínio, conquistas) + **HOJE** (só o que
+// teve atividade no dia). A tabela em bloco monoespaçado (F.tabela) volta a
+// mostrar os 24 territórios direto no card — pedido do usuário em
+// 2026-09-17 — sem repetir o problema de 2026-09-15 (lista em texto rico
+// com negrito/emoji por linha deixava a mensagem grande demais): uma linha
+// por território sem markdown por linha é bem mais compacta. O botão
+// RANKING (linhaComponentesTerritorio, em painelTerritorioInteracoes.js)
+// continua existindo pra ver outros períodos e o detalhe de "última
+// conquista" que a tabela não carrega.
 async function montarBlocos() {
   const mes = E.resolverPeriodo('30d');
   const hoje = E.resolverPeriodo('hoje');
@@ -42,6 +44,12 @@ async function montarBlocos() {
   const disputa = textoDisputa(mapaDisputa);
   const serie = serieTerritorioPorDia(linhasDia, mapaDisputa, mes);
   const chart = serie.some(s => s.horas || s.conquistas) ? await gerarGraficoTerritoriosPorDia(serie) : null;
+  const tabelaRanking = F.tabela([
+    { titulo: '#', valor: (t, i) => String(i + 1), alinhar: 'dir' },
+    { titulo: 'TERRITÓRIO', valor: t => t.territorio, alinhar: 'esq', larguraMax: 18 },
+    { titulo: 'DOMÍNIO', valor: t => `${Math.round(t.horas)}h`, alinhar: 'dir' },
+    { titulo: 'CONQ.', valor: t => E.formatarNumero(t.conquistas), alinhar: 'dir' },
+  ], territorios);
 
   const embed = {
     color: F.COR,
@@ -50,7 +58,7 @@ async function montarBlocos() {
       ...(aviso ? [aviso, ''] : []),
       `**ÚLTIMOS 30 DIAS:** ${E.formatarNumero(horas)}h de domínio · ${E.formatarNumero(conquistas)} conquistas · ${E.formatarNumero(territorios.length)} territórios`,
       ...(disputa ? [disputa] : []),
-      ...(territorios.length ? [] : ['', '*Nenhum território dominado nos últimos 30 dias.*']),
+      ...(territorios.length ? ['', tabelaRanking] : ['', '*Nenhum território dominado nos últimos 30 dias.*']),
     ].join('\n'),
     fields: F.campoLista('HOJE', territoriosHoje.map(t => linhaTerritorioHoje(t)), 'Nenhum território dominado hoje ainda.'),
     image: chart ? { url: 'attachment://dominacao-dias.png' } : undefined,

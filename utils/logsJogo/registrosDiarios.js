@@ -3,6 +3,7 @@ const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const E = require('./estatisticas');
 const relatorios = require('./relatorios');
+const { botaoVerJogadores } = require('./registrosDiariosInteracoes');
 
 // Canal-acervo: um registro por dia (pico de simultâneos, jogadores
 // distintos e o tempo de cada um), reaproveitando a mesma inteligência do
@@ -20,7 +21,6 @@ const CONFIG_KEY_CANAL = 'canal_registros_diarios';
 const CONFIG_KEY_ESTADO = 'registros_diarios_estado';
 const NOME_CANAL = '📅・registros-diarios';
 const INTERVALO_HORAS = 6;
-const LIMITE_DESCRICAO = 3900; // margem abaixo do limite de 4096 caracteres da description do Discord
 
 function permissoesCanal(guild, botId) {
   return [
@@ -77,74 +77,36 @@ function tituloDia(dia) {
 // linha (ex.: "||" sem par vira spoiler que engole o resto da lista até achar
 // outro "||" nome abaixo, sumindo com posições inteiras, sem erro nenhum pro
 // log). `entrada.id` também escapado por segurança, mesmo sendo numérico hoje.
+// Usada só na exploração ephemeral (ver registrosDiariosInteracoes.js) — a
+// lista de jogadores não mora mais na mensagem do canal, ver montarEmbedRegistro.
 function linhaJogador(entrada, indice) {
   const nome = escapeMarkdown(entrada.nome ?? '?');
   const id = escapeMarkdown(String(entrada.id));
-  // Número em negrito (não "92. texto" cru): uma linha começando com dígito+ponto
-  // é lista numerada pro parser do Discord, que assume a própria numeração — na
-  // borda entre a lista (description) e os fields que vêm na sequência (dados.resumo,
-  // ver montarEmbedsRegistro), o client do Discord chega a desenhar 1-2 marcadores
-  // fantasmas a mais (ex.: "99." e "100." sem conteúdo nenhum depois, mesmo a lista
-  // real acabando em 98 — bug reportado com print pelo usuário em 2026-09-15).
-  // Começar com "**" em vez de dígito tira a linha do parser de lista do Discord.
   return `**${indice + 1}.** **${nome}** \`${id}\` — ${E.formatarDuracao(entrada.ms)}`;
 }
 
-// Quebra uma lista de linhas em pedaços que caibam num orçamento de
-// caracteres cada — o primeiro pedaço tem orçamento menor (sobra menos
-// espaço, porque a description da primeira mensagem também carrega
-// linhaTopo + o cabeçalho "JOGADORES (N)"), os seguintes usam o orçamento
-// cheio. Usado pra montar a description de cada mensagem, nunca `fields`:
-// um field do Discord sempre reserva uma linha de nome, mesmo com nome
-// vazio — isso abria um respiro estranho no meio da lista numerada (ver
-// print do usuário, posição 26→27 e 51→52). Texto corrido na description
-// não tem essa quebra.
-function agruparPorOrcamento(linhas, orcamentoPrimeiro, orcamentoDemais) {
-  const grupos = [];
-  let atual = [];
-  let tamanho = 0;
-  let orcamento = orcamentoPrimeiro;
-  for (const linha of linhas) {
-    const acrescimo = linha.length + 1;
-    if (atual.length && tamanho + acrescimo > orcamento) {
-      grupos.push(atual);
-      atual = [];
-      tamanho = 0;
-      orcamento = orcamentoDemais;
-    }
-    atual.push(linha);
-    tamanho += acrescimo;
-  }
-  grupos.push(atual); // sempre pelo menos um grupo, mesmo vazio (dia sem ninguém online)
-  return grupos;
-}
-
-// Um dia normalmente cabe numa mensagem só (resumo + lista de jogadores
-// inteira na description). Se a lista for grande demais pro limite de 4096
-// caracteres da description, quebra em mais de uma mensagem — cada uma
-// continua a mesma coluna vertical, sem repetir cabeçalho no meio.
-function montarEmbedsRegistro(dia, dados) {
-  const linhas = dados.entradas.map((e, i) => linhaJogador(e, i));
-  const cabecalhoLista = `**JOGADORES (${dados.entradas.length})**\n`;
-  const cabecalhoPrimeira = `${dados.linhaTopo}\n\n${cabecalhoLista}`;
-  const orcamentoPrimeira = Math.max(500, LIMITE_DESCRICAO - cabecalhoPrimeira.length);
-  const grupos = dados.entradas.length
-    ? agruparPorOrcamento(linhas, orcamentoPrimeira, LIMITE_DESCRICAO)
-    : [[]];
-
-  return grupos.map((grupo, i) => ({
+// A mensagem do canal é só o resumo do dia (curto, sempre cabe folgado nos
+// limites do Discord) + um botão que abre a lista de jogadores paginada,
+// ephemeral (ver registrosDiariosInteracoes.js). Antes a lista inteira (até
+// ~200 nomes em negrito) vivia direto na description, quebrada em várias
+// mensagens quando passava de 4096 caracteres — o texto gravado no Discord
+// sempre saía completo (auditado direto pela API), mas o CLIENTE do Discord
+// ocasionalmente "comia" o fim de alguma linha na tela do usuário, sempre em
+// posição diferente e sem relação com o dado (bug relatado com print pelo
+// usuário em 2026-09-15/17, em posições diferentes a cada vez — 99/100, depois
+// 66, depois de novo em posições variadas mesmo após números virarem negrito).
+// Sem controle sobre esse bug do lado do Discord, a saída é não depender de
+// blocos gigantes de markdown: cada página ephemeral tem no máximo 25 nomes,
+// mesmo padrão já usado sem problema no painel de presença ao vivo.
+function montarEmbedRegistro(dia, dados) {
+  return {
     color: 0x000000,
-    title: i === 0 ? `📅 REGISTRO DIÁRIO — ${tituloDia(dia)}` : null,
-    description: i === 0
-      ? `${cabecalhoPrimeira}${grupo.join('\n') || '*Ninguém online registrado.*'}`
-      : `*(continuação — ${tituloDia(dia)})*\n\n${grupo.join('\n')}`,
-    fields: i === 0 ? [dados.resumo] : [],
-    footer: {
-      text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel`
-        + (grupos.length > 1 ? ` · Página ${i + 1}/${grupos.length}` : ''),
-    },
+    title: `📅 REGISTRO DIÁRIO — ${tituloDia(dia)}`,
+    description: dados.linhaTopo,
+    fields: [dados.resumo],
+    footer: { text: 'Com base nos logs do jogo recebidos pelo webhook · canal logs-painel' },
     timestamp: new Date().toISOString(),
-  }));
+  };
 }
 
 // Reexecuta `fn` se o Discord recusar por rate limit (mesma lógica de
@@ -167,10 +129,13 @@ async function comRetry(fn, tentativasRestantes = 2) {
   }
 }
 
-// Monta/edita as mensagens de um dia (uma ou várias, se a lista de
-// jogadores precisar de mais de um embed) e devolve os IDs finais — reaproveita
-// as mensagens antigas por posição, cria as que faltarem e apaga o excesso
-// (lista encolheu, o que não deveria acontecer, mas fecha o ciclo).
+// Monta/edita a mensagem de um dia e devolve o ID final — reaproveita a
+// mensagem antiga se ainda existir, cria uma nova senão. `idsAntigos` pode
+// trazer mais de um ID de acervo anterior (de quando o dia ainda virava
+// vários embeds paginados na description, ver comentário de montarEmbedRegistro)
+// — o excesso é apagado aqui, colapsando o dia numa mensagem só sem duplicar
+// nem perder histórico (o dado real vem de novo dos logs, nunca das mensagens
+// antigas).
 async function atualizarRegistroDoDia(canal, dia, periodo, agora, idsAntigos = []) {
   // listaCumulativa: um registro arquivado é sempre "quem jogou no dia",
   // ranking por tempo — nunca "quem está online agora" (que é o que o
@@ -180,26 +145,21 @@ async function atualizarRegistroDoDia(canal, dia, periodo, agora, idsAntigos = [
   // bonde já registrado" (recorde de todo o histórico), que só confundia ao
   // lado do "pico de simultâneos" do próprio dia, logo abaixo.
   const dados = await relatorios.montarDadosPresenca(periodo, { listaCumulativa: true, semContextoGlobal: true }, agora);
-  const embeds = montarEmbedsRegistro(dia, dados);
-  const idsNovos = [];
+  const embed = montarEmbedRegistro(dia, dados);
+  const payload = { embeds: [embed], components: [botaoVerJogadores(dia)], allowedMentions: { parse: [] } };
 
-  for (let i = 0; i < embeds.length; i++) {
-    const idAntigo = idsAntigos[i];
-    if (idAntigo) {
-      const msg = await canal.messages.fetch(idAntigo).catch(() => null);
-      if (msg) {
-        await comRetry(() => msg.edit({ embeds: [embeds[i]], allowedMentions: { parse: [] } }));
-        idsNovos.push(idAntigo);
-        continue;
-      }
+  const [idPrincipal, ...idsExtras] = idsAntigos;
+  if (idPrincipal) {
+    const msg = await canal.messages.fetch(idPrincipal).catch(() => null);
+    if (msg) {
+      await comRetry(() => msg.edit(payload));
+      for (const idExtra of idsExtras) await canal.messages.delete(idExtra).catch(() => {});
+      return [idPrincipal];
     }
-    const nova = await comRetry(() => canal.send({ embeds: [embeds[i]], allowedMentions: { parse: [] } }));
-    idsNovos.push(nova.id);
   }
-  for (const idExtra of idsAntigos.slice(embeds.length)) {
-    await canal.messages.delete(idExtra).catch(() => {});
-  }
-  return idsNovos;
+  const nova = await comRetry(() => canal.send(payload));
+  for (const idExtra of idsExtras) await canal.messages.delete(idExtra).catch(() => {});
+  return [nova.id];
 }
 
 async function atualizarRegistrosDiarios(client) {
@@ -239,7 +199,7 @@ function periodoDoDia(dia) {
 // (rótulo, numeração das listas etc.) sem recalcular nada que mudaria o
 // resultado — um dia fechado não recebe log novo, então os números saem
 // idênticos, só a apresentação muda. Existe só pra corrigir o acervo depois
-// de um ajuste visual em montarEmbedsRegistro/linhasContexto; não é chamado
+// de um ajuste visual em montarEmbedRegistro/linhasContexto; não é chamado
 // no ciclo normal (ver atualizarRegistrosDiarios, que só reprocessa "ontem"
 // e "hoje"). Devolve quantos dias foram reeditados.
 async function reprocessarFormatacaoDiasFechados(client) {
@@ -291,10 +251,9 @@ function iniciarRegistrosDiarios(client) {
 
 // Atualização reativa: dispara pouco depois de um evento de entrada/saída
 // chegar, em vez de esperar o próximo ciclo de tempo. Debounce maior que o
-// do painel de jogadores (15s) porque aqui uma atualização pode editar até
-// 6 mensagens (lista grande quebrada em campos) — juntar uma rajada de
-// entradas/saídas seguidas numa única atualização evita martelar a edição
-// de várias mensagens repetidas vezes em poucos segundos.
+// do painel de jogadores (15s) porque uma rajada de entradas/saídas seguidas
+// numa única atualização evita martelar a edição da mensagem repetidas
+// vezes em poucos segundos.
 const DEBOUNCE_MS = 45 * 1000;
 let timerPendente = null;
 
@@ -316,4 +275,11 @@ module.exports = {
   // mensagens (ex.: reformatar "ontem" bem na hora em que o ciclo normal
   // fecha "ontem" de verdade) cria a mesma corrida descrita acima.
   reprocessarFormatacaoDiasFechados: client => serializado(() => reprocessarFormatacaoDiasFechados(client)),
+  // As três abaixo existem só pra registrosDiariosInteracoes.js montar a
+  // lista de jogadores sob demanda, quando alguém clica no botão da mensagem
+  // (ver ali) — require em cima causaria dependência circular, por isso lá o
+  // require desses três é local à função, não no topo do arquivo.
+  periodoDoDia,
+  tituloDia,
+  linhaJogador,
 };
