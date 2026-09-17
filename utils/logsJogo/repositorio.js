@@ -577,6 +577,18 @@ async function ultimaAcaoDeConexao(idFivem) {
   return res.rows[0]?.acao ?? null;
 }
 
+// Data do primeiro log de entrada/saída já recebido — de onde o acervo de
+// registros-diários pode partir ao reconstruir o histórico inteiro (ver
+// reconstruirAcervoCompleto em registrosDiarios.js). `null` só se o webhook
+// nunca mandou nenhum evento de conexão.
+async function primeiroEventoConexao() {
+  const res = await db.query(
+    'SELECT MIN(ocorrido_em) AS primeira FROM logs_jogo WHERE acao = ANY($1) AND ator_id_fivem IS NOT NULL',
+    [ACOES_CONEXAO]
+  );
+  return res.rows[0]?.primeira ?? null;
+}
+
 async function eventosConexao(inicio, fim) {
   const res = await db.query(
     `SELECT ator_id_fivem AS id, ator_nome AS nome, acao, ocorrido_em
@@ -629,6 +641,7 @@ module.exports = {
   estadoDosJogadores,
   eventosConexao,
   ultimaAcaoDeConexao,
+  primeiroEventoConexao,
   ultimoEvento,
   topAtoresPorAcoes,
   contarPorAcoes,

@@ -2,6 +2,7 @@ const { ChannelType, PermissionFlagsBits: P, escapeMarkdown } = require('discord
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const E = require('./estatisticas');
+const repo = require('./repositorio');
 const relatorios = require('./relatorios');
 const { botaoVerJogadores } = require('./registrosDiariosInteracoes');
 
@@ -219,6 +220,77 @@ async function reprocessarFormatacaoDiasFechados(client) {
   return reeditados;
 }
 
+// Apaga toda mensagem do canal, mais antiga que 14 dias ou não — bulkDelete
+// já filtra sozinho (`filterOld: true`) e devolve só o que conseguiu apagar
+// em lote; o resto (mensagens mais antigas, que a API não deixa apagar em
+// lote) cai pro delete individual, um a um.
+async function apagarTodasMensagens(canal) {
+  let apagadas = 0;
+  for (;;) {
+    const lote = await canal.messages.fetch({ limit: 100 });
+    if (!lote.size) break;
+    const apagadasEmLote = await comRetry(() => canal.bulkDelete(lote, true));
+    apagadas += apagadasEmLote.size;
+    const restantes = lote.filter(m => !apagadasEmLote.has(m.id));
+    for (const msg of restantes.values()) {
+      await comRetry(() => msg.delete());
+      apagadas++;
+    }
+  }
+  return apagadas;
+}
+
+// Todo dia (chave "YYYY-MM-DD") entre `primeiraData` (inclusive) e
+// `diaLimiteExclusivo` (exclusive) — os dias já fechados que o acervo
+// completo precisa cobrir, do primeiro log de entrada/saída registrado até
+// ontem (hoje é tratado separado, como dia em andamento).
+function listaDiasAntes(diaLimiteExclusivo, primeiraData) {
+  const dias = [];
+  let cursor = E.inicioDoDiaSP(primeiraData);
+  const limite = new Date(`${diaLimiteExclusivo}T00:00:00-03:00`);
+  while (cursor < limite) {
+    dias.push(E.chaveDia(cursor));
+    cursor = new Date(cursor.getTime() + E.DIA_MS);
+  }
+  return dias;
+}
+
+// Reconstrução completa: apaga TUDO que já foi publicado no canal e recria
+// do zero, dia após dia em ordem cronológica, desde o primeiro dia com log
+// de entrada/saída registrado até hoje — pedido do usuário em 2026-09-17.
+// Diferente de reprocessarFormatacaoDiasFechados (que só reedita mensagens
+// que já existem, dia a dia do estado salvo): aqui `estado` é zerado e todo
+// dia sai como mensagem NOVA (send em sequência, nunca edit), o que garante
+// a ordem cronológica no canal mesmo pra dias que nunca tiveram registro
+// (ex.: histórico anterior a este canal existir, ou um dia que o bot ficou
+// fora do ar e pulou — ver o comentário no topo do arquivo sobre lacunas).
+// Só leitura no banco (montarDadosPresenca, mesma fonte de sempre); o "dado
+// real" nunca vem das mensagens antigas, por isso apagar tudo antes é seguro.
+async function reconstruirAcervoCompleto(client) {
+  const guild = await client.guilds.fetch(config.guildId);
+  const canal = await garantirCanal(guild);
+  const agora = new Date();
+
+  const apagadas = await apagarTodasMensagens(canal);
+
+  const primeira = await repo.primeiroEventoConexao();
+  const diaHoje = E.chaveDia(agora);
+  const dias = primeira ? listaDiasAntes(diaHoje, primeira) : [];
+
+  const estado = {};
+  for (const dia of dias) {
+    const ids = await atualizarRegistroDoDia(canal, dia, periodoDoDia(dia), agora, []);
+    estado[dia] = { messageIds: ids, finalizado: true };
+  }
+
+  const periodoHoje = E.resolverPeriodo('hoje', agora);
+  const idsHoje = await atualizarRegistroDoDia(canal, diaHoje, periodoHoje, agora, []);
+  estado[diaHoje] = { messageIds: idsHoje, finalizado: false };
+
+  await gravarEstado(estado);
+  return { apagadas, criados: dias.length + 1 };
+}
+
 // Fila de execução única: o ciclo por tempo, o reativo (debounce) e o
 // reprocessamento manual (/registros-diarios-reformatar) chamam a mesma
 // mensagem do canal. Sem isso, uma atualização lenta (editar várias mensagens
@@ -275,6 +347,10 @@ module.exports = {
   // mensagens (ex.: reformatar "ontem" bem na hora em que o ciclo normal
   // fecha "ontem" de verdade) cria a mesma corrida descrita acima.
   reprocessarFormatacaoDiasFechados: client => serializado(() => reprocessarFormatacaoDiasFechados(client)),
+  // Mesma fila, mesmo motivo — reconstrução completa (/registros-diarios-reconstruir)
+  // apaga e recria toda mensagem do canal, não pode correr ao lado de uma
+  // atualização reativa/por tempo tocando nas mesmas mensagens.
+  reconstruirAcervoCompleto: client => serializado(() => reconstruirAcervoCompleto(client)),
   // As três abaixo existem só pra registrosDiariosInteracoes.js montar a
   // lista de jogadores sob demanda, quando alguém clica no botão da mensagem
   // (ver ali) — require em cima causaria dependência circular, por isso lá o
