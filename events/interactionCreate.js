@@ -19,6 +19,7 @@ const { situacaoCarteirinha, textoSituacao } = require('../utils/carteirinha/reg
 const { registrarSinal } = require('../utils/confianca/servico');
 const { mapearSociosPorIdFivem } = require('../utils/recrutamento/funil');
 const { garantirMembrosCarregados } = require('../utils/membrosGuild');
+const { verificarRestricaoAoAdvertir } = require('../utils/logsJogo/alertas');
 
 // Advertência de recrutador tem cargos próprios; reusar os de sócio escalaria as duas juntas.
 const advRecConfigurada = () =>
@@ -489,6 +490,12 @@ module.exports = (client, _config, utils) => {
       // Adicionar novo cargo de advertência
       await membro.roles.add(CARGOS_ADV[proximaAdv]);
 
+      // Cruzamento com o jogo (2026-09-21): se esse sócio já está com
+      // restrição ativa (blacklist/suspensão/impedimento), avisa a liderança
+      // em 🚨・associado-em-atenção. Sem await: alerta é bônus, não pode
+      // atrasar a resposta de quem está registrando a advertência.
+      verificarRestricaoAoAdvertir(interaction.client, membro);
+
       const numAdv = proximaAdv + 1;
       const expiraEm = Math.floor(Date.now() / 1000) + prazoNum * 86400;
 
@@ -927,8 +934,10 @@ module.exports = (client, _config, utils) => {
         const candidatoId = idField ? idField.value.split(' ')[0] : null;
         const nomeField = embed.fields.find(f => f.name === 'NOME');
         const idFiveMField = embed.fields.find(f => f.name === 'ID FIVEM');
+        const telefoneField = embed.fields.find(f => f.name === 'TELEFONE');
         const nome = nomeField ? nomeField.value : '';
         const id_fivem = idFiveMField ? idFiveMField.value : '';
+        const telefone = telefoneField ? telefoneField.value : '';
         // O histórico inteiro da lista é lido (pode levar alguns segundos): deferir antes
         await interaction.deferUpdate();
         let bloqueado;
@@ -968,6 +977,19 @@ module.exports = (client, _config, utils) => {
             .catch(err => console.error('[aprovar] Erro ao registrar decisão da ficha:', err));
           await registrarSinal(client, { discordId: candidatoId, sinal: 'APROVACAO', origemTipo: 'ficha', origemId: fichaId })
             .catch(err => console.error('[aprovar] Erro ao registrar sinal de confiança:', err));
+          // Divulgar telefone do novo sócio no canal telefone-narnia
+          const canalTelefoneNarnia = interaction.guild.channels.cache.get(config.canais.telefoneNarnia);
+          if (canalTelefoneNarnia) {
+            await canalTelefoneNarnia.send({
+              content: `📞 NOVO SÓCIO APROVADO: **${nome}** (ID FIVEM ${id_fivem}) — <@${candidatoId}>\nTELEFONE: **${telefone}**`
+            }).catch(err => console.error('[aprovar] Erro ao enviar telefone para telefone-narnia:', err));
+          } else {
+            console.error('Canal telefone-narnia não encontrado!');
+          }
+          // Convite do WhatsApp NÃO é mais automático aqui — passou a ser disparo
+          // manual pelo painel 📲・convite-whatsapp (botão pra um sócio ou pra
+          // todos), pedido do usuário em 2026-09-21 pra não notificar em massa a
+          // cada aprovação e poder validar o fluxo do painel manualmente primeiro.
         } catch (err) {
           console.error('Erro ao registrar aprovação no banco:', err);
           await interaction.channel.send({

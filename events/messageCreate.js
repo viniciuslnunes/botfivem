@@ -15,11 +15,16 @@ const { agendarAtualizacaoReativa: agendarRestricoes } = require('../utils/logsJ
 const { agendarAtualizacaoReativa: agendarFechaduras } = require('../utils/logsJogo/painelFechaduras');
 const { agendarAtualizacaoReativa: agendarTags } = require('../utils/logsJogo/painelTags');
 const { agendarAtualizacaoReativa: agendarTerritorio } = require('../utils/logsJogo/painelTerritorio');
+const { agendarAtualizacaoReativa: agendarRecrutadores } = require('../utils/logsJogo/painelRecrutadores');
+const { agendarAtualizacaoReativa: agendarFarm } = require('../utils/logsJogo/painelFarm');
 const { tratarSpam } = require('../utils/antiSpam/servico');
 
 // Categoria do log (posta pelo parser) → canal de inteligência que ela alimenta.
+// 'bau' acorda dois painéis: estoque-bau (saldo geral) e painel-farm (só
+// depósito de item de farm) — ambos vivem do mesmo log bau_guardou/removeu.
 const PAINEIS_POR_CATEGORIA = [
   ['bau', agendarBau],
+  ['bau', agendarFarm],
   ['economia', agendarCaixa],
   ['disciplina', agendarDisciplina],
   ['restricao', agendarRestricoes],
@@ -49,6 +54,8 @@ module.exports = (client) => {
       if (novos.some(r => r.categoria === 'conexao')) {
         agendarAtualizacaoReativa(client);
         agendarRegistrosDiarios(client);
+        // Entrada/saída pode mudar o status online de um recrutador no painel.
+        agendarRecrutadores(client);
       }
       // ID do jogo novo nos logs: pode passar a bater (ou deixar de bater)
       // com o filtro de frequência do canal de IDs sem Discord.
@@ -69,6 +76,7 @@ module.exports = (client) => {
       if (recrutamentos > 0) {
         await incrementarSociosManual(recrutamentos).catch(err => console.error('[logs-jogo] Erro ao somar sócios setados:', err));
         await atualizarPainelJogadores(client).catch(err => console.error('[logs-jogo] Erro ao atualizar painel após recrutamento:', err));
+        agendarRecrutadores(client);
       }
       // Depósito/saque novo: soma (ou subtrai) por cima do SALDO NO BANCO DA
       // TORCIDA batido à mão (só ajusta se a liderança já setou algum valor

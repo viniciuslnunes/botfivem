@@ -199,3 +199,39 @@ contagem e exemplo. Para resolver:
   antiga tinha gente que já estava na blacklist. Essa regra é **dedução**, não
   vem de documentação do jogo: se a tag sobreviver à saída, ela deve ser tirada
   de `analises.tagsAtivas`.
+- **Advertência do Discord (cargo ADV¹/²/³) cruzada com a inteligência do jogo**
+  (pedido do usuário em 2026-09-21): a advertência de sócio não vem de log do
+  jogo, é cargo Discord direto no membro (`config.cargos.adv`), sem tabela nem
+  histórico próprio (só os embeds do canal `historico-advertencia`). Criado
+  `utils/logsJogo/advertenciaDiscord.js` (`advertenciaAtivaDoMembro`,
+  `linhaAdvertenciaDiscord`) e plugado nas 3 fichas que já existiam: ficha de
+  `⚖️・disciplina-jogo`, ficha de `⛔・banidos-e-impedidos` e o resumo de
+  `📜・historico-do-associado` (campo CONDUTA). `linhaAdvertenciaDiscord`
+  devolve `null` sem `membro` em mãos (nunca finge "nenhuma advertência" sem
+  ter checado o cargo de verdade — mesma regra de "marcar resolvido só depois
+  da ação de fato", ver `docs/padroes-e-canais.md` § 1.5) — por isso só
+  aparece nos 3 pontos com o `GuildMember` vivo na hora (busca direta por
+  UserSelect); o detalhe de disciplina/restrições aberto a partir do
+  histórico (que só tem `idFivem`/nome guardados, sem `membro`) fica sem essa
+  linha.
+- **Alerta automático em `🚨・associado-em-atenção`** (pedido do usuário em
+  2026-09-21, depois de confirmado): o canal (`config.canais.associadoEmAtencao`,
+  `1547740103097589811`) agora recebe alerta nas DUAS direções, ambas em
+  `utils/logsJogo/alertas.js`:
+  1. **Jogo → Discord** (regra `restricao_jogo_socio_ativo`, reativa a cada
+     log novo de blacklist/suspensão/impedimento `_adicionou`): só dispara se
+     o alvo correlacionar por nome (ver 1.4) com um membro que TEM o cargo de
+     sócio agora — quem já saiu não é mais "associado em atenção", fica só na
+     ficha manual de `⛔・banidos-e-impedidos`.
+  2. **Discord → Jogo** (`verificarRestricaoAoAdvertir`, chamada de
+     `events/interactionCreate.js` ao registrar advertência de sócio): se o
+     sócio advertido já está com restrição ativa no jogo, avisa na hora — sem
+     isso a liderança só saberia das duas coisas juntas se fosse conferir os
+     dois canais na mão.
+  Um debounce só (`ultimosAlertasAtencao`, chave `tipo:idFivem`, mesma janela
+  de 6h de `id_bloqueado_no_jogo`) cobre as duas direções — evita repetir o
+  aviso quando impedimento liga/desliga em segundos (ver acima) e evita
+  alertar duas vezes a mesma restrição se as duas direções dispararem perto
+  uma da outra. Embed compartilhado (`embedAtencaoSocio`) sempre traz: sócio,
+  tipo de restrição, nível de advertência Discord (`advertenciaDiscord.js`) e,
+  só pra blacklist, se já está bloqueado no `❌・nao-recrutar`.

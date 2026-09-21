@@ -40,6 +40,16 @@ function tipoDaAcao(acao) {
   return Object.entries(TIPOS_RESTRICAO).find(([, t]) => t.adicionou === acao || t.removeu === acao)?.[0] ?? null;
 }
 
+// Status por tipo de UM alvo já filtrado (eventos DESC, ex. repo.eventosDoAlvo)
+// — mesma regra de restricoesAtivas, mas por pessoa em vez de lista inteira
+// (ficha de jogador, checagem pontual antes de um alerta).
+function statusRestricoesDoAlvo(eventos) {
+  return Object.keys(TIPOS_RESTRICAO).map(tipo => {
+    const ultimo = eventos.find(e => TIPOS_RESTRICAO[tipo].adicionou === e.acao || TIPOS_RESTRICAO[tipo].removeu === e.acao);
+    return { tipo, ativo: ultimo?.acao === TIPOS_RESTRICAO[tipo].adicionou, ultimo };
+  });
+}
+
 // Devolve só quem ESTÁ restrito agora, mais recente primeiro. Eventos sem alvo
 // resolvido pelo jogo ("#nil nil nil") não entram: sem saber de quem é, não dá
 // pra dizer que alguém está banido.
@@ -200,7 +210,9 @@ module.exports = {
   ultimoPorChave,
   TIPOS_RESTRICAO,
   ACOES_RESTRICAO,
+  tipoDaAcao,
   restricoesAtivas,
+  statusRestricoesDoAlvo,
   ACOES_ADVERTENCIA,
   advertenciasAtivas,
   ACOES_TAG,

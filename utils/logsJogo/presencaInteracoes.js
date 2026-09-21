@@ -677,4 +677,4 @@ registrarModulo('presenca', async interaction => {
   }
 });
 
-module.exports = { linhaBotoesPresenca, abrirPresenca, CONFIG_KEY_MANUAL, incrementarSociosManual };
+module.exports = { linhaBotoesPresenca, abrirPresenca, CONFIG_KEY_MANUAL, incrementarSociosManual, embedFichaCompleta };

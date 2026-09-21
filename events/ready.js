@@ -16,12 +16,16 @@ const { iniciarPainelRestricoes } = require('../utils/logsJogo/painelRestricoes'
 const { iniciarPainelFechaduras } = require('../utils/logsJogo/painelFechaduras');
 const { iniciarPainelTags } = require('../utils/logsJogo/painelTags');
 const { iniciarPainelTerritorio } = require('../utils/logsJogo/painelTerritorio');
+const { iniciarPainelHistorico } = require('../utils/logsJogo/painelHistorico');
+const { iniciarPainelRecrutadores } = require('../utils/logsJogo/painelRecrutadores');
+const { iniciarPainelFarm } = require('../utils/logsJogo/painelFarm');
 const { reconciliarCarteirinhas } = require('../utils/carteirinhaSocio');
 const { iniciarVerificacaoVencimentos } = require('../utils/carteirinha/vencimentos');
 const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
 const { atualizarQuadroDepartamentos } = require('../utils/departamentos/quadro');
 const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
 const { iniciarPainelReenvio } = require('../utils/recrutamento/painelReenvio');
+const { iniciarPainelConviteWhatsapp } = require('../utils/recrutamento/painelConviteWhatsapp');
 
 module.exports = (client) => {
   client.once('clientReady', async () => {
@@ -56,6 +60,9 @@ module.exports = (client) => {
         iniciarPainelFechaduras(client);
         iniciarPainelTags(client);
         iniciarPainelTerritorio(client);
+        iniciarPainelRecrutadores(client);
+        iniciarPainelFarm(client);
+        iniciarPainelHistorico(client);
       });
 
     // Carteirinhas de quem perdeu ou recuperou o cargo SÓCIO com o bot desligado
@@ -77,6 +84,8 @@ module.exports = (client) => {
       .catch(err => console.error('[nao-recrutar] Erro ao atualizar mensagem fixa:', err));
     // Reprovados sem nova tentativa, com o botão de liberar (abaixo do validar-setagem)
     iniciarPainelReenvio(client);
+    // Convite do grupo de sócios no WhatsApp: enviar pra um ou todos, e trocar o link
+    iniciarPainelConviteWhatsapp(client);
 
     // Enviar mensagem fixa de recrutamento no canal de análise (somente se não existir)
     try {

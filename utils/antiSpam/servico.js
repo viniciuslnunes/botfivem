@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, StickerFormatType } = require('discord.js');
 const config = require('../../config/index.js');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, temAlgumCargo, MSG_SO_LIDERANCA } = require('../permissoes');
@@ -57,7 +57,7 @@ async function tratarSpam(message) {
   // certeza (a regra comum bate no 3º canal, a de alta certeza só no 4º).
 
   const anexos = [...message.attachments.values()].map(a => ({ nome: a.name, tamanho: a.size, url: a.url }));
-  const figurinhas = [...message.stickers.values()].map(s => ({ id: s.id, nome: s.name, url: s.url }));
+  const figurinhas = [...message.stickers.values()].map(s => ({ id: s.id, nome: s.name, url: s.url, formato: s.format }));
   const historico = (historicoPorUsuario.get(userId) || [])
     .filter(h => agora - h.em <= cfg.historicoSegundos * 1000);
   historico.push({
@@ -79,6 +79,10 @@ async function tratarSpam(message) {
   // Isenção só é consultada quando a regra bate: evita ler cargos a cada mensagem
   if (await isento(message.member)) return false;
 
+  // Baixa os arquivos AGORA — a URL do Discord morre assim que a mensagem é
+  // apagada (é o que acontecia antes: o alerta linkava pra uma URL já morta).
+  const amostraArquivos = await baixarAmostra(historico);
+
   // Alta certeza apaga mesmo em modo só alerta; o resto só apaga em modo punir
   const apagar = !modoSoAlerta() || altaCerteza.spam;
   pegoAte.set(userId, { ate: agora + cfg.apagarNaHoraSegundos * 1000, apagar });
@@ -95,7 +99,7 @@ async function tratarSpam(message) {
     await enviarAlerta(message.guild, message.author, historico, resultado, {
       acao: `🧹 APAGADO AUTOMATICAMENTE (ALTA CERTEZA) — ${acaoCastigo}`,
       apagadas: `${apagadas} de ${total}`,
-    }).catch(err => console.error('[anti-spam] Erro ao alertar:', err));
+    }, amostraArquivos).catch(err => console.error('[anti-spam] Erro ao alertar:', err));
     return true;
   }
   if (modoSoAlerta()) {
@@ -103,10 +107,10 @@ async function tratarSpam(message) {
     await enviarAlerta(message.guild, message.author, historico, resultado, {
       acao: '👀 MODO SÓ ALERTA — NADA FOI FEITO',
       apagadas: 'nenhuma (modo só alerta)',
-    }).catch(err => console.error('[anti-spam] Erro ao alertar:', err));
+    }, amostraArquivos).catch(err => console.error('[anti-spam] Erro ao alertar:', err));
     return false;
   }
-  await punir(message, historico, resultado).catch(err => console.error('[anti-spam] Erro ao punir:', err));
+  await punir(message, historico, resultado, amostraArquivos).catch(err => console.error('[anti-spam] Erro ao punir:', err));
   return true;
 }
 
@@ -120,7 +124,7 @@ async function aplicarCastigo(guild, author, membroJaCarregado, horas, motivo) {
     .catch(err => `⚠️ CASTIGO FALHOU: ${err.message}`);
 }
 
-async function punir(message, historico, resultado) {
+async function punir(message, historico, resultado, amostraArquivos) {
   const { guild, author } = message;
   const cfg = config.antiSpam;
 
@@ -128,7 +132,7 @@ async function punir(message, historico, resultado) {
 
   const { apagadas, total } = await apagarMensagens(guild, historico);
   console.log(`[anti-spam] ${author.tag} (${author.id}): ${resultado.motivo} em ${resultado.canais} canais — ${acao}, ${apagadas}/${total} apagadas`);
-  await enviarAlerta(guild, author, historico, resultado, { acao, apagadas: `${apagadas} de ${total}` });
+  await enviarAlerta(guild, author, historico, resultado, { acao, apagadas: `${apagadas} de ${total}` }, amostraArquivos);
 }
 
 async function apagarMensagens(guild, historico) {
@@ -159,48 +163,52 @@ function amostraDoTexto(historico) {
   return `\`\`\`${texto.replace(/`/g, 'ˋ').slice(0, 500)}\`\`\``;
 }
 
-// Lista arquivos/figurinhas únicos (por nome) com link clicável pra dar pra
-// clicar e conferir sem precisar abrir o Discord no canal apagado.
-function listaAnexos(historico) {
+// Baixa os arquivos/figurinhas (imagem/gif) da rajada e devolve prontos pra
+// reanexar no próprio alerta — a URL original do Discord some quando a
+// mensagem é apagada, então isso tem que rodar ANTES de apagarMensagens.
+// Nada é salvo em disco/banco: só passa pela memória a caminho do Discord.
+async function baixarAmostra(historico) {
+  const { max, maxBytes } = config.antiSpam.amostraImagens;
   const vistos = new Set();
-  const linhas = [];
+  const candidatos = [];
   for (const h of historico) {
+    if (candidatos.length >= max) break;
     for (const a of h.anexos || []) {
-      if (!a.url || vistos.has(a.nome)) continue;
+      if (!a.url || vistos.has(a.nome) || !EXT_IMAGEM.test(a.nome || '')) continue;
       vistos.add(a.nome);
-      linhas.push(`📎 [${a.nome}](${a.url})`);
+      candidatos.push({ nome: a.nome, url: a.url });
     }
     for (const f of h.figurinhas || []) {
-      if (!f.url || vistos.has(f.nome)) continue;
+      if (!f.url || vistos.has(f.nome) || f.formato === StickerFormatType.Lottie) continue;
       vistos.add(f.nome);
-      linhas.push(`🏷️ [${f.nome}](${f.url})`);
+      const ext = f.formato === StickerFormatType.GIF ? 'gif' : 'png';
+      candidatos.push({ nome: `${f.nome.replace(/[^\w.-]/g, '_')}.${ext}`, url: f.url });
     }
   }
-  return linhas.slice(0, 10);
-}
 
-// Primeira imagem (anexo de imagem ou figurinha) pra mostrar em tamanho grande
-// no embed — sem isso a "amostra" nunca dava pra olhar de verdade.
-function primeiraImagemUrl(historico) {
-  for (const h of historico) {
-    const imagem = (h.anexos || []).find(a => a.url && EXT_IMAGEM.test(a.nome || ''));
-    if (imagem) return imagem.url;
-    const figurinha = (h.figurinhas || []).find(f => f.url);
-    if (figurinha) return figurinha.url;
+  const arquivos = [];
+  for (const { nome, url } of candidatos.slice(0, max)) {
+    try {
+      const resposta = await fetch(url);
+      if (!resposta.ok) continue;
+      const buffer = Buffer.from(await resposta.arrayBuffer());
+      if (buffer.length > maxBytes) continue;
+      arquivos.push(new AttachmentBuilder(buffer, { name: nome }));
+    } catch (err) {
+      console.error(`[anti-spam] Erro ao baixar amostra (${nome}):`, err.message);
+    }
   }
-  return null;
+  return arquivos;
 }
 
-function amostraValor(historico) {
+function amostraValor(historico, temArquivos) {
   const texto = amostraDoTexto(historico);
-  const anexos = listaAnexos(historico);
-  if (texto && anexos.length) return `${texto}\n${anexos.join('\n')}`;
   if (texto) return texto;
-  if (anexos.length) return anexos.join('\n');
+  if (temArquivos) return '*(arquivos anexados abaixo)*';
   return '*(sem conteúdo)*';
 }
 
-async function enviarAlerta(guild, author, historico, resultado, { acao, apagadas }) {
+async function enviarAlerta(guild, author, historico, resultado, { acao, apagadas }, amostraArquivos = []) {
   const canalId = config.canais.antiSpam;
   const canal = canalId ? await guild.channels.fetch(canalId).catch(() => null) : null;
   if (!canal) {
@@ -226,24 +234,23 @@ async function enviarAlerta(guild, author, historico, resultado, { acao, apagada
     aviso = '\n\nModo de teste: confira se era spam de verdade e marque abaixo.';
   }
 
-  const imagemUrl = primeiraImagemUrl(historico);
-
   await canal.send({
     embeds: [{
       color: 0x000000,
       title: titulo,
       description: descricoes[resultado.motivo] + aviso,
       thumbnail: { url: author.displayAvatarURL() },
-      image: imagemUrl ? { url: imagemUrl } : undefined,
+      image: amostraArquivos[0] ? { url: `attachment://${amostraArquivos[0].name}` } : undefined,
       fields: [
         { name: 'MEMBRO', value: `<@${author.id}>\n\`${author.tag}\` · \`${author.id}\``, inline: true },
         { name: 'AÇÃO AUTOMÁTICA', value: acao, inline: true },
         { name: 'MENSAGENS APAGADAS', value: apagadas, inline: true },
         { name: 'CANAIS ATINGIDOS', value: listaCanais || '—' },
-        { name: 'AMOSTRA', value: amostraValor(historico) },
+        { name: 'AMOSTRA', value: amostraValor(historico, amostraArquivos.length > 0) },
         { name: 'DATA', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
       ],
     }],
+    files: amostraArquivos,
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`antispam:banir:${author.id}`).setLabel('BANIR').setEmoji('🔨').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId(`antispam:castigar:${author.id}`).setLabel(`CASTIGO ${config.antiSpam.castigoManualDias}D`).setEmoji('⏳').setStyle(ButtonStyle.Primary),

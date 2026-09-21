@@ -389,5 +389,5 @@ registrarModulo(MODULO, async interaction => {
 
 module.exports = {
   linhaComponentesCaixa, DINHEIRO, HONRA, ROUPA, ACOES_TODAS, cabecalhoDinheiro, linhaResumo, linhaPessoaValor,
-  CONFIG_KEY_MANUAL, lerManualCaixa, incrementarSaldoCaixaManual, deltaCaixa,
+  CONFIG_KEY_MANUAL, lerManualCaixa, incrementarSaldoCaixaManual, deltaCaixa, embedFichaJogador,
 };

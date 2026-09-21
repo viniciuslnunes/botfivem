@@ -2,6 +2,7 @@ const { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilde
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const { buscarBloqueio } = require('../naoRecrutar');
+const { linhaAdvertenciaDiscord } = require('./advertenciaDiscord');
 const E = require('./estatisticas');
 const F = require('./painelFormato');
 const A = require('./analises');
@@ -121,12 +122,9 @@ async function embedFluxo(periodo) {
 
 // ── Ficha de jogador ─────────────────────────────────────────────────────────
 
-async function embedFichaJogador(client, idFivem, nomeConhecido) {
+async function embedFichaJogador(client, idFivem, nomeConhecido, membro) {
   const eventos = await repo.eventosDoAlvo(idFivem, A.ACOES_RESTRICAO, 300);
-  const status = Object.keys(A.TIPOS_RESTRICAO).map(tipo => {
-    const ultimo = eventos.find(e => A.TIPOS_RESTRICAO[tipo].adicionou === e.acao || A.TIPOS_RESTRICAO[tipo].removeu === e.acao);
-    return { tipo, ativo: ultimo?.acao === A.TIPOS_RESTRICAO[tipo].adicionou, ultimo };
-  });
+  const status = A.statusRestricoesDoAlvo(eventos);
   const blacklistAtivo = status.find(s => s.tipo === 'blacklist')?.ativo;
   let bloqueadoNoDiscord = null;
   if (blacklistAtivo) {
@@ -137,6 +135,7 @@ async function embedFichaJogador(client, idFivem, nomeConhecido) {
     title: `⛔ ${F.nomeSeguro(nomeConhecido ?? idFivem)} — RESTRIÇÕES`,
     description: [
       `**ID:** \`${idFivem}\``,
+      linhaAdvertenciaDiscord(membro),
       ...status.map(s => `**${A.TIPOS_RESTRICAO[s.tipo].rotulo}:** ${s.ativo ? `ATIVA (${F.haQuantoTempo(s.ultimo.ocorrido_em)})` : 'sem restrição'}`),
       blacklistAtivo ? (bloqueadoNoDiscord === null ? null : bloqueadoNoDiscord ? 'já está no ❌・nao-recrutar' : '⚠️ **FALTA BLOQUEAR NO ❌・NAO-RECRUTAR**') : null,
     ].filter(Boolean).join('\n'),
@@ -213,7 +212,7 @@ registrarModulo(MODULO, async interaction => {
       return interaction.reply({ content: `❌ ${membro ?? 'ESSE MEMBRO'} NÃO TEM ID DO JOGO NO APELIDO (PADRÃO "... - 1234").`, flags: 64, allowedMentions: { parse: [] } });
     }
     await interaction.deferReply({ flags: 64 });
-    await interaction.editReply({ embeds: [await embedFichaJogador(interaction.client, idFivem, membro.displayName)] });
+    await interaction.editReply({ embeds: [await embedFichaJogador(interaction.client, idFivem, membro.displayName, membro)] });
     return;
   }
 
@@ -225,4 +224,4 @@ registrarModulo(MODULO, async interaction => {
   }
 });
 
-module.exports = { linhaComponentesRestricoes, buscarAtivas };
+module.exports = { linhaComponentesRestricoes, buscarAtivas, embedFichaJogador };

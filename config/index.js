@@ -43,6 +43,8 @@ module.exports = {
     logsLideranca: '1461544673825783929',
     alertaNovatos: '1490536504748150925',
     antiSpam: '1548665394380673108', // 🛡️・anti-spam: alerta de conta hackeada com botões BANIR/LIBERAR. null = alerta só no console
+    associadoEmAtencao: '1547740103097589811', // 🚨・associado-em-atencao: hoje sem fluxo automático do bot (canal manual da liderança)
+    telefoneNarnia: '1330996902887555133', // 📞・telefone-narnia: recebe o telefone do novo sócio aprovado no recrutamento
   },
 
   categorias: {
@@ -50,6 +52,11 @@ module.exports = {
   },
 
   cargos,
+
+  // Links externos usados em automações de recrutamento
+  links: {
+    whatsappSocios: 'https://chat.whatsapp.com/FEZT9aTNrQ7DRqe7e5UcSJ',
+  },
 
   // Exibida no embed de hierarquia, nesta ordem
   hierarquia: [
@@ -82,6 +89,10 @@ module.exports = {
     { slug: 'caravanas', nome: 'Caravanas', emoji: '🚌', descricao: 'Organiza as viagens para jogos fora: veículos, vagas e embarque.', canalId: null },
     { slug: 'feminino', nome: 'Feminino', emoji: '🌹', descricao: 'Espaço e organização do departamento feminino da torcida.', canalId: null },
     { slug: 'carnaval', nome: 'Carnaval', emoji: '🎭', descricao: 'Organiza a participação da torcida no carnaval.', canalId: null },
+    // Cargos EQUIPE FARM/RESPONSÁVEL FARM já existiam no servidor antes deste
+    // departamento existir no bot — reaproveitados via seed em `departamentos`
+    // (ver utils/departamentos/repositorio.js), não criados do zero pelo setup.
+    { slug: 'farm', nome: 'Farm', emoji: '🌾', descricao: 'Produz os itens que sustentam o crescimento da torcida — droga, matéria-prima e itens de vida guardados no baú.', canalId: null },
   ],
 
   eventos: {
@@ -155,6 +166,11 @@ module.exports = {
     presencaReconexaoFolgaMin: 2,
     inatividadeDias: 7,
     novatoSemRecrutamentoDias: 3, // alerta quem entrou no jogo e não pediu recrutamento após N dias
+    // Painel-recrutadores: recrutado que sai/é expulso/some por inatividade
+    // dentro de N dias depois de ser recrutado conta como "recrutamento que
+    // não colou" na taxa de retenção por recrutador — distingue quantidade de
+    // qualidade (recrutador que infla número com gente que não fica).
+    retencaoRecrutamentoDias: 14,
     // Baú da torcida (canal logs-baú). O saldo por item só pode ser LÍQUIDO
     // (guardou − removeu) a partir do primeiro log lido: o jogo não informa o
     // estoque inicial, então o painel diz "desde <data>", nunca "estoque".
@@ -162,6 +178,36 @@ module.exports = {
       // Retirada de uma vez acima disso vira alerta na hora (o maior caso real
       // observado até 2026-09-13 foi 5.477 de tecido pela Presidência).
       alertaRetiradaQtd: 500,
+    },
+    // Métrica do departamento Farm (painel-farm): só GUARDOU conta como
+    // trabalho de farm (retirar não é produção). Itens levantados a partir do
+    // que de fato circula nos baús Sócio/Diretoria (varredura de saldoBau em
+    // 2026-09-21) — droga (itens de briga), matéria-prima (patrimônio) e
+    // vida/apoio. Nomes em minúsculo: a comparação em SQL usa lower(alvo_nome).
+    farm: {
+      itens: [
+        'maconha', 'cocaina', 'heroina', 'extasy',
+        'tecido', 'madeira', 'ferro', 'polvora',
+        'bandagem', 'ibuprofeno', 'adrenalina', 'energetico',
+      ],
+      // Nomes exatos como saem de `titulo` (colchete) em repositorio.saldoBau —
+      // baú de Presidência/Recrutador ficam de fora: o risco de furto do
+      // próprio sócio é maior lá (decisão do usuário, 2026-09-21).
+      baus: ['GDF Sócio', 'GDF Diretoria'],
+      // Subconjunto de `itens` sujeito a limite DIÁRIO de retirada (uso
+      // pessoal antes de pista/briga) — matéria-prima e vida/apoio não têm
+      // esse limite, só as drogas (decisão do usuário, 2026-09-21).
+      itensDroga: ['maconha', 'cocaina', 'heroina', 'extasy'],
+      // Valor de partida do limite diário por droga (unid./dia por pessoa).
+      // Editável pela liderança no botão EDITAR LIMITES do painel-farm sem
+      // precisar de deploy (fica em bot_config, ver
+      // painelFarmInteracoes.js#limitesEfetivosFarm) — isso aqui só entra em
+      // jogo enquanto ninguém editou ainda, ou quando alguém limpa o campo
+      // pra "voltar ao padrão". `default` cobre item de itensDroga sem
+      // entrada própria aqui.
+      limitePadraoDroga: {
+        maconha: 20, cocaina: 20, heroina: 20, extasy: 20, default: 20,
+      },
     },
     // Banco da torcida (depósito/saque nos logs de liderança). Saque acima
     // disso vira alerta na hora.
@@ -188,6 +234,10 @@ module.exports = {
     apagarNaHoraSegundos: 60,  // depois de pego, o que ele ainda mandar some na hora
     castigoHoras: 24,
     castigoManualDias: 7, // botão CASTIGO no alerta — usado em modo alerta pra já bloquear a conta sem banir
+    // Reenvia os arquivos da rajada como anexo do próprio alerta (baixados
+    // ANTES de apagar — a URL do Discord morre junto com a mensagem). Nada
+    // fica salvo: só passa pela memória e vai direto pro Discord de novo.
+    amostraImagens: { max: 4, maxBytes: 8 * 1024 * 1024 },
   },
 
   confianca: {

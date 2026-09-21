@@ -179,4 +179,4 @@ registrarModulo(MODULO, async interaction => {
   }
 });
 
-module.exports = { linhaComponentesFechaduras, embedEstadoAtual };
+module.exports = { linhaComponentesFechaduras, embedEstadoAtual, embedFichaJogador };

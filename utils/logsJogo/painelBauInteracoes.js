@@ -300,4 +300,4 @@ registrarModulo(MODULO, async interaction => {
   }
 });
 
-module.exports = { linhaComponentesBau };
+module.exports = { linhaComponentesBau, embedFichaPessoa };

@@ -5,6 +5,7 @@ const F = require('./painelFormato');
 const A = require('./analises');
 const repo = require('./repositorio');
 const { selectPeriodo, selectBuscarJogador } = require('./painelComponentesFixos');
+const { linhaAdvertenciaDiscord } = require('./advertenciaDiscord');
 
 // Canal ⚖️・disciplina-jogo: mesmo padrão interativo do 📦・estoque-bau.
 // Estado atual (advertências/serviços abertos) já sai na mensagem fixa —
@@ -51,7 +52,7 @@ async function embedFluxo(periodo) {
 
 // ── Ficha de jogador ─────────────────────────────────────────────────────────
 
-async function embedFichaJogador(idFivem, nomeConhecido) {
+async function embedFichaJogador(idFivem, nomeConhecido, membro) {
   const eventos = await repo.eventosDoAlvo(idFivem, [...A.ACOES_ADVERTENCIA, ...ACOES_MULTA], 300);
   const advertencias = eventos.filter(e => A.ACOES_ADVERTENCIA.includes(e.acao));
   const aberta = advertencias[0]?.acao === 'advertido' ? advertencias[0] : null;
@@ -61,6 +62,7 @@ async function embedFichaJogador(idFivem, nomeConhecido) {
     title: `⚖️ ${F.nomeSeguro(nomeConhecido ?? idFivem)} — DISCIPLINA`,
     description: [
       `**ID:** \`${idFivem}\``,
+      linhaAdvertenciaDiscord(membro),
       aberta
         ? `**Advertência:** ABERTA — ${E.formatarNumero(E.extrairServicos(aberta.descricao) ?? 0)} serviços, ${F.haQuantoTempo(aberta.ocorrido_em)}`
         : '**Advertência:** nenhuma aberta',
@@ -91,7 +93,7 @@ registrarModulo(MODULO, async interaction => {
       return interaction.reply({ content: `❌ ${membro ?? 'ESSE MEMBRO'} NÃO TEM ID DO JOGO NO APELIDO (PADRÃO "... - 1234").`, flags: 64, allowedMentions: { parse: [] } });
     }
     await interaction.deferReply({ flags: 64 });
-    await interaction.editReply({ embeds: [await embedFichaJogador(idFivem, membro.displayName)] });
+    await interaction.editReply({ embeds: [await embedFichaJogador(idFivem, membro.displayName, membro)] });
     return;
   }
 
@@ -103,4 +105,4 @@ registrarModulo(MODULO, async interaction => {
   }
 });
 
-module.exports = { linhaComponentesDisciplina, linhaMulta, linhaTop };
+module.exports = { linhaComponentesDisciplina, linhaMulta, linhaTop, embedFichaJogador };

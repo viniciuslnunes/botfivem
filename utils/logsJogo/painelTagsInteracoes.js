@@ -127,4 +127,4 @@ registrarModulo(MODULO, async interaction => {
   }
 });
 
-module.exports = { linhaComponentesTags, tagsAtuais };
+module.exports = { linhaComponentesTags, tagsAtuais, embedFichaJogador };

@@ -204,6 +204,57 @@ async function topAtoresPorAcoes(acoes, periodo, limite) {
   return res.rows;
 }
 
+// Quantidade por ator, restrita a uma lista FECHADA de IDs — diferente de
+// topAtoresPorAcoes (só quem agiu, top N): aqui quem não aparecer no
+// resultado é porque teve 0 no período, e quem chama precisa saber disso
+// (ex.: recrutador com o cargo que não recrutou nada no período).
+async function contarPorAtorNaLista(acoes, idsFivem, periodo) {
+  if (!idsFivem.length) return [];
+  const { condicoes, params } = condicoesPorAcoes(acoes, periodo);
+  params.push(idsFivem);
+  condicoes.push(`ator_id_fivem = ANY($${params.length})`);
+  const res = await db.query(
+    `SELECT ator_id_fivem AS id, COUNT(*)::int AS total
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY ator_id_fivem`,
+    params
+  );
+  return res.rows;
+}
+
+// Pares recrutador→recrutado (ator/alvo de jogador_recrutou), restrito a uma
+// lista de recrutadores — base pra taxa de retenção (cruza com
+// primeiraSaidaPorAlvo): pra cada recrutamento, é preciso saber QUEM foi
+// recrutado e QUANDO, pra depois checar se aquele alvo saiu logo em seguida.
+async function recrutamentosDetalhados(idsFivem, periodo) {
+  if (!idsFivem.length) return [];
+  const { condicoes, params } = condicoesPorAcoes(['jogador_recrutou'], periodo);
+  params.push(idsFivem);
+  condicoes.push(`ator_id_fivem = ANY($${params.length})`);
+  condicoes.push('alvo_id_fivem IS NOT NULL');
+  const res = await db.query(
+    `SELECT ator_id_fivem AS recrutador, alvo_id_fivem AS recrutado, ocorrido_em
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}`,
+    params
+  );
+  return res.rows;
+}
+
+// Primeira saída (de um conjunto de ações, tipicamente ACOES_CHURN) de cada
+// ID de uma lista — não restrito a período: retenção pergunta "saiu depois
+// de recrutado", não "saiu dentro da janela do painel", então a saída pode
+// cair fora do período escolhido no select e ainda assim contar.
+async function primeiraSaidaPorAlvo(idsAlvo, acoes) {
+  if (!idsAlvo.length) return [];
+  const res = await db.query(
+    `SELECT alvo_id_fivem AS id, MIN(ocorrido_em) AS saida_em
+       FROM logs_jogo WHERE acao = ANY($1) AND alvo_id_fivem = ANY($2)
+      GROUP BY alvo_id_fivem`,
+    [acoes, idsAlvo]
+  );
+  return res.rows;
+}
+
 // Quantidade por ação dentro de um conjunto — "quantas de cada tipo" (ex.:
 // sede trancou vs destrancou, saiu vs foi expulso).
 async function contarPorAcoes(acoes, periodo) {
@@ -458,6 +509,112 @@ async function maioresRetiradasBau(periodo, limite) {
   return res.rows;
 }
 
+// Extrai o baú do `titulo` em SQL — mesma conta de E.bauDoTitulo (mudar um,
+// mudar o outro, ver comentário lá).
+const SQL_BAU_DO_TITULO = `CASE WHEN titulo ILIKE 'Ba_ de Recompensas%' THEN 'Recompensas'
+                                 ELSE substring(titulo from '\\[(.+)\\]') END`;
+
+// Quanto cada ID GUARDOU de item de farm (config.logsJogo.farm) nos baús
+// habilitados, no período — cruzado com o cargo do departamento Farm pelo
+// painel-farm. Só bau_guardou conta: retirar não é trabalho de farm. Mesma
+// forma de contarPorAtorNaLista (lista FECHADA de IDs, quem não aparecer
+// teve 0 no período).
+async function farmPorAtorNaLista(idsFivem, itens, baus, periodo) {
+  if (!idsFivem.length) return [];
+  const { condicoes, params } = condicoesPorAcoes(['bau_guardou'], periodo);
+  params.push(idsFivem);
+  condicoes.push(`ator_id_fivem = ANY($${params.length})`);
+  params.push(itens);
+  condicoes.push(`lower(alvo_nome) = ANY($${params.length})`);
+  params.push(baus);
+  condicoes.push(`${SQL_BAU_DO_TITULO} = ANY($${params.length})`);
+  condicoes.push('valor IS NOT NULL');
+  const res = await db.query(
+    `SELECT ator_id_fivem AS id, COALESCE(SUM(valor), 0)::float AS quantidade, COUNT(*)::int AS eventos
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY ator_id_fivem`,
+    params
+  );
+  return res.rows;
+}
+
+// Ficha de farm de UM ator: últimos depósitos de item de farm, mais recente
+// primeiro — mesma ideia de eventosDoAtor, já filtrado por item/baú.
+async function eventosFarmDoAtor(idFivem, itens, baus, limite) {
+  const res = await db.query(
+    `SELECT alvo_nome AS item, valor::float AS quantidade, titulo, ocorrido_em
+       FROM logs_jogo
+      WHERE acao = 'bau_guardou' AND ator_id_fivem = $1 AND valor IS NOT NULL
+        AND lower(alvo_nome) = ANY($2) AND ${SQL_BAU_DO_TITULO} = ANY($3)
+      ORDER BY ocorrido_em DESC LIMIT ${Number(limite)}`,
+    [idFivem, itens, baus]
+  );
+  return res.rows;
+}
+
+// Quanto foi guardado por ITEM de farm, quebrado por ator — o painel-farm
+// soma por item pra "quem produz mais o quê" (ranking por item, não só o
+// total por pessoa) e acha o "top farmer" de cada item a partir da mesma
+// linha, sem consulta extra.
+async function farmPorItemEAtor(itens, baus, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(['bau_guardou'], periodo);
+  params.push(itens);
+  condicoes.push(`lower(alvo_nome) = ANY($${params.length})`);
+  params.push(baus);
+  condicoes.push(`${SQL_BAU_DO_TITULO} = ANY($${params.length})`);
+  condicoes.push('valor IS NOT NULL', 'ator_id_fivem IS NOT NULL');
+  const res = await db.query(
+    `SELECT lower(alvo_nome) AS item, ator_id_fivem AS id,
+            COALESCE(SUM(valor), 0)::float AS quantidade, COUNT(*)::int AS eventos
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1, 2`,
+    params
+  );
+  return res.rows;
+}
+
+// Total guardado de item de farm por DIA (fuso São Paulo) — mesmo shape de
+// contarPorDiaPorAcoes ({dia, total}), pra reaproveitar
+// estatisticas.js#serieDiaria (zero-fill) e alimentar o gráfico de tendência
+// do painel-farm (ver graficoFarmPorDia.js).
+async function farmPorDia(itens, baus, periodo) {
+  const { condicoes, params } = condicoesPorAcoes(['bau_guardou'], periodo);
+  params.push(itens);
+  condicoes.push(`lower(alvo_nome) = ANY($${params.length})`);
+  params.push(baus);
+  condicoes.push(`${SQL_BAU_DO_TITULO} = ANY($${params.length})`);
+  condicoes.push('valor IS NOT NULL');
+  const res = await db.query(
+    `SELECT to_char(ocorrido_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS dia,
+            COALESCE(SUM(valor), 0)::float AS total
+       FROM logs_jogo WHERE ${condicoes.join(' AND ')}
+      GROUP BY 1 ORDER BY 1`,
+    params
+  );
+  return res.rows;
+}
+
+// Quanto UM ator já RETIROU de UM item de farm HOJE (fuso São Paulo) nos
+// baús habilitados — base do limite diário parametrizável (ver
+// painelFarmInteracoes.js#limitesEfetivosFarm e alertas.js#retirada_suspeita_farm).
+// `periodoHoje` é sempre estatisticas.js#resolverPeriodo('hoje'); quem chama
+// resolve, essa função só filtra pelo intervalo que vier.
+async function farmRetiradoHojePorItem(idFivem, item, baus, periodoHoje) {
+  const { condicoes, params } = condicoesPorAcoes(['bau_removeu'], periodoHoje);
+  params.push(idFivem);
+  condicoes.push(`ator_id_fivem = $${params.length}`);
+  params.push(item);
+  condicoes.push(`lower(alvo_nome) = $${params.length}`);
+  params.push(baus);
+  condicoes.push(`${SQL_BAU_DO_TITULO} = ANY($${params.length})`);
+  condicoes.push('valor IS NOT NULL');
+  const res = await db.query(
+    `SELECT COALESCE(SUM(valor), 0)::float AS total FROM logs_jogo WHERE ${condicoes.join(' AND ')}`,
+    params
+  );
+  return res.rows[0].total;
+}
+
 // Últimos eventos de um conjunto de ações em que o ID dado foi quem AGIU —
 // "ficha do jogador" de qualquer canal-painel interativo cujo protagonista é
 // quem mexeu (caixa, fechaduras, auditoria). Genérico de propósito: evita uma
@@ -644,6 +801,9 @@ module.exports = {
   primeiroEventoConexao,
   ultimoEvento,
   topAtoresPorAcoes,
+  contarPorAtorNaLista,
+  recrutamentosDetalhados,
+  primeiraSaidaPorAlvo,
   contarPorAcoes,
   listarPorAcoes,
   contarPorDiaPorAcoes,
@@ -662,5 +822,10 @@ module.exports = {
   atividadeBauPorId,
   movimentoBauPorPessoa,
   maioresRetiradasBau,
+  farmPorAtorNaLista,
+  eventosFarmDoAtor,
+  farmPorItemEAtor,
+  farmPorDia,
+  farmRetiradoHojePorItem,
   historicoCargo,
 };

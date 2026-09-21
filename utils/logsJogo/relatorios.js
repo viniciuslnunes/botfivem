@@ -264,13 +264,10 @@ async function montarEmbedInativos(guild, dias) {
   };
 }
 
-// Pico + distintos + o ranking completo de tempo jogado de um período já
-// resolvido (hoje por hora, semana/mês por dia). "Tudo" (sem início) usa a
-// época como início efetivo. Devolve o campo de resumo separado do ranking
-// (o ranking pode passar de 1024 caracteres e precisar de vários campos —
-// ver camposRanking) — e o ranking cru, pro botão AGORA poder substituir por
-// sessão-atual em vez de tempo-no-período.
-async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = null) {
+// Baseline + eventos de conexão já normalizados (reconexão rápida fundida,
+// sessão presa fechada sozinha) pra um período — pipeline compartilhado por
+// blocoOcupacao e tempoJogadoPorId, que antes repetiam ele cada um por si.
+async function estadoEEventosDoPeriodo(periodo) {
   const inicio = periodo.inicio ?? new Date(0);
   const [baselineBruto, eventos] = await Promise.all([
     repo.estadoDosJogadores(inicio),
@@ -283,6 +280,25 @@ async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = 
   const eventosUnificados = P.unificarReconexoesRapidas(eventos, FOLGA_RECONEXAO_MS);
   const baseline = P.estadoSemSessoesExpiradas(baselineBruto, LIMITE_SESSAO_MS, inicio);
   const eventosAjustados = P.comFechamentosAutomaticos(baseline, eventosUnificados, LIMITE_SESSAO_MS, periodo.fim);
+  return { inicio, baseline, eventosAjustados };
+}
+
+// Tempo jogado por ID dentro do período inteiro, pra quem só precisa do mapa
+// (painel de recrutadores cruza isso com quem tem o cargo) sem o resto do
+// bloco de ocupação (pico, série por hora/dia).
+async function tempoJogadoPorId(periodo) {
+  const { inicio, baseline, eventosAjustados } = await estadoEEventosDoPeriodo(periodo);
+  return P.tempoJogadoPorPeriodo(baseline, eventosAjustados, inicio, periodo.fim);
+}
+
+// Pico + distintos + o ranking completo de tempo jogado de um período já
+// resolvido (hoje por hora, semana/mês por dia). "Tudo" (sem início) usa a
+// época como início efetivo. Devolve o campo de resumo separado do ranking
+// (o ranking pode passar de 1024 caracteres e precisar de vários campos —
+// ver camposRanking) — e o ranking cru, pro botão AGORA poder substituir por
+// sessão-atual em vez de tempo-no-período.
+async function blocoOcupacao(rotulo, periodo, granularidade, topTempoOverride = null) {
+  const { inicio, baseline, eventosAjustados } = await estadoEEventosDoPeriodo(periodo);
 
   const idsNoInicio = P.idsOnline(baseline);
   const hora = granularidade === 'hora';
@@ -581,4 +597,7 @@ module.exports = {
   montarEmbedLiderancaAtiva,
   montarEmbedCarreira,
   montarEmbedChurn,
+  tempoJogadoPorId,
+  recrutamentosRecentes,
+  ACOES_CHURN,
 };

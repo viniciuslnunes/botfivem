@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const { parseRegistro } = require('../utils/logsJogo/parser');
 const E = require('../utils/logsJogo/estatisticas');
 const A = require('../utils/logsJogo/analises');
+const { advertenciaAtivaDoMembro, linhaAdvertenciaDiscord } = require('../utils/logsJogo/advertenciaDiscord');
+const config = require('../config');
 
 // Formatos reais tirados do banco em 2026-09-13 (eram 3.957 registros gravados
 // como 'desconhecido'). Cada caso aqui é uma família inteira de log.
@@ -404,6 +406,28 @@ test('E.nomePatrimonio: reconhece os dois formatos reais (nome amigável novo e 
   assert.equal(E.nomePatrimonio('Munição de Pistola'), null);
   assert.equal(E.nomePatrimonio('Camiseta GDF'), null);
   assert.equal(E.nomePatrimonio('tecido'), null);
+});
+
+// ── advertenciaDiscord.js ────────────────────────────────────────────────────
+// Advertência de sócio (ADV¹/²/³) é cargo direto no membro, sem tabela própria
+// — nível vem da posição do cargo em config.cargos.adv, nunca de um contador
+// à parte que possa dessincronizar do cargo real.
+const membroComCargos = ids => ({ roles: { cache: { has: id => ids.includes(id) } } });
+
+test('advertenciaAtivaDoMembro: nível é a posição do cargo mais alto que o membro tem, ou null sem nenhum', () => {
+  const [adv1, adv2, adv3] = config.cargos.adv;
+  assert.equal(advertenciaAtivaDoMembro(membroComCargos([])), null);
+  assert.equal(advertenciaAtivaDoMembro(membroComCargos([adv1])), 1);
+  assert.equal(advertenciaAtivaDoMembro(membroComCargos([adv2])), 2);
+  assert.equal(advertenciaAtivaDoMembro(membroComCargos([adv3])), 3);
+  assert.equal(advertenciaAtivaDoMembro(null), null);
+});
+
+test('linhaAdvertenciaDiscord: null sem membro (nunca finge "nenhuma" sem ter checado, ver regra 1.5)', () => {
+  assert.equal(linhaAdvertenciaDiscord(undefined), null);
+  assert.equal(linhaAdvertenciaDiscord(null), null);
+  assert.match(linhaAdvertenciaDiscord(membroComCargos([])), /nenhuma/);
+  assert.match(linhaAdvertenciaDiscord(membroComCargos([config.cargos.adv[1]])), /ATIVA — 2ª/);
 });
 
 test('tags: grafia antiga da mesma tag é a mesma tag, e quem saiu da torcida perde todas', () => {

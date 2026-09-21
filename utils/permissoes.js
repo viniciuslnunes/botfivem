@@ -22,4 +22,19 @@ function ehPresidencia(member) {
 
 const MSG_SO_LIDERANCA = '❌ APENAS A LIDERANÇA (PRESIDÊNCIA, VELHA GUARDA E DIRETORIA) PODE USAR ESTE RECURSO.';
 
-module.exports = { temAlgumCargo, ehLideranca, ehPresidencia, MSG_SO_LIDERANCA };
+// Sócio ou qualquer cargo de hierarquia acima dele. NUNCA inclui visitante ou
+// provar-manto — usado para tudo que não pode vazar para quem ainda não é
+// sócio efetivo (ex.: convite do grupo de WhatsApp).
+function ehSocioOuAcima(member) {
+  if (!member) return false;
+  return temAlgumCargo(member, [
+    config.cargos.socio,
+    config.cargos.presidente,
+    config.cargos.vicePresidente,
+    config.cargos.velhaGuarda,
+    config.cargos.diretoria,
+    config.cargos.recrutador,
+  ]);
+}
+
+module.exports = { temAlgumCargo, ehLideranca, ehPresidencia, ehSocioOuAcima, MSG_SO_LIDERANCA };
