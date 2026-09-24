@@ -11,9 +11,11 @@ integracao
 *.md
 !README.md
 npm-debug.log*
-# Tenants de clientes ficam FORA da imagem (TENANTS_DIR montado em tempo de execução).
-# Só o molde e os exemplos vão junto.
+# Tenants de clientes podem ficar FORA da imagem (TENANTS_DIR montado em tempo de execução).
+# Hoje só os Gaviões rodam: tenants/gavioes precisa ir na imagem (TENANT default).
+# Outros clientes continuam excluídos.
 tenants/*
 !tenants/ativo.js
 !tenants/_exemplo
 !tenants/_instalacao
+!tenants/gavioes
