@@ -16,7 +16,9 @@ module.exports = {
   },
 
   // Foto no provar-manto ganha botões de correto/errado (não consome a mensagem)
-  aoMensagem(message) {
+  // Post no canal de divulgação entra na sequência de recrutamento (também não consome)
+  async aoMensagem(message) {
+    await require('../utils/recrutamento/painelDivulgacao').aoMensagem(message);
     return require('../utils/recrutamento/painelManto').aoMensagem(message);
   },
 
@@ -25,6 +27,7 @@ module.exports = {
     const { iniciarPainelReenvio } = require('../utils/recrutamento/painelReenvio');
     const { iniciarPainelConviteWhatsapp } = require('../utils/recrutamento/painelConviteWhatsapp');
     const { iniciarPainelManto } = require('../utils/recrutamento/painelManto');
+    const { iniciarPainelDivulgacao } = require('../utils/recrutamento/painelDivulgacao');
     const { garantirMensagemRecrutamento } = require('../utils/recrutamento/mensagemFixa');
 
     // Novatos do jogo que não pediram recrutamento no Discord (a cada 6h).
@@ -38,6 +41,8 @@ module.exports = {
     iniciarPainelConviteWhatsapp(client);
     // Placar de acertos/erros de manto por recrutador (canal só da liderança)
     iniciarPainelManto(client);
+    // Quem pode divulgar recrutamento + sequência dos posts (canais.divulgacaoRecrutamento null = desligado)
+    iniciarPainelDivulgacao(client);
     // Mensagem fixa de recrutamento no canal de análise (somente se não existir)
     return garantirMensagemRecrutamento(client);
   },

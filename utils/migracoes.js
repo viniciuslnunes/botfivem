@@ -132,6 +132,16 @@ const MIGRACOES = [
   },
   { modulo: 'recrutamento', nome: 'idx_mantos_candidato', sql: 'CREATE INDEX IF NOT EXISTS idx_mantos_candidato ON mantos_avaliados (candidato_id, enviado_em DESC)' },
   {
+    // Posts de divulgação no canal de recrutamento: quem postou e quando (sequência/rodízio).
+    modulo: 'recrutamento', nome: 'divulgacoes_recrutamento',
+    sql: `CREATE TABLE IF NOT EXISTS divulgacoes_recrutamento (
+      message_id TEXT PRIMARY KEY,
+      autor_id TEXT NOT NULL,
+      postado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  { modulo: 'recrutamento', nome: 'idx_divulgacoes_postado', sql: 'CREATE INDEX IF NOT EXISTS idx_divulgacoes_postado ON divulgacoes_recrutamento (postado_em DESC)' },
+  {
     modulo: 'eventos', nome: 'eventos',
     sql: `CREATE TABLE IF NOT EXISTS eventos (
       id BIGSERIAL PRIMARY KEY,

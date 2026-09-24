@@ -65,10 +65,15 @@ test('manto: foto ganha botões; só liderança/gestor avalia; placar conta para
   const errado = criarInteracao({ customId: `mantoaval:errado:${foto.id}`, membro: lider, guild, canal: provar, mensagem: aviso });
   await despachar(errado);
   assert.match(errado.acao('update')[0].content, /MANTO ERRADO/);
+  assert.equal(errado.acao('update')[0].components.length, 1, 'errado mantém os botões pra corrigir');
+  const [tarefa] = await banco.q("SELECT payload, executar_em > now() + interval '9 minutes' AS em_10min FROM tarefas_agendadas WHERE tipo = 'manto_remover_botoes'");
+  assert.ok(tarefa?.em_10min, 'errado agenda a remoção dos botões para daqui a ~10 min');
+  assert.equal(tarefa.payload.mensagemId, aviso.id);
   // correção: o último clique vale
   const certo = criarInteracao({ customId: `mantoaval:certo:${foto.id}`, membro: lider, guild, canal: provar, mensagem: aviso });
   await despachar(certo);
   assert.match(certo.acao('update')[0].content, /MANTO CORRETO/);
+  assert.deepEqual(certo.acao('update')[0].components, [], 'validado: botões somem');
 
   const repo = require('../utils/recrutamento/mantoRepositorio');
   const placar = await repo.placarPorRecrutador();

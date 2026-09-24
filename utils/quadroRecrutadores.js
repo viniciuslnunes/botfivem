@@ -1,6 +1,8 @@
 const db = require('./db');
 const config = require('../config/index.js');
 const tema = require('../tema');
+const E = require('./logsJogo/estatisticas');
+const repoLogs = require('./logsJogo/repositorio');
 
 const CANAL_QUADRO = config.canais.quadroRecrutadores;
 const CONFIG_KEY = 'quadro_recrutadores_message_id';
@@ -29,14 +31,28 @@ async function removerEntradaNoCargo(discordId) {
   await db.query('DELETE FROM recrutadores_cargo WHERE discord_id = $1', [discordId]);
 }
 
-async function carregarDesde() {
+// Data por Discord ID. A fonte é a promoção a Recrutador logada pelo jogo
+// (ID do jogo no apelido); quem não tem ID no apelido ou promoção nos logs
+// cai no registro do momento em que o cargo do Discord foi dado.
+async function carregarDesde(membros) {
+  const desde = new Map();
   try {
     const res = await db.query('SELECT discord_id, desde FROM recrutadores_cargo');
-    return new Map(res.rows.map(r => [r.discord_id, new Date(r.desde)]));
+    for (const r of res.rows) desde.set(r.discord_id, new Date(r.desde));
   } catch (err) {
     console.error('[quadroRecrutadores] Erro ao ler datas do cargo:', err.message);
-    return new Map();
   }
+  try {
+    const idsFivem = new Map(membros.map(m => [m.id, E.idFivemDoNick(m.nickname ?? m.displayName)]));
+    const promocoes = await repoLogs.ultimaPromocaoParaRecrutador([...new Set([...idsFivem.values()].filter(Boolean))]);
+    const porIdFivem = new Map(promocoes.map(p => [p.id, new Date(p.desde)]));
+    for (const [discordId, idFivem] of idsFivem) {
+      if (idFivem && porIdFivem.has(idFivem)) desde.set(discordId, porIdFivem.get(idFivem));
+    }
+  } catch (err) {
+    console.error('[quadroRecrutadores] Erro ao ler promoções do jogo:', err.message);
+  }
+  return desde;
 }
 
 // Só há data para quem ganhou o cargo depois que o registro existe.
@@ -75,7 +91,8 @@ async function atualizarQuadroRecrutadores(client) {
 
     await guild.members.fetch({ withPresences: false, force: true }).catch(() => {});
 
-    const embed = construirEmbed(guild, await carregarDesde());
+    const recrutadores = [...guild.members.cache.filter(m => m.roles.cache.has(CARGO_RECRUTADOR)).values()];
+    const embed = construirEmbed(guild, await carregarDesde(recrutadores));
     const canal = await client.channels.fetch(CANAL_QUADRO);
     if (!canal) return;
 

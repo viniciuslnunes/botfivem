@@ -103,6 +103,7 @@ function criarServidor({ id = 'GUILD', canais = [], membros = [] } = {}) {
     id,
     channels: {
       cache: canaisCache,
+      async fetch(cid) { return canaisCache.get(cid) ?? null; },
       async create(opcoes) {
         const canal = criarCanal(proximoId(), opcoes.name, { tipo: opcoes.type ?? 0, parentId: opcoes.parent ?? null });
         canal.opcoes = opcoes;

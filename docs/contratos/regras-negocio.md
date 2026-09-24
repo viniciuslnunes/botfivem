@@ -89,9 +89,26 @@
   registrada em `mantos_avaliados`.
 - Quem avalia: liderança (`ehLideranca`: presidência, vices, velha guarda, diretoria)
   ou gestor da área `recrutamento`. Permissão conferida no handler `mantoaval`.
-- Última avaliação vale (dá para corrigir clique errado).
+- Última avaliação vale (dá para corrigir clique errado). Ao marcar **CORRETO** os
+  botões somem da mensagem; em **ERRADO** ficam, para a liderança poder corrigir.
 - O acerto/erro conta para o recrutador que **decidiu a ficha** do candidato (a ficha
   mais recente criada até o envio da foto). Ficha sem decisão = "sem recrutador" no
   placar até ser decidida. O recrutador não é gravado na avaliação, é resolvido na consulta.
 - Placar em canal-painel só da liderança (`🧥・placar-manto`), lista todos com cargo
   de recrutador, mesmo zerados. Coberto por `test/manto.test.js`.
+
+## Sequência de divulgação de recrutamento
+
+- Canal `canais.divulgacaoRecrutamento` (null = recurso desligado, sem painel): todo post
+  de não-bot é registrado em `divulgacoes_recrutamento` (autor + horário); ao subir, o bot
+  importa as últimas 100 mensagens do canal. O bot **não consome** a mensagem.
+- "Liberação de postar" = permissão real de enviar mensagem no canal (cargos + overrides),
+  não uma lista mantida à mão. Recrutadores liberados entram no rodízio; recrutadores sem
+  liberação e outros com liberação (liderança) aparecem separados.
+- Rodízio: o próximo é quem está há mais tempo sem postar (quem nunca postou primeiro); o
+  último a postar nunca é o próximo. Alertas: mesma pessoa duas vezes seguidas, liberado
+  sem postar há mais de 7 dias, e autor recente que perdeu a liberação.
+- Painel só da liderança (`📣・sequência-recrutamento`): quem pode postar, próximo da vez,
+  alertas, contagem por recrutador e os últimos 15 posts com o intervalo entre eles.
+  Post apagado no Discord continua na sequência (não há hook de mensagem apagada).
+  Coberto por `test/divulgacao.test.js`.

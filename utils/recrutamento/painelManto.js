@@ -7,6 +7,7 @@ const { papelNaArea } = require('../departamentos/acesso');
 const { garantirMembrosCarregados } = require('../membrosGuild');
 const { criarPainelCanal } = require('../logsJogo/painelCanal');
 const F = require('../logsJogo/painelFormato');
+const { agendar, registrarTipo } = require('../agendador');
 const repo = require('./mantoRepositorio');
 const { RESULTADOS, montarPlacar } = require('./mantoRegras');
 
@@ -16,6 +17,10 @@ const { RESULTADOS, montarPlacar } = require('./mantoRegras');
 // os dois botões são neutros, o resultado vai por emoji do tema.
 const SLUG = 'placar_manto';
 const MSG_SEM_PERMISSAO = '❌ APENAS A LIDERANÇA (PRESIDÊNCIA, VELHA GUARDA, DIRETORIA) OU O RESPONSÁVEL PELO RECRUTAMENTO PODE AVALIAR O MANTO.';
+
+// Manto errado: os botões ficam 10 min depois da avaliação (pra corrigir clique
+// errado) e então somem. O agendador é persistente: sobrevive a reinício.
+const PRAZO_BOTOES_ERRADO_MS = 10 * 60 * 1000;
 
 let clientAtual = null;
 
@@ -62,16 +67,33 @@ async function avaliar(interaction, acao, fotoId) {
   if (!foto) {
     return interaction.reply({ content: '⚠️ ESTA FOTO NÃO ESTÁ REGISTRADA PARA AVALIAÇÃO (ENVIADA ANTES DO RECURSO EXISTIR).', flags: 64 });
   }
+  const avaliadoEm = Math.floor(Date.now() / 1000);
   const rotulo = resultado === 'CORRETO' ? `${tema.emoji.ok} **MANTO CORRETO**` : `${tema.emoji.recusado} **MANTO ERRADO**`;
-  // Botões ficam: a liderança pode corrigir um clique errado (vale o último)
+  // Manto validado: botões somem. Manto errado: ficam, pra liderança corrigir
+  // um clique errado (vale o último).
   await interaction.update({
-    content: `🧥 ${rotulo} — avaliado por <@${interaction.user.id}> em <t:${Math.floor(Date.now() / 1000)}:f>`,
-    components: botoesAvaliacao(fotoId),
+    content: `🧥 ${rotulo} — avaliado por <@${interaction.user.id}> em <t:${avaliadoEm}:f>`,
+    components: resultado === 'CORRETO' ? [] : botoesAvaliacao(fotoId),
     allowedMentions: { parse: [] },
   });
+  if (resultado !== 'CORRETO') {
+    await agendar('manto_remover_botoes', new Date(Date.now() + PRAZO_BOTOES_ERRADO_MS), {
+      canalId: interaction.channelId, mensagemId: interaction.message.id, avaliadoEm,
+    }).catch(err => console.error('[manto] Erro ao agendar remoção dos botões:', err));
+  }
   painel.agendarAtualizacaoReativa(interaction.client);
   return null;
 }
+
+// Só tira os botões se a mensagem ainda mostra esta avaliação (uma reavaliação
+// posterior tem outro horário e agenda o próprio prazo).
+registrarTipo('manto_remover_botoes', async (client, p) => {
+  const canal = await client.channels.fetch(p.canalId).catch(() => null);
+  const mensagem = await canal?.messages.fetch(p.mensagemId).catch(() => null);
+  if (!mensagem || !mensagem.components.length) return;
+  if (!mensagem.content.includes(`<t:${p.avaliadoEm}:f>`)) return;
+  await mensagem.edit({ components: [], allowedMentions: { parse: [] } });
+});
 
 registrarModulo('mantoaval', async interaction => {
   const [, acao, fotoId] = interaction.customId.split(':');

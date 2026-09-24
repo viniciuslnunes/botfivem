@@ -662,6 +662,21 @@ async function historicoCargo(idFivem) {
   return res.rows;
 }
 
+// Última promoção PARA Recrutador de cada ID (o "de > para" fica só na
+// `descricao`, ver historicoCargo) — quando o cargo do jogo foi dado.
+async function ultimaPromocaoParaRecrutador(idsFivem) {
+  if (!idsFivem.length) return [];
+  const res = await db.query(
+    `SELECT alvo_id_fivem AS id, MAX(ocorrido_em) AS desde
+       FROM logs_jogo
+      WHERE acao = 'promoveu_cargo' AND alvo_id_fivem = ANY($1)
+        AND descricao ~* '>\\s*recrutador\\s*\\)\\.?\\s*$'
+      GROUP BY alvo_id_fivem`,
+    [idsFivem]
+  );
+  return res.rows;
+}
+
 // IDs do jogo com pelo menos `minimo` aparições em todo o histórico (como
 // ator OU alvo), pra achar quem interage de verdade com a torcida — usado
 // pelo canal "IDs sem Discord" pra saber quem orientar a entrar no
@@ -836,4 +851,5 @@ module.exports = {
   farmPorDia,
   farmRetiradoHojePorItem,
   historicoCargo,
+  ultimaPromocaoParaRecrutador,
 };
