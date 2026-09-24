@@ -8,7 +8,13 @@
     "deploy": "node deploy-commands.js",
     "test": "node --test",
     "test:integracao": "node integracao/modulos.js && node integracao/rifas.js",
-    "lint": "eslint ."
+    "lint": "eslint . --max-warnings 0",
+    "conformidade": "node tools/conformidade.js",
+    "conformidade:atualizar": "node tools/atualizar-conformidade.js",
+    "novo-tenant": "node tools/novo-tenant.js",
+    "modulos": "node tools/instantaneo.js",
+    "testar:node": "node tools/testar-em-node.js",
+    "auditar": "npm audit --omit=dev"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +28,15 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.16"
+    "@electric-sql/pglite": "^0.3.16",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
+  },
+  "allowScripts": {
+    "canvas": true
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }

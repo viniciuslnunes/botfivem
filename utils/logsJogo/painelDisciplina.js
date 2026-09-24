@@ -4,6 +4,8 @@ const F = require('./painelFormato');
 const A = require('./analises');
 const { criarPainelCanal } = require('./painelCanal');
 const { linhaComponentesDisciplina } = require('./painelDisciplinaInteracoes');
+const tema = require('../../tema');
+const fonte = require('./fonte');
 
 // Canal ⚖️・disciplina-jogo: mensagem fixa curta (padrão interativo, ver
 // painelBau.js) — advertências abertas já saem aqui; o detalhe (ficha por
@@ -21,19 +23,19 @@ async function montarBlocos() {
   const ativas = A.advertenciasAtivas(eventosAdv);
   const servicosPendentes = ativas.reduce((t, a) => t + (a.servicos ?? 0), 0);
   // `ultimaAdv` null (não só "sem log recente", sem log NENHUM) quer dizer
-  // que não existe fonte de advertência pro Hoolibras — o canal que logava
+  // que não existe fonte de advertência pra esta fonte de logs — o canal que logava
   // isso (logs-liderança) era de outra comunidade (Fanáticos), removido em
   // 2026-09-13. Sem esse aviso, "0" parece disciplina em dia, não "métrica
   // sem fonte alguma pra medir".
   const semFonteAdv = !ultimaAdv;
   const avisoAdv = semFonteAdv
-    ? '*Sem fonte de log de advertência pro Hoolibras — este número nunca sai de 0.*'
+    ? `*Sem fonte de log de advertência pro ${fonte.nome} — este número nunca sai de 0.*`
     : F.avisoFonteParada(ultimaAdv);
   const avisoMulta = F.avisoFonteParada(ultimaMulta);
 
   const embed = {
     color: F.COR,
-    title: '⚖️ DISCIPLINA DO JOGO — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('⚖️ DISCIPLINA DO JOGO'),
     description: [
       ...(avisoAdv ? [avisoAdv, ''] : []),
       ...(avisoMulta ? [avisoMulta, ''] : []),

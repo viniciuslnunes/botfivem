@@ -1,0 +1,19 @@
+node_modules
+.git
+.github
+.claude
+.env
+.env.*
+!.env.example
+docs
+test
+integracao
+*.md
+!README.md
+npm-debug.log*
+# Tenants de clientes ficam FORA da imagem (TENANTS_DIR montado em tempo de execução).
+# Só o molde e os exemplos vão junto.
+tenants/*
+!tenants/ativo.js
+!tenants/_exemplo
+!tenants/_instalacao

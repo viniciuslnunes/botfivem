@@ -3,6 +3,7 @@ const { ehPresidencia } = require('../permissoes');
 const { registrarLogGestao } = require('../logGestao');
 const { buscarDepartamento, listarDepartamentos } = require('./repositorio');
 const { decidirMudancaArea, papelAtual } = require('./regras');
+const tema = require('../../tema');
 
 // Incluir, promover, rebaixar ou remover alguém de uma área. Devolve a mensagem de resposta.
 async function mudarArea(interaction, { acao, slug, usuario, papel = 'membro' }) {
@@ -54,7 +55,7 @@ async function removerTodasAsAreas(client, membro) {
   await membro.roles.remove(cargos, 'Desligado da torcida: perdeu o cargo SÓCIO');
   await registrarLogGestao(client, {
     titulo: '🏛️ ÁREAS REMOVIDAS NO DESLIGAMENTO',
-    cor: 0xFF0000,
+    cor: tema.cor.perigo,
     campos: [
       { name: 'MEMBRO', value: `<@${membro.id}>`, inline: true },
       { name: 'ÁREAS', value: doMembro.map(a => a.nome).join(', '), inline: true },

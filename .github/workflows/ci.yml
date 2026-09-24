@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Toda segunda: pega vulnerabilidade nova e quebra por versão nova do Node,
+  # mesmo sem mudança no código.
+  schedule:
+    - cron: '0 9 * * 1'
+
+jobs:
+  qualidade:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 24 = LTS recomendado (.nvmrc); 22 = manutenção; 20 = fim de vida, mantido
+        # enquanto a produção não migrar (o `engines` do package.json ainda aceita).
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integracao
+
+  # Versão mais nova do Node: aviso antecipado, não bloqueia.
+  node-atual:
+    name: Node atual (aviso)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: current
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  seguranca:
+    name: Vulnerabilidades de produção
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Só dependências de runtime; falha em severidade alta ou crítica.
+      - run: npm audit --omit=dev --audit-level=high

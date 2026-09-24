@@ -3,10 +3,11 @@ const { garantirMembrosCarregados } = require('../membrosGuild');
 const repo = require('./repositorio');
 const E = require('./estatisticas');
 const P = require('./presenca');
+const tema = require('../../tema');
 
 // Embeds de estatística, compartilhados por /estatisticas e pelo painel fixo.
 
-const COR = 0x000000;
+const COR = tema.cor.primaria;
 const RODAPE = 'Com base nos logs do jogo recebidos pelo webhook';
 // O painel do jogo e o ranking do próprio jogo às vezes não batem com o que o
 // webhook registrou (ver picoHistoricoRegistrado) — avisar em vez de deixar
@@ -379,7 +380,7 @@ async function picoHistoricoRegistrado() {
 // Quantos "fulano recrutou beltrano" o webhook logou hoje e nesta semana
 // civil (segunda 00h até agora, fuso SP) — o "+X/hoje +Y/semana" ao lado de
 // SÓCIOS SETADOS. Mesma ação que incrementarSociosManual soma (ver
-// events/messageCreate.js), só que aqui é uma contagem no período, direto do
+// utils/logsJogo/pipeline.js), só que aqui é uma contagem no período, direto do
 // histórico gravado (ocorrido_em = timestamp do webhook), não o acumulado
 // manual — não precisa (nem pode) ser editado à mão. `semana` é semana de
 // calendário, não janela rolante de 7 dias: zera de vez na virada de domingo
@@ -428,7 +429,7 @@ async function montarEmbedJogadoresOnline(sociosCount, manual = null, agora = ne
 
   return {
     color: COR,
-    title: '🎮 JOGADORES ONLINE — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('🎮 JOGADORES ONLINE'),
     description: [
       `**ONLINE AGORA:** ${E.formatarNumero(online.length)}`,
       ...linhasContexto(sociosCount, manual, pico, recrutamentos),

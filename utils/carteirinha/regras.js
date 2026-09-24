@@ -1,5 +1,6 @@
 // Regras puras da carteirinha (sem Discord nem banco).
 const { chaveDia } = require('../logsJogo/estatisticas');
+const tema = require('../../tema');
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -48,7 +49,7 @@ function formatarDataBR(chave) {
 function textoSituacao(s) {
   const plural = n => (n !== 1 ? 'S' : '');
   switch (s.situacao) {
-    case 'VIGENTE': return `🟢 VIGENTE ATÉ ${formatarDataBR(s.validade)}`;
+    case 'VIGENTE': return `${tema.emoji.ativo} VIGENTE ATÉ ${formatarDataBR(s.validade)}`;
     case 'VENCENDO': return s.dias === 0 ? '🟡 VENCE HOJE' : `🟡 VENCE EM ${s.dias} DIA${plural(s.dias)}`;
     case 'VENCIDA': return `🔴 VENCIDA HÁ ${-s.dias} DIA${plural(-s.dias)}`;
     default: return '⚪ SEM VALIDADE REGISTRADA';

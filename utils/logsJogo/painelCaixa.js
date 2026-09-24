@@ -5,6 +5,7 @@ const { criarPainelCanal } = require('./painelCanal');
 const {
   linhaComponentesCaixa, DINHEIRO, HONRA, ROUPA, ACOES_TODAS, linhaResumo, lerManualCaixa,
 } = require('./painelCaixaInteracoes');
+const tema = require('../../tema');
 
 // Canal 🏦・caixa-do-jogo: dinheiro e honra da torcida a partir dos logs do
 // jogo. Mensagem fixa curta (padrão interativo, ver painelBau.js e
@@ -39,7 +40,7 @@ async function montarBlocos() {
   const linhasMovimento = [...linhasDinheiro, ...(linhasHonra.length ? ['', ...linhasHonra] : [])];
   const embed = {
     color: F.COR,
-    title: '🏦 CAIXA DO JOGO — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('🏦 CAIXA DO JOGO'),
     description: [
       ...(avisoDinheiro ? [avisoDinheiro, ''] : []),
       manual.saldo?.valor != null

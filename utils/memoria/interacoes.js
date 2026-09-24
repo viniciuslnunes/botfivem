@@ -6,6 +6,7 @@ const { avisarPorDM } = require('../eventos/interacoes');
 const repo = require('./repositorio');
 const { formatarDia } = require('./regras');
 const { publicarFato } = require('./publicacao');
+const tema = require('../../tema');
 
 // Fato atrasado (dia que já passou) passa por aprovação: mem:aprovar:<id> · mem:rejeitar:<id> · mem:motivo:<id>
 
@@ -16,13 +17,13 @@ async function podeModerarMemoria(member) {
 function montarCartaoAprovacao(fato) {
   return {
     embeds: [{
-      color: 0xFFCC00,
+      color: tema.cor.aviso,
       title: `📜 MEMÓRIA ATRASADA PARA APROVAR — ${formatarDia(fato.dia_chave)}`,
       description: fato.texto,
       fields: [{ name: 'AUTOR', value: `<@${fato.autor_id}>`, inline: true }, { name: 'FATO', value: `#${fato.id}`, inline: true }],
     }],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`mem:aprovar:${fato.id}`).setLabel('APROVAR').setEmoji('✅').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`mem:aprovar:${fato.id}`).setLabel('APROVAR').setEmoji(tema.emoji.ok).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`mem:rejeitar:${fato.id}`).setLabel('REJEITAR').setStyle(ButtonStyle.Danger)
     )],
     allowedMentions: { parse: [] },
@@ -32,7 +33,7 @@ function montarCartaoAprovacao(fato) {
 async function finalizarCartao(interaction, texto) {
   const embed = interaction.message?.embeds?.[0];
   await interaction.message?.edit({
-    embeds: embed ? [{ ...embed.data, color: 0x000000, footer: { text: texto } }] : [],
+    embeds: embed ? [{ ...embed.data, color: tema.cor.primaria, footer: { text: texto } }] : [],
     components: [],
   }).catch(() => {});
 }
@@ -48,9 +49,9 @@ registrarModulo('mem', async interaction => {
     const fato = await repo.decidirFato(fatoId, 'APROVADA', interaction.user.id);
     if (!fato) return interaction.editReply({ content: '⚠️ ESTE FATO JÁ FOI DECIDIDO.' });
     const mensagem = await publicarFato(interaction.client, fato);
-    await finalizarCartao(interaction, `✅ Aprovado por ${interaction.user.tag}`);
+    await finalizarCartao(interaction, `${tema.emoji.ok} Aprovado por ${interaction.user.tag}`);
     await avisarPorDM(interaction.client, fato.autor_id, { content: `📜 Sua memória de **${formatarDia(fato.dia_chave)}** foi aprovada e publicada: ${mensagem.url}` });
-    return interaction.editReply({ content: `✅ PUBLICADO: ${mensagem.url}` });
+    return interaction.editReply({ content: `${tema.emoji.ok} PUBLICADO: ${mensagem.url}` });
   }
 
   if (interaction.isButton() && acao === 'rejeitar') {

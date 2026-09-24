@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -13,15 +14,15 @@ module.exports = {
         .setStyle(ButtonStyle.Secondary)
     );
     const embed = new EmbedBuilder()
-      .setColor(0x000000)
-      .setTitle('RECRUTAMENTO - GAVIÕES DA FIEL - FIVEM')
+      .setColor(tema.cor.primaria)
+      .setTitle(tema.tituloSegmentado('RECRUTAMENTO'))
       .setDescription('Clique no botão abaixo para solicitar seu recrutamento!')
-      .setThumbnail('attachment://gavioesdafielfivem_logo.png');
+      .setThumbnail(tema.urlLogo());
     const canal = await interaction.client.channels.fetch(config.canais.recrutamento);
     await canal.send({
       embeds: [embed],
       components: [row],
-      files: [{ attachment: './img/gavioesdafielfivem_logo.png', name: 'gavioesdafielfivem_logo.png' }]
+      files: [tema.logo()]
     });
     await interaction.reply({ content: 'Botão enviado no canal de recrutamento!', flags: 64 });
   }

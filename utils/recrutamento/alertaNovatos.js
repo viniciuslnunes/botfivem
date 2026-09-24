@@ -3,6 +3,7 @@ const { garantirMembrosCarregados } = require('../membrosGuild');
 const { listaLimitada } = require('../departamentos/regras');
 const repo = require('./funilRepositorio');
 const { mapearSociosPorIdFivem, novatosParaAlertar } = require('./funil');
+const tema = require('../../tema');
 
 // Alerta periódico: novato que entrou na torcida no jogo e não pediu recrutamento
 // no Discord depois de N dias. Um resumo por ciclo; cada ID é alertado uma vez.
@@ -27,7 +28,7 @@ async function verificarNovatosNaoRecrutados(client) {
   await canal.send({
     content: config.logsJogo.mencionarAlertas.map(id => `<@&${id}>`).join(' '),
     embeds: [{
-      color: 0xFFCC00,
+      color: tema.cor.aviso,
       title: `🔎 NOVATOS SEM RECRUTAMENTO HÁ MAIS DE ${dias} DIAS`,
       description: listaLimitada(alertar.map(n =>
         `🆔 **${n.id_fivem}** · ${n.ator_nome ?? 'sem nome'} · entrou <t:${Math.floor(new Date(n.ocorrido_em).getTime() / 1000)}:R>`), 3900),

@@ -15,4 +15,9 @@ async function despacharInteracao(interaction) {
   return true;
 }
 
-module.exports = { registrarModulo, despacharInteracao };
+// Só para diagnóstico e teste de paridade (tools/instantaneo.js).
+function prefixosRegistrados() {
+  return [...modulos.keys()].sort();
+}
+
+module.exports = { registrarModulo, despacharInteracao, prefixosRegistrados };

@@ -7,6 +7,7 @@ const { criarPainelCanal } = require('./painelCanal');
 const {
   recrutadoresDoPeriodo, linhaComponentesRecrutadores, tabelaRecrutadores, ACOES_RECRUTAMENTO, PERIODO_PADRAO,
 } = require('./painelRecrutadoresInteracoes');
+const tema = require('../../tema');
 
 // Canal 🦅・painel-recrutadores: mensagem fixa curta (padrão interativo, ver
 // painelBau.js) — cruza o cargo RECRUTADOR com recrutamentos e tempo jogado
@@ -36,7 +37,7 @@ async function montarBlocos() {
 
   const embed = {
     color: F.COR,
-    title: '🦅 INTELIGÊNCIA DE RECRUTADORES — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('🦅 INTELIGÊNCIA DE RECRUTADORES'),
     description: [
       ...(aviso ? [aviso, ''] : []),
       `**RECRUTADORES:** ${E.formatarNumero(linhas.length)} · **ONLINE AGORA:** ${E.formatarNumero(online)}`,

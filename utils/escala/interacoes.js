@@ -4,6 +4,7 @@ const eventosRepo = require('../eventos/repositorio');
 const { avisarPorDM } = require('../eventos/interacoes');
 const repo = require('./repositorio');
 const { rotuloFuncao } = require('./regras');
+const tema = require('../../tema');
 
 // Convite da escala por DM: esc:aceitar:<evento> · esc:recusar:<evento>
 
@@ -13,7 +14,7 @@ function montarConviteEscala(evento, funcao, convocadorId) {
   return {
     content: `🎖️ <@${convocadorId}> te convocou para trabalhar em **${evento.titulo}** (<t:${unix(evento.inicio_em)}:F>)${evento.local ? ` · 📍 ${evento.local}` : ''}.\nFunção: **${rotuloFuncao(funcao)}**. Você topa?`,
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`esc:aceitar:${evento.id}`).setLabel('ACEITAR').setEmoji('✅').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`esc:aceitar:${evento.id}`).setLabel('ACEITAR').setEmoji(tema.emoji.ok).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`esc:recusar:${evento.id}`).setLabel('NÃO POSSO').setStyle(ButtonStyle.Danger)
     )],
   };
@@ -37,7 +38,7 @@ registrarModulo('esc', async interaction => {
     });
   }
   return interaction.update({
-    content: `${aceitou ? '✅ Você está na escala' : '❌ Recusa registrada'}: **${rotuloFuncao(linha.funcao)}** em **${evento.titulo}** (<t:${unix(evento.inicio_em)}:F>).`,
+    content: `${aceitou ? `${tema.emoji.ok} Você está na escala` : `${tema.emoji.recusado} Recusa registrada`}: **${rotuloFuncao(linha.funcao)}** em **${evento.titulo}** (<t:${unix(evento.inicio_em)}:F>).`,
     components: [],
   });
 });

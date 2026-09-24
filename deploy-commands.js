@@ -1,7 +1,5 @@
 const { REST, Routes } = require('discord.js');
-const fs = require('fs');
 require('dotenv').config();
-const { guildId } = require('./config/index.js');
 
 const faltando = ['DISCORD_TOKEN', 'CLIENT_ID'].filter(nome => !process.env[nome]);
 if (faltando.length) {
@@ -10,19 +8,21 @@ if (faltando.length) {
   process.exit(1);
 }
 
-const commands = [];
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+// Registra só os comandos dos módulos LIGADOS no tenant (TENANT, default
+// "gavioes"): torcida sem rifas não vê /rifa no servidor. Em modo instalação
+// (tenant.instalacao) só o /setup.
+const plataforma = require('./plataforma');
+const { guildId } = require('./config/index.js');
 
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  commands.push(command.data.toJSON());
-}
+const cliente = { commands: null };
+plataforma.carregarModulos(cliente);
+const commands = [...cliente.commands.values()].map(c => c.data.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    console.log('Iniciando deploy dos comandos slash...');
+    console.log(`Iniciando deploy de ${commands.length} comando(s) slash (${plataforma.ativos.length} módulos ligados)...`);
     // Registrar comandos apenas para a guild (atualização instantânea)
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),

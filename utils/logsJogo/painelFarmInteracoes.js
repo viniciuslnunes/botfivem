@@ -7,12 +7,13 @@ const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const { garantirMembrosCarregados } = require('../membrosGuild');
 const { buscarDepartamento } = require('../departamentos/repositorio');
-const { lerConfig } = require('../botConfig');
 const db = require('../db');
 const E = require('./estatisticas');
 const F = require('./painelFormato');
 const P = require('./presenca');
 const repo = require('./repositorio');
+const tema = require('../../tema');
+const { rotuloItem, lerLimitesFarm, limitesEfetivosFarm, CAMPOS_LIMITE, CONFIG_KEY_LIMITES } = require('./farmLimites');
 
 // Canal 🌾・painel-farm: cruza quem tem cargo do departamento Farm (membro ou
 // gestor) com o que de fato guardou nos baús habilitados
@@ -27,17 +28,6 @@ const PERIODO_PADRAO = '30d';
 
 const PERIODOS_FICHA_FARM = ['7d', '30d', 'ontem', 'semana_passada', 'mes_passado'];
 
-// Nome bonito (com acento) pros itens configurados em minúsculo sem acento
-// (config.logsJogo.farm.itens usa lower(alvo_nome) na comparação SQL —
-// ver repositorio.js#SQL_BAU_DO_TITULO). Item fora da lista cai no nome cru.
-const ROTULOS_ITEM = {
-  maconha: 'Maconha', cocaina: 'Cocaína', heroina: 'Heroína', extasy: 'Extasy',
-  tecido: 'Tecido', madeira: 'Madeira', ferro: 'Ferro', polvora: 'Pólvora',
-  bandagem: 'Bandagem', ibuprofeno: 'Ibuprofeno', adrenalina: 'Adrenalina', energetico: 'Energético',
-};
-function rotuloItem(item) {
-  return ROTULOS_ITEM[item] ?? item;
-}
 
 // ── Limite diário de retirada de droga (editável, ver docs/padroes-e-canais.md § 1.2) ──
 //
@@ -48,23 +38,7 @@ function rotuloItem(item) {
 // config.logsJogo.farm.limitePadraoDroga, que a liderança sobrepõe sem
 // precisar de deploy quando o dia de pista pedir mais (pedido do usuário,
 // 2026-09-21).
-const CONFIG_KEY_LIMITES = 'farm_limite_diario_retirada';
 
-const CAMPOS_LIMITE = config.logsJogo.farm.itensDroga.map(item => ({
-  chave: item,
-  rotuloSelect: rotuloItem(item),
-  rotuloCampo: `LIMITE DIÁRIO — ${rotuloItem(item).toUpperCase()}`,
-  padrao: config.logsJogo.farm.limitePadraoDroga[item] ?? config.logsJogo.farm.limitePadraoDroga.default,
-}));
-
-async function lerLimitesFarm() {
-  try {
-    const bruto = await lerConfig(CONFIG_KEY_LIMITES);
-    return bruto ? JSON.parse(bruto) : {};
-  } catch {
-    return {};
-  }
-}
 
 // jsonb_set atômico (mesmo motivo de gravarCampoManualCaixa): nunca lê o
 // objeto inteiro pra somar/gravar em JS — evita pisar num campo que outro
@@ -88,14 +62,6 @@ async function gravarLimiteFarm(item, valorObj) {
   );
 }
 
-// Limite efetivo de cada droga: o que a liderança editou (bot_config)
-// sobrepõe o padrão de config/index.js — chamado tanto pelo card fixo
-// (mostrar o limite de hoje) quanto pelo alerta de retirada (comparar o
-// total do dia contra ele).
-async function limitesEfetivosFarm() {
-  const manual = await lerLimitesFarm();
-  return Object.fromEntries(CAMPOS_LIMITE.map(c => [c.chave, manual[c.chave]?.valor ?? c.padrao]));
-}
 
 function linhaBotoesFarm() {
   return new ActionRowBuilder().addComponents(
@@ -149,13 +115,9 @@ function linhaComponentesFarm() {
   return [selectPeriodo(), selectBuscarFarmer(), linhaBotoesFarm()];
 }
 
-function celulaTempo(ms) {
-  return ms > 0 ? E.formatarDuracao(ms) : '—';
-}
-
 function celulaStatus(l) {
   if (!l.idFivem) return '❔';
-  return l.online ? '🟢' : '⚪';
+  return l.online ? tema.emoji.ativo : tema.emoji.inativo;
 }
 
 function tabelaFarm(linhas) {
@@ -384,7 +346,7 @@ registrarModulo('farm', async interaction => {
   }
 
   // ── Atalho pra advertência a partir do alerta de limite excedido ──
-  // Reaproveita o fluxo que já existe (events/interactionCreate.js,
+  // Reaproveita o fluxo que já existe (utils/advertencia/interacoes.js,
   // customId `select_prazo_adv:<membroId>`) pulando só o passo de
   // selecionar o membro — a gente já sabe quem foi pelo log. Motivo/punição/
   // prazo continuam no modal de lá, nada duplicado.

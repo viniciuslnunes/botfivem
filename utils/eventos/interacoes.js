@@ -4,6 +4,7 @@ const { registrarModulo } = require('../modulos');
 const repo = require('./repositorio');
 const { montarMensagemEvento, atualizarMensagemEvento } = require('./mensagem');
 const { podeGerirEvento } = require('./permissoes');
+const tema = require('../../tema');
 
 // Botões da mensagem do evento: evt:confirmar:<id> · evt:desistir:<id> · evt:presenca:<id>
 // e o seletor de presentes evt:presentes:<id>
@@ -45,11 +46,11 @@ async function confirmar(interaction, eventoId) {
   if (r.evento) await interaction.editReply(montarMensagemEvento(r.evento, await repo.listarInscricoes(eventoId)));
 
   let texto;
-  if (r.erro === 'ja_inscrito') texto = r.status === 'ESPERA' ? '⏳ VOCÊ JÁ ESTÁ NA LISTA DE ESPERA.' : '✅ VOCÊ JÁ ESTÁ CONFIRMADO.';
+  if (r.erro === 'ja_inscrito') texto = r.status === 'ESPERA' ? '⏳ VOCÊ JÁ ESTÁ NA LISTA DE ESPERA.' : `${tema.emoji.ok} VOCÊ JÁ ESTÁ CONFIRMADO.`;
   else if (r.erro) texto = MENSAGENS_ERRO[r.erro];
   else texto = r.status === 'ESPERA'
     ? '⏳ AS VAGAS ESTÃO PREENCHIDAS: VOCÊ ENTROU NA LISTA DE ESPERA. SE ALGUÉM DESISTIR, VOCÊ SOBE E É AVISADO POR DM.'
-    : '✅ PRESENÇA CONFIRMADA!';
+    : `${tema.emoji.ok} PRESENÇA CONFIRMADA!`;
   return interaction.followUp({ content: texto, flags: 64 });
 }
 
@@ -61,7 +62,7 @@ async function desistir(interaction, eventoId) {
 
   if (r.promovido) {
     await avisarPorDM(interaction.client, r.promovido, {
-      content: `✅ Abriu uma vaga e você saiu da lista de espera: sua presença em **${r.evento.titulo}** está confirmada. <t:${Math.floor(new Date(r.evento.inicio_em).getTime() / 1000)}:F>`,
+      content: `${tema.emoji.ok} Abriu uma vaga e você saiu da lista de espera: sua presença em **${r.evento.titulo}** está confirmada. <t:${Math.floor(new Date(r.evento.inicio_em).getTime() / 1000)}:F>`,
     });
   }
   return interaction.followUp({ content: '👋 VOCÊ SAIU DESTE EVENTO.', flags: 64 });

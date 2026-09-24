@@ -12,6 +12,7 @@ const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const E = require('./estatisticas');
 const repositorio = require('./repositorio');
 const { buscarBloqueio } = require('../naoRecrutar');
+const tema = require('../../tema');
 
 // Canal-espelho do 🆔・socio-sem-id (ver painelSociosSemId.js), só que ao
 // contrário: aqui é o ID do jogo que aparece com frequência nos logs (via
@@ -375,7 +376,7 @@ function montarEmbeds(candidatos) {
     : [[]];
 
   return grupos.map((grupo, i) => ({
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: i === 0 ? `🔗 IDS SEM DISCORD (${candidatos.length})` : null,
     description: i === 0
       ? `${cabecalhoPrimeira}${grupo.join('\n') || '*Ninguém pendente — todo ID frequente já tem alguém no Discord.* 🎉'}`
@@ -420,8 +421,8 @@ let ultimosCandidatos = [];
 // descrição, botões embaixo. Nada de content solto com emoji no texto.
 function payloadMsgBotoes() {
   const embed = new EmbedBuilder()
-    .setColor(0x000000)
-    .setTitle('GERENCIAR IDS PENDENTES - GAVIÕES DA FIEL - FIVEM')
+    .setColor(tema.cor.primaria)
+    .setTitle(tema.tituloSegmentado('GERENCIAR IDS PENDENTES'))
     .setDescription(
       'Clique em um dos botões abaixo:\n' +
       '**VER PENDENTES** — todo ID pendente, com sugestão automática de nome parecido primeiro.\n' +
@@ -629,7 +630,7 @@ function embedFichaPendente(c, membroSugestao) {
   ];
   if (c.sugestao) linhas.push(`**Possível correlação:** <@${c.sugestao.discordId}> (${Math.round(c.sugestao.score * 100)}% de nome parecido)`);
   linhas.push(`\nNão é essa a pessoa, ou quer indicar outra? Busque e selecione direto no campo abaixo.`);
-  const embed = { color: 0x000000, title: `🔗 ${c.nome ?? '?'}`, description: linhas.join('\n') };
+  const embed = { color: tema.cor.primaria, title: `🔗 ${c.nome ?? '?'}`, description: linhas.join('\n') };
   if (membroSugestao) embed.thumbnail = { url: membroSugestao.displayAvatarURL({ extension: 'png', size: 128 }) };
   return embed;
 }
@@ -659,7 +660,7 @@ function botoesPendente(c) {
 function embedFichaIgnorado(r) {
   const em = r.ignoradoEm ? new Date(r.ignoradoEm).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '?';
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `🗂️ ${r.nome ?? '?'}`,
     description: [
       `**ID:** \`${r.id}\``,

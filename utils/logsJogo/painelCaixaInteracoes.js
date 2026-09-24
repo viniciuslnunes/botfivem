@@ -9,7 +9,7 @@ const db = require('../db');
 const E = require('./estatisticas');
 const F = require('./painelFormato');
 const repo = require('./repositorio');
-const { selectPeriodo, selectBuscarJogador, linhaBotao } = require('./painelComponentesFixos');
+const { selectPeriodo, selectBuscarJogador } = require('./painelComponentesFixos');
 
 // Canal 🏦・caixa-do-jogo: mesmo padrão interativo do 📦・estoque-bau (ver
 // docs/inteligencia-logs-jogo.md § "Padrão de UI"). Aqui não existe uma LISTA
@@ -26,7 +26,7 @@ const MODULO = 'caixa';
 // (CAMPOS_MANUAIS) — ver docs/plano-modulos-torcida.md § "Edição de dado
 // manual num painel fixo". Diferença: aqui o valor também reage sozinho a
 // cada depósito/saque novo do webhook (incrementarSaldoCaixaManual, chamado
-// por events/messageCreate.js), pra não precisar bater de novo no jogo toda
+// pelo pipeline de logs (utils/logsJogo/pipeline.js)), pra não precisar bater de novo no jogo toda
 // hora — só a divergência acumulada por perda de webhook precisa de ajuste
 // manual de vez em quando.
 const CONFIG_KEY_MANUAL = 'painel_caixa_manual';
@@ -48,7 +48,7 @@ const ROUPA = ['comprou_roupa'];
 const ACOES_TODAS = [...DINHEIRO, ...HONRA, ...ROUPA];
 
 // Delta de dinheiro (entrou - saiu) de um lote de registros novos do
-// webhook — chamado por events/messageCreate.js a cada log gravado, pra
+// webhook — chamado pelo pipeline de logs (utils/logsJogo/pipeline.js) a cada log gravado, pra
 // somar em cima do saldo batido à mão (ver incrementarSaldoCaixaManual mais
 // abaixo). `valor` nos registros já vem sempre positivo (Math.abs no
 // parser); a direção é só o `acao`.
@@ -102,7 +102,7 @@ async function gravarCampoManualCaixa(chave, valorObj) {
   );
 }
 
-// Chamado por events/messageCreate.js a cada depósito/saque novo que o
+// Chamado pelo pipeline de logs (utils/logsJogo/pipeline.js) a cada depósito/saque novo que o
 // webhook loga (delta = entrou - saiu daquele lote). Só ajusta se já existe
 // um saldo batido à mão — sem baseline setada pela liderança (botão EDITAR),
 // não tem o que corrigir, e criar um "saldo" do nada a partir de um delta

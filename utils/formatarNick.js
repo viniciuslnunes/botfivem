@@ -1,7 +1,8 @@
 // Exemplo de função utilitária para formatação de nick
+const tema = require('../tema');
 
 function formatarNick(nome, idFiveM) {
-  const prefixo = 'S GDF | ';
+  const prefixo = tema.marca.nickPrefixo;
   const sufixo = ` - ${idFiveM}`;
   const maxNome = 32 - prefixo.length - sufixo.length;
   const nomeCortado = nome.slice(0, maxNome);

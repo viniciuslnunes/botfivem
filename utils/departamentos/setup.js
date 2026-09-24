@@ -7,11 +7,12 @@ const { listarDepartamentos, salvarDepartamento } = require('./repositorio');
 const { nomesDosCargos, nomeDoCanal } = require('./regras');
 const { garantirMensagemFixa } = require('../mensagemFixa');
 const { linhaBotoesArea } = require('./interacoes');
+const tema = require('../../tema');
 
 function mensagemApresentacaoArea(area, cargoMembroId, cargoGestorId) {
   return {
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `${area.emoji} ${area.nome.toUpperCase()}`,
       description: area.descricao ?? null,
       fields: [{ name: 'QUEM PARTICIPA', value: `<@&${cargoMembroId}> · Gestor: <@&${cargoGestorId}>`, inline: false }],

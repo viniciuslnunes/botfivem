@@ -13,6 +13,7 @@ const F = require('../logsJogo/painelFormato');
 const E = require('../logsJogo/estatisticas');
 const fichas = require('./fichas');
 const regras = require('./regras');
+const tema = require('../../tema');
 
 // Canal 🔓・reprovados-definitivos, logo abaixo do validar-setagem: todo
 // candidato reprovado com "NÃO PODE TENTAR DE NOVO" e o botão pra liberar uma
@@ -112,7 +113,7 @@ async function responderComSelect(interaction, reprovados, { vazio, total }) {
 async function listar(interaction) {
   await interaction.deferReply({ flags: 64 });
   const reprovados = await fichas.listarReprovacoesDefinitivas();
-  return responderComSelect(interaction, reprovados, { vazio: '✅ NINGUÉM ESTÁ BARRADO DE TENTAR DE NOVO.' });
+  return responderComSelect(interaction, reprovados, { vazio: `${tema.emoji.ok} NINGUÉM ESTÁ BARRADO DE TENTAR DE NOVO.` });
 }
 
 function abrirBusca(interaction) {
@@ -182,8 +183,8 @@ async function avisarCandidato(client, discordId) {
     const usuario = await client.users.fetch(discordId);
     await usuario.send({
       embeds: [{
-        color: 0x000000,
-        title: '🔓 RECRUTAMENTO — GAVIÕES DA FIEL FIVEM',
+        color: tema.cor.primaria,
+        title: tema.titulo('🔓 RECRUTAMENTO'),
         description: 'Sua reprovação anterior foi revista. **Você já pode enviar uma nova solicitação de recrutamento.**',
       }],
     });
@@ -232,7 +233,7 @@ async function confirmar(interaction, messageId) {
     falhou: '⚠️ NÃO CONSEGUI REMOVER O CARGO DE REPROVADO — remova manualmente.',
   };
   const linhas = [
-    `✅ ${F.pessoa({ nome: ficha.nome, id: ficha.id_fivem })} (<@${ficha.discord_id}>) **PODE SOLICITAR RECRUTAMENTO DE NOVO.**`,
+    `${tema.emoji.ok} ${F.pessoa({ nome: ficha.nome, id: ficha.id_fivem })} (<@${ficha.discord_id}>) **PODE SOLICITAR RECRUTAMENTO DE NOVO.**`,
     avisos[cargo],
     avisado ? '📩 Candidato avisado por DM.' : '⚠️ Não foi possível avisar por DM (DM fechada ou fora do servidor).',
     bloqueioId ? `⛔ Atenção: o ID FiveM **${ficha.id_fivem}** continua no ❌・nao-recrutar — a aprovação vai ser barrada até removê-lo de lá.` : '',

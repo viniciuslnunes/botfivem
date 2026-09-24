@@ -1,6 +1,7 @@
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 require('chart.js/auto');
 const E = require('./estatisticas');
+const tema = require('../../tema');
 
 // Volume farmado por DIA — uma série só (quantidade guardada de item de
 // farm), bem mais simples que graficoTerritoriosPorDia (3 séries, 2 eixos):
@@ -10,10 +11,10 @@ const E = require('./estatisticas');
 
 const W = 700;
 const H = 260;
-const FUNDO = '#000000';
-const GRADE = '#262626';
-const TEXTO_FRACO = '#999999';
-const COR_BARRA = '#8C8C8C';
+const FUNDO = tema.imagem.fundo;
+const GRADE = tema.imagem.grade;
+const TEXTO_FRACO = tema.imagem.textoFraco;
+const COR_BARRA = tema.imagem.barra;
 
 const chartJSNodeCanvas = new ChartJSNodeCanvas({ width: W, height: H, backgroundColour: FUNDO });
 

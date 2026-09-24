@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config/index.js');
 const { garantirMensagemNaoRecrutar } = require('../utils/mensagemNaoRecrutar');
+const tema = require('../tema');
 
 // Verifica se já existe mensagem do bot com botões no canal; retorna true se já existir
 async function jaTemBotao(canal, client) {
@@ -19,8 +20,8 @@ module.exports = {
     const canalValidar = interaction.guild.channels.cache.get(config.canais.validarId);
     if (canalValidar && !await jaTemBotao(canalValidar, client)) {
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('VALIDAÇÃO DE ID - GAVIÕES DA FIEL - FIVEM')
+        .setColor(tema.cor.primaria)
+        .setTitle(tema.tituloSegmentado('VALIDAÇÃO DE ID'))
         .setDescription('Clique no botão abaixo para validar se um ID está impedido de ser recrutado!');
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -38,8 +39,8 @@ module.exports = {
     const canalAdvertencia = interaction.guild.channels.cache.get(config.canais.advertencia);
     if (canalAdvertencia && !await jaTemBotao(canalAdvertencia, client)) {
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('ADVERTÊNCIAS - GAVIÕES DA FIEL - FIVEM')
+        .setColor(tema.cor.primaria)
+        .setTitle(tema.tituloSegmentado('ADVERTÊNCIAS'))
         .setDescription('Use os botões abaixo para registrar ou remover uma advertência de um membro.');
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -58,8 +59,8 @@ module.exports = {
     const canalCarteirinha = interaction.guild.channels.cache.get(config.canais.carteirinha);
     if (canalCarteirinha && !await jaTemBotao(canalCarteirinha, client)) {
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('🪪 CARTEIRINHA DE SÓCIO — GAVIÕES DA FIEL FIVEM')
+        .setColor(tema.cor.primaria)
+        .setTitle(tema.titulo('🪪 CARTEIRINHA DE SÓCIO'))
         .setDescription('Clique no botão abaixo para emitir ou consultar sua carteirinha de sócio.');
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -74,10 +75,10 @@ module.exports = {
     const canalTicket = interaction.guild.channels.cache.get(config.canais.ticket);
     if (canalTicket && !await jaTemBotao(canalTicket, client)) {
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('🎫 TICKET - GAVIÕES DA FIEL - FIVEM')
+        .setColor(tema.cor.primaria)
+        .setTitle(tema.tituloSegmentado('🎫 TICKET'))
         .setDescription('Clique no botão abaixo para abrir um ticket e falar com a nossa equipe de suporte.')
-        .setImage('attachment://FAIXA_19.jpg');
+        .setImage(tema.urlAnexo(tema.marca.faixa));
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('abrir_ticket')
@@ -87,7 +88,7 @@ module.exports = {
       await canalTicket.send({
         embeds: [embed],
         components: [row],
-        files: [{ attachment: './img/FAIXA_19.jpg', name: 'FAIXA_19.jpg' }]
+        files: [tema.anexo(tema.marca.faixa)]
       });
     }
 
@@ -95,8 +96,8 @@ module.exports = {
     const canalAdvRec = interaction.guild.channels.cache.get(config.canais.advRecrutadores);
     if (canalAdvRec && !await jaTemBotao(canalAdvRec, client)) {
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('⛔ ADVERTÊNCIAS DE RECRUTADORES — GAVIÕES DA FIEL FIVEM')
+        .setColor(tema.cor.primaria)
+        .setTitle(tema.titulo('⛔ ADVERTÊNCIAS DE RECRUTADORES'))
         .setDescription('Use os botões abaixo para registrar ou remover uma advertência de um recrutador.');
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()

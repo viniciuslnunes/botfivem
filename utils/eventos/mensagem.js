@@ -3,6 +3,7 @@ const config = require('../../config/index.js');
 const repo = require('./repositorio');
 const { TIPOS_EVENTO, inscricoesAbertas, resumirPresenca, formatarTaxa } = require('./regras');
 const { listaLimitada } = require('../departamentos/regras');
+const tema = require('../../tema');
 
 // A mensagem do evento é sempre reconstruída a partir do banco — nunca editada "de cabeça"
 
@@ -30,7 +31,7 @@ function montarMensagemEvento(evento, inscricoes, agora = new Date()) {
     inline: true,
   });
   fields.push({
-    name: `✅ CONFIRMADOS (${confirmados.length})`,
+    name: `${tema.emoji.ok} CONFIRMADOS (${confirmados.length})`,
     value: confirmados.length ? listaLimitada(confirmados.map(i => `<@${i.discord_id}>`), 1000) : '*Ninguém confirmou ainda.*',
     inline: false,
   });
@@ -51,7 +52,7 @@ function montarMensagemEvento(evento, inscricoes, agora = new Date()) {
   }
 
   const embed = {
-    color: cancelado ? 0xFF0000 : 0x000000,
+    color: cancelado ? tema.cor.perigo : tema.cor.primaria,
     title: `${cancelado ? '❌ CANCELADO — ' : ''}${tipo.emoji} ${evento.titulo.toUpperCase()}`,
     description: evento.descricao || null,
     fields,
@@ -62,7 +63,7 @@ function montarMensagemEvento(evento, inscricoes, agora = new Date()) {
 
   const components = cancelado ? [] : [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`evt:confirmar:${evento.id}`).setLabel('CONFIRMAR').setEmoji('✅')
+      new ButtonBuilder().setCustomId(`evt:confirmar:${evento.id}`).setLabel('CONFIRMAR').setEmoji(tema.emoji.ok)
         .setStyle(ButtonStyle.Secondary).setDisabled(!abertas),
       new ButtonBuilder().setCustomId(`evt:desistir:${evento.id}`).setLabel('DESISTIR')
         .setStyle(ButtonStyle.Secondary).setDisabled(!abertas),

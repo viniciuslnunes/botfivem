@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFla
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const { CHAVE_CANAL_ARQUIVO } = require('../arquivoMidia');
+const tema = require('../../tema');
 
 // Categoria da loja (pedidos privados), vitrine pública para sócios e arquivo de imagens
 const CHAVE_CATEGORIA = 'categoria_loja';
@@ -13,8 +14,8 @@ const ESCREVER = [...LER, P.SendMessages, P.EmbedLinks, P.AttachFiles];
 function mensagemVitrine() {
   return {
     embeds: [{
-      color: 0x000000,
-      title: '🛒 LOJA — GAVIÕES DA FIEL FIVEM',
+      color: tema.cor.primaria,
+      title: tema.titulo('🛒 LOJA'),
       description: 'Clique no botão abaixo para ver os produtos disponíveis.\nO pagamento é feito **no jogo**: o pedido abre um canal privado com a equipe da loja.',
     }],
     components: [new ActionRowBuilder().addComponents(

@@ -1,8 +1,7 @@
-const path = require('path');
 const db = require('./db');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
-const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
 const CANAL_QUADRO = config.canais.quadroRecrutadores;
 const CONFIG_KEY = 'quadro_recrutadores_message_id';
 const CARGO_RECRUTADOR = config.cargos.recrutador;
@@ -32,10 +31,10 @@ function construirEmbed(guild) {
   if (descricao.length > 4096) descricao = descricao.substring(0, 4093) + '...';
 
   return {
-    color: 0x000000,
-    title: '📋 QUADRO DE RECRUTADORES — GAVIÕES DA FIEL FIVEM',
+    color: tema.cor.primaria,
+    title: tema.titulo('📋 QUADRO DE RECRUTADORES'),
     description: descricao,
-    thumbnail: { url: 'attachment://gavioesdafielfivem_logo.png' },
+    thumbnail: { url: tema.urlLogo() },
     footer: { text: `TOTAL: ${membros.size} RECRUTADOR${membros.size !== 1 ? 'ES' : ''}` },
     timestamp: new Date().toISOString(),
   };
@@ -59,7 +58,7 @@ async function atualizarQuadroRecrutadores(client) {
         const msg = await canal.messages.fetch(messageId);
         await msg.edit({
           embeds: [embed],
-          files: [{ attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }],
+          files: [tema.logo()],
           allowedMentions: { users: [] },
         });
         return;
@@ -70,7 +69,7 @@ async function atualizarQuadroRecrutadores(client) {
 
     const sent = await canal.send({
       embeds: [embed],
-      files: [{ attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }],
+      files: [tema.logo()],
       allowedMentions: { users: [] },
     });
     await setQuadroMessageId(sent.id);

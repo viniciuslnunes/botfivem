@@ -1,6 +1,7 @@
 const db = require('../db');
 const config = require('../../config/index.js');
 const { formatarDataBR, chaveDataValidade } = require('./regras');
+const tema = require('../../tema');
 
 // Aviso por DM antes de vencer e no dia em que vence. Os carimbos em `socios`
 // garantem um aviso só por ciclo (renovar zera os carimbos).
@@ -27,7 +28,7 @@ async function verificarVencimentos(client) {
   );
   for (const socio of aVencer.rows) {
     await enviarDM(client, socio.discord_id, {
-      color: 0xFFCC00,
+      color: tema.cor.aviso,
       title: '🪪 SUA CARTEIRINHA ESTÁ PERTO DE VENCER',
       description: `A carteirinha de sócio nº **${String(socio.numero_socio).padStart(4, '0')}** vence em **${formatarDataBR(chaveDataValidade(socio.validade))}**.\nProcure a diretoria para renovar.`,
     });
@@ -42,7 +43,7 @@ async function verificarVencimentos(client) {
   for (const socio of vencidas.rows) {
     if (socio.recente) {
       await enviarDM(client, socio.discord_id, {
-        color: 0xFF0000,
+        color: tema.cor.perigo,
         title: '🪪 SUA CARTEIRINHA VENCEU',
         description: `A carteirinha de sócio nº **${String(socio.numero_socio).padStart(4, '0')}** venceu em **${formatarDataBR(chaveDataValidade(socio.validade))}**.\nProcure a diretoria para renovar.`,
       });

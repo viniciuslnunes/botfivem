@@ -1,3 +1,4 @@
+const tema = require('../../tema');
 // Regras puras da escala (sem Discord nem banco).
 // Uma pessoa, um posto por operação; presença não é campo da escala.
 
@@ -12,7 +13,7 @@ const FUNCOES_ESCALA = {
   APOIO: { rotulo: 'Apoio', emoji: '🛠️' },
 };
 const FUNCAO_CHOICES = Object.entries(FUNCOES_ESCALA).map(([value, f]) => ({ name: f.rotulo, value }));
-const ICONE_STATUS = { CONVOCADO: '⏳', ACEITO: '✅', RECUSADO: '❌' };
+const ICONE_STATUS = { CONVOCADO: tema.emoji.pendente, ACEITO: tema.emoji.ok, RECUSADO: tema.emoji.recusado };
 
 function rotuloFuncao(funcao) {
   const f = FUNCOES_ESCALA[funcao] ?? FUNCOES_ESCALA.APOIO;

@@ -5,6 +5,7 @@ const { formatarNumero } = require('../logsJogo/estatisticas');
 const { formatarTaxa } = require('../eventos/regras');
 const repo = require('./funilRepositorio');
 const { mapearSociosPorIdFivem, resumirFunil } = require('./funil');
+const tema = require('../../tema');
 
 async function montarEmbedFunil(guild, periodo) {
   const [novatos] = await Promise.all([repo.novatosDoPeriodo(periodo.inicio, periodo.fim), garantirMembrosCarregados(guild)]);
@@ -14,7 +15,7 @@ async function montarEmbedFunil(guild, periodo) {
     `🆔 **${n.id_fivem}** · ${n.ator_nome ?? 'sem nome'} · <t:${Math.floor(new Date(n.ocorrido_em).getTime() / 1000)}:R>`);
 
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `🔎 FUNIL DE RECRUTAMENTO — ${periodo.rotulo}`,
     description: [
       `🎮 **${formatarNumero(f.novatos)}** entraram na torcida no jogo`,

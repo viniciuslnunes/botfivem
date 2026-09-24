@@ -10,6 +10,7 @@ const R = require('./regras');
 const { atualizarMensagemRifa, montarMensagemPagamento, listarNumeros } = require('./mensagem');
 const { canalDePagamentos } = require('./estrutura');
 const { podeConfirmarPagamentos } = require('./permissoes');
+const tema = require('../../tema');
 require('./tarefas'); // registra expiração de reserva e encerramento no prazo
 
 // rifa:comprar:<rifa> · rifa:escolher:<rifa> · rifa:aleatorio:<rifa> · rifa:meus:<rifa>
@@ -34,7 +35,7 @@ function botoesReserva(compraId) {
 
 function textoSituacaoCompra(compra) {
   return {
-    PAGA: '✅ ESTE PAGAMENTO JÁ FOI CONFIRMADO.',
+    PAGA: `${tema.emoji.ok} ESTE PAGAMENTO JÁ FOI CONFIRMADO.`,
     AGUARDANDO: '⏳ VOCÊ JÁ AVISOU ESTE PAGAMENTO. A EQUIPE VAI CONFERIR.',
     EXPIRADA: '⌛ ESTA RESERVA VENCEU E OS NÚMEROS VOLTARAM PARA A VENDA.',
     CANCELADA: '❌ ESTA RESERVA FOI CANCELADA.',
@@ -190,7 +191,7 @@ async function avisarPagamento(interaction, compraId) {
 
   await repo.gravarMensagemEquipe(compra.id, `${canal.id}/${mensagemEquipe.id}`);
   return interaction.editReply({
-    content: `✅ **AVISO ENVIADO — RESERVA #${compra.id}**\nOs números **${listarNumeros(numeros, rifa, 800)}** estão guardados para você. A equipe confere o pagamento e você recebe a confirmação por DM.`,
+    content: `${tema.emoji.ok} **AVISO ENVIADO — RESERVA #${compra.id}**\nOs números **${listarNumeros(numeros, rifa, 800)}** estão guardados para você. A equipe confere o pagamento e você recebe a confirmação por DM.`,
     components: [],
   });
 }
@@ -198,7 +199,7 @@ async function avisarPagamento(interaction, compraId) {
 const ERROS_CANCELAR = {
   nao_encontrada: '❌ RESERVA NÃO ENCONTRADA.',
   nao_dono: '❌ ESTA RESERVA NÃO É SUA.',
-  paga: '✅ ESTE PAGAMENTO JÁ FOI CONFIRMADO: OS NÚMEROS SÃO SEUS.',
+  paga: `${tema.emoji.ok} ESTE PAGAMENTO JÁ FOI CONFIRMADO: OS NÚMEROS SÃO SEUS.`,
   aguardando: '⏳ VOCÊ JÁ AVISOU QUE PAGOU: AGORA SÓ A ORGANIZAÇÃO PODE CANCELAR ESTA RESERVA.',
   nao_pendente: '⚠️ ESTA RESERVA JÁ FOI ENCERRADA (CANCELADA OU VENCIDA).',
 };
@@ -213,7 +214,7 @@ async function desistir(interaction, compraId) {
 
 const ERROS_DECISAO = {
   nao_encontrada: '❌ COMPRA NÃO ENCONTRADA.',
-  ja_paga: '✅ ESTE PAGAMENTO JÁ TINHA SIDO CONFIRMADO.',
+  ja_paga: `${tema.emoji.ok} ESTE PAGAMENTO JÁ TINHA SIDO CONFIRMADO.`,
   paga: '⚠️ ESTE PAGAMENTO JÁ FOI CONFIRMADO. DEVOLVER DINHEIRO CONFIRMADO É CANCELAR A RIFA (`/rifa cancelar`).',
   nao_pendente: '⚠️ ESTA RESERVA JÁ FOI ENCERRADA (CANCELADA OU VENCIDA).',
   rifa_fechada: '⚠️ A RIFA JÁ FOI SORTEADA OU CANCELADA: ESTE PAGAMENTO NÃO ENTRA MAIS. DEVOLVA O VALOR NO JOGO.',
@@ -243,15 +244,15 @@ async function decidirPagamento(interaction, compraId, confirmar) {
     rifa,
     numeros,
     decisao: confirmar
-      ? { texto: `✅ Confirmado por <@${interaction.user.id}> <t:${agora}:R>`, cor: 0x000000 }
-      : { texto: `❌ Recusado por <@${interaction.user.id}> <t:${agora}:R> — números devolvidos à venda`, cor: 0xFF0000 },
+      ? { texto: `${tema.emoji.ok} Confirmado por <@${interaction.user.id}> <t:${agora}:R>`, cor: tema.cor.primaria }
+      : { texto: `❌ Recusado por <@${interaction.user.id}> <t:${agora}:R> — números devolvidos à venda`, cor: tema.cor.perigo },
   }));
   atualizarPublica(interaction.client, rifa.id);
 
   const lista = listarNumeros(numeros, rifa, 800);
   if (confirmar) {
     await avisarPorDM(interaction.client, compra.discord_id, {
-      content: `✅ Pagamento confirmado na rifa **${rifa.titulo}**. Seus números: **${lista}**. Boa sorte!`,
+      content: `${tema.emoji.ok} Pagamento confirmado na rifa **${rifa.titulo}**. Seus números: **${lista}**. Boa sorte!`,
     });
     if (R.cruzouLimiar({ totalNumeros: rifa.total_numeros, antes: r.rifaAntes.vendidos, depois: rifa.vendidos, pct: rifa.limiar_sorteio_pct })) {
       await interaction.channel?.send({
@@ -267,7 +268,7 @@ async function decidirPagamento(interaction, compraId, confirmar) {
   await registrarLogGestao(interaction.client, {
     titulo: `🎟️ RIFA #${rifa.id} — PAGAMENTO ${confirmar ? 'CONFIRMADO' : 'RECUSADO'}`,
     ator: interaction.user.id,
-    cor: confirmar ? 0x000000 : 0xFF0000,
+    cor: confirmar ? tema.cor.primaria : tema.cor.perigo,
     campos: [
       { name: 'COMPRADOR', value: `<@${compra.discord_id}>`, inline: true },
       { name: 'TOTAL', value: formatarDinheiro(compra.total), inline: true },
@@ -289,7 +290,7 @@ async function mostrarMeus(interaction, rifaId) {
 
   const linhas = [`**🎟️ SEUS NÚMEROS — ${rifa.titulo.toUpperCase()}**`];
   if (!bilhetes.length) linhas.push('Você não tem números nesta rifa.');
-  if (pagos.length) linhas.push(`✅ Pagos (${pagos.length}): **${listarNumeros(pagos, rifa, 600)}**`);
+  if (pagos.length) linhas.push(`${tema.emoji.ok} Pagos (${pagos.length}): **${listarNumeros(pagos, rifa, 600)}**`);
   if (aguardando.length) linhas.push(`⏳ Aguardando a equipe conferir (${aguardando.length}): ${listarNumeros(aguardando, rifa, 400)}`);
   for (const compra of abertas) {
     const daCompra = bilhetes.filter(b => b.compra_id === compra.id).map(b => b.numero);

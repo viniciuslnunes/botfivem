@@ -1,0 +1,1074 @@
+[
+  {
+    "embed": {
+      "description": "O jogador Lucas Souzinha (ID: 7285) FINALIZOU sua advertência."
+    },
+    "registro": {
+      "categoria": "disciplina",
+      "titulo": null,
+      "descricao": "O jogador Lucas Souzinha (ID: 7285) FINALIZOU sua advertência.",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": "Lucas Souzinha",
+      "alvoIdFivem": "7285",
+      "valor": null,
+      "acao": "adv_finalizou"
+    }
+  },
+  {
+    "embed": {
+      "description": "O administrador Blaczx Inajar (ID: 855) REMOVEU MANUALMENTE a advertencia do jogador Mn Lhp (ID: 898)."
+    },
+    "registro": {
+      "categoria": "disciplina",
+      "titulo": null,
+      "descricao": "O administrador Blaczx Inajar (ID: 855) REMOVEU MANUALMENTE a advertencia do jogador Mn Lhp (ID: 898).",
+      "atorNome": "Blaczx Inajar",
+      "atorIdFivem": "855",
+      "alvoNome": "Mn Lhp",
+      "alvoIdFivem": "898",
+      "valor": null,
+      "acao": "adv_removida"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador Rafinha Inajar (ID: 4043) foi ADVERTIDO por Japones Inajar. Motivo: não escutou call Serviços: 300"
+    },
+    "registro": {
+      "categoria": "disciplina",
+      "titulo": null,
+      "descricao": "O jogador Rafinha Inajar (ID: 4043) foi ADVERTIDO por Japones Inajar. Motivo: não escutou call Serviços: 300",
+      "atorNome": "Japones Inajar",
+      "atorIdFivem": null,
+      "alvoNome": "Rafinha Inajar",
+      "alvoIdFivem": "4043",
+      "valor": null,
+      "acao": "advertido"
+    }
+  },
+  {
+    "embed": {
+      "title": "arena",
+      "description": "#182 Bxlhp Inajar bloqueou arena."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "arena",
+      "descricao": "#182 Bxlhp Inajar bloqueou arena.",
+      "atorNome": "Bxlhp Inajar",
+      "atorIdFivem": "182",
+      "alvoNome": "arena",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "arena_bloqueou"
+    }
+  },
+  {
+    "embed": {
+      "title": "arena",
+      "description": "#13067 Cris Sabará desbloqueou arena."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "arena",
+      "descricao": "#13067 Cris Sabará desbloqueou arena.",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "arena",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "arena_desbloqueou"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador ID 855 depositou R$ 100000 no banco da torcida."
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": null,
+      "descricao": "O jogador ID 855 depositou R$ 100000 no banco da torcida.",
+      "atorNome": null,
+      "atorIdFivem": "855",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 100000,
+      "acao": "banco_depositou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Depositou dinheiro",
+      "description": "Torcida: gavioes\nID: 13067\nValor: 1500000"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Depositou dinheiro",
+      "descricao": "Torcida: gavioes ID: 13067 Valor: 1500000",
+      "atorNome": null,
+      "atorIdFivem": "13067",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 1500000,
+      "acao": "banco_depositou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Dinheiro",
+      "description": "Usuário: 15277\nValor: 300000"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Dinheiro",
+      "descricao": "Usuário: 15277 Valor: 300000",
+      "atorNome": null,
+      "atorIdFivem": "15277",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 300000,
+      "acao": "banco_depositou"
+    }
+  },
+  {
+    "embed": {
+      "description": "O presidente ID 901 sacou R$ 120000 do banco da torcida."
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": null,
+      "descricao": "O presidente ID 901 sacou R$ 120000 do banco da torcida.",
+      "atorNome": null,
+      "atorIdFivem": "901",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 120000,
+      "acao": "banco_sacou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Dinheiro",
+      "description": "Usuário: 6\nValor: -50000"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Dinheiro",
+      "descricao": "Usuário: 6 Valor: -50000",
+      "atorNome": null,
+      "atorIdFivem": "6",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 50000,
+      "acao": "banco_sacou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Sacou dinheiro",
+      "description": "Torcida: gavioes\nID: 560\nValor: 1"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Sacou dinheiro",
+      "descricao": "Torcida: gavioes ID: 560 Valor: 1",
+      "atorNome": null,
+      "atorIdFivem": "560",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 1,
+      "acao": "banco_sacou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Baú de Recompensas [GDF] - Depósito (Staff)",
+      "description": "Personagem: #2 Flavinha Hlb\nItem: Veículo VIP\nQuantidade: 3\nData: 18/07/2026 01:12:55"
+    },
+    "registro": {
+      "categoria": "bau",
+      "titulo": "Baú de Recompensas [GDF] - Depósito (Staff)",
+      "descricao": "Personagem: #2 Flavinha Hlb Item: Veículo VIP Quantidade: 3 Data: 18/07/2026 01:12:55",
+      "atorNome": "Flavinha Hlb",
+      "atorIdFivem": "2",
+      "alvoNome": "Veículo VIP",
+      "alvoIdFivem": null,
+      "valor": 3,
+      "acao": "bau_guardou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Guardou [GDF Sócio]",
+      "description": "Usuário: `19618`\nItem: `mochila_m-1787863708`\nQuantidade: `1`"
+    },
+    "registro": {
+      "categoria": "bau",
+      "titulo": "Guardou [GDF Sócio]",
+      "descricao": "Usuário: 19618 Item: mochila_m-1787863708 Quantidade: 1",
+      "atorNome": null,
+      "atorIdFivem": "19618",
+      "alvoNome": "mochila_m-1787863708",
+      "alvoIdFivem": null,
+      "valor": 1,
+      "acao": "bau_guardou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Baú de Recompensas [GDF] - Retirada (Torcida)",
+      "description": "Personagem: #13067 Cris Sabará\nItem: Maconha\nQuantidade: 500\nData: 11/09/2026 23:44:05"
+    },
+    "registro": {
+      "categoria": "bau",
+      "titulo": "Baú de Recompensas [GDF] - Retirada (Torcida)",
+      "descricao": "Personagem: #13067 Cris Sabará Item: Maconha Quantidade: 500 Data: 11/09/2026 23:44:05",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "Maconha",
+      "alvoIdFivem": null,
+      "valor": 500,
+      "acao": "bau_removeu"
+    }
+  },
+  {
+    "embed": {
+      "title": "Removeu [GDF Presidência]",
+      "description": "Usuário: `13067`\nItem: `tecido`\nQuantidade: `5477`"
+    },
+    "registro": {
+      "categoria": "bau",
+      "titulo": "Removeu [GDF Presidência]",
+      "descricao": "Usuário: 13067 Item: tecido Quantidade: 5477",
+      "atorNome": null,
+      "atorIdFivem": "13067",
+      "alvoNome": "tecido",
+      "alvoIdFivem": null,
+      "valor": 5477,
+      "acao": "bau_removeu"
+    }
+  },
+  {
+    "embed": {
+      "description": "#537 Brodis Rsj adicionou blacklist da torcida #nil nil nil."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": null,
+      "descricao": "#537 Brodis Rsj adicionou blacklist da torcida #nil nil nil.",
+      "atorNome": "Brodis Rsj",
+      "atorIdFivem": "537",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "blacklist_adicionou"
+    }
+  },
+  {
+    "embed": {
+      "title": "blacklist",
+      "description": "#2190 Macaco Loko adicionou blacklist da torcida #7262 Pedro Pisico."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": "blacklist",
+      "descricao": "#2190 Macaco Loko adicionou blacklist da torcida #7262 Pedro Pisico.",
+      "atorNome": "Macaco Loko",
+      "atorIdFivem": "2190",
+      "alvoNome": "Pedro Pisico",
+      "alvoIdFivem": "7262",
+      "valor": null,
+      "acao": "blacklist_adicionou"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador ID 953 criou/editou o cargo Vice Presidente."
+    },
+    "registro": {
+      "categoria": "config",
+      "titulo": null,
+      "descricao": "O jogador ID 953 criou/editou o cargo Vice Presidente.",
+      "atorNome": null,
+      "atorIdFivem": "953",
+      "alvoNome": "Vice Presidente",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "cargo_editado"
+    }
+  },
+  {
+    "embed": {
+      "title": "Coins",
+      "description": "Origem: Conquista: Petrolífera\nCoins: +10"
+    },
+    "registro": {
+      "categoria": "territorio",
+      "titulo": "Coins",
+      "descricao": "Origem: Conquista: Petrolífera Coins: +10",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": "Petrolífera",
+      "alvoIdFivem": null,
+      "valor": 10,
+      "acao": "coins_conquista"
+    }
+  },
+  {
+    "embed": {
+      "title": "Coins",
+      "description": "Origem: Dominação (1h): Vila dos Pelados\nCoins: +3"
+    },
+    "registro": {
+      "categoria": "territorio",
+      "titulo": "Coins",
+      "descricao": "Origem: Dominação (1h): Vila dos Pelados Coins: +3",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": "Vila dos Pelados",
+      "alvoIdFivem": null,
+      "valor": 3,
+      "acao": "coins_dominacao"
+    }
+  },
+  {
+    "embed": {
+      "title": "comprou",
+      "description": "#13067 Cris Sabará comprou +1 Revolver no Arsenal."
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "comprou",
+      "descricao": "#13067 Cris Sabará comprou +1 Revolver no Arsenal.",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "+1 Revolver no Arsenal",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "comprou_item"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador Gm Stupydu (ID: 731) comprou 2 peça(s) de roupa por R$ 500."
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": null,
+      "descricao": "O jogador Gm Stupydu (ID: 731) comprou 2 peça(s) de roupa por R$ 500.",
+      "atorNome": "Gm Stupydu",
+      "atorIdFivem": "731",
+      "alvoNome": "roupa",
+      "alvoIdFivem": null,
+      "valor": 500,
+      "acao": "comprou_roupa"
+    }
+  },
+  {
+    "embed": {
+      "title": "config",
+      "description": "#560 Gabriel Inajar alterou a configuração de webhook_log."
+    },
+    "registro": {
+      "categoria": "config",
+      "titulo": "config",
+      "descricao": "#560 Gabriel Inajar alterou a configuração de webhook_log.",
+      "atorNome": "Gabriel Inajar",
+      "atorIdFivem": "560",
+      "alvoNome": "webhook_log",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "config_alterou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Registro de Atividade: Japa Sccp",
+      "description": "O jogador Japa Sccp (ID: 368) convocou a equipe para a sede."
+    },
+    "registro": {
+      "categoria": "lideranca",
+      "titulo": "Registro de Atividade: Japa Sccp",
+      "descricao": "O jogador Japa Sccp (ID: 368) convocou a equipe para a sede.",
+      "atorNome": "Japa Sccp",
+      "atorIdFivem": "368",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "convocou_equipe"
+    }
+  },
+  {
+    "embed": {
+      "fields": [
+        {
+          "name": "Quantia",
+          "value": "R$ 2.345,50"
+        }
+      ]
+    },
+    "registro": {
+      "categoria": null,
+      "titulo": null,
+      "descricao": "Quantia: R$ 2.345,50",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 2345.5,
+      "acao": "desconhecido"
+    }
+  },
+  {
+    "embed": {
+      "title": "Guardou presidente",
+      "description": "Usuário: 1 Item: tecido Quantidade: 1"
+    },
+    "registro": {
+      "categoria": null,
+      "titulo": "Guardou presidente",
+      "descricao": "Usuário: 1 Item: tecido Quantidade: 1",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "desconhecido"
+    }
+  },
+  {
+    "embed": {
+      "title": "Registro de Atividade: Fulano",
+      "description": "Fulano (ID: 12) depositou $ 1.500 no baú para Ciclano (ID: 34).",
+      "footer": {
+        "text": "Time: Gaviões da Fiel | Categoria: Bau"
+      }
+    },
+    "registro": {
+      "categoria": "bau",
+      "titulo": "Registro de Atividade: Fulano",
+      "descricao": "Fulano (ID: 12) depositou $ 1.500 no baú para Ciclano (ID: 34).",
+      "atorNome": "Fulano",
+      "atorIdFivem": "12",
+      "alvoNome": null,
+      "alvoIdFivem": "34",
+      "valor": 1500,
+      "acao": "desconhecido"
+    }
+  },
+  {
+    "embed": {
+      "title": "Retirou diretor",
+      "description": "[Id do Usuário]: 39018\n[Item]: Munição de Pistola\n[Spawn Item]: WEAPON_PISTOL_AMMO\n[Quantidade]: 40"
+    },
+    "registro": {
+      "categoria": null,
+      "titulo": "Retirou diretor",
+      "descricao": "[Id do Usuário]: 39018 [Item]: Munição de Pistola [Spawn Item]: WEAPON_PISTOL_AMMO [Quantidade]: 40",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "desconhecido"
+    }
+  },
+  {
+    "embed": {
+      "title": "Dinheiro Adicionado",
+      "description": "Usuário: 2\nValor: 2000000"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Dinheiro Adicionado",
+      "descricao": "Usuário: 2 Valor: 2000000",
+      "atorNome": null,
+      "atorIdFivem": "2",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 2000000,
+      "acao": "dinheiro_adicionado"
+    }
+  },
+  {
+    "embed": {
+      "title": "Banco",
+      "description": "Usuário: Conquista: Farol\nValor: 15000"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Banco",
+      "descricao": "Usuário: Conquista: Farol Valor: 15000",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": "Farol",
+      "alvoIdFivem": null,
+      "valor": 15000,
+      "acao": "dinheiro_conquista"
+    }
+  },
+  {
+    "embed": {
+      "title": "removeu",
+      "description": "#13067 Cris Sabará removeu #18493 Enzo Tody (Traidor)."
+    },
+    "registro": {
+      "categoria": "saida",
+      "titulo": "removeu",
+      "descricao": "#13067 Cris Sabará removeu #18493 Enzo Tody (Traidor).",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "Enzo Tody",
+      "alvoIdFivem": "18493",
+      "valor": null,
+      "acao": "expulso_torcida"
+    }
+  },
+  {
+    "embed": {
+      "title": "removeu",
+      "description": "#2190 Macaco Loko removeu #3766 Paulo Vitor ()."
+    },
+    "registro": {
+      "categoria": "saida",
+      "titulo": "removeu",
+      "descricao": "#2190 Macaco Loko removeu #3766 Paulo Vitor ().",
+      "atorNome": "Macaco Loko",
+      "atorIdFivem": "2190",
+      "alvoNome": "Paulo Vitor",
+      "alvoIdFivem": "3766",
+      "valor": null,
+      "acao": "expulso_torcida"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador X (ID: 1) destrancou a bau."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": null,
+      "descricao": "O jogador X (ID: 1) destrancou a bau.",
+      "atorNome": "X",
+      "atorIdFivem": "1",
+      "alvoNome": "bau",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "fechadura_destrancou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Registro de Atividade: Blaczx Inajar",
+      "description": "O jogador Blaczx Inajar (ID: 855) destrancou a arena."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Registro de Atividade: Blaczx Inajar",
+      "descricao": "O jogador Blaczx Inajar (ID: 855) destrancou a arena.",
+      "atorNome": "Blaczx Inajar",
+      "atorIdFivem": "855",
+      "alvoNome": "arena",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "fechadura_destrancou"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador Arthur Lima (ID: 2543) trancou a entrada automatica."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": null,
+      "descricao": "O jogador Arthur Lima (ID: 2543) trancou a entrada automatica.",
+      "atorNome": "Arthur Lima",
+      "atorIdFivem": "2543",
+      "alvoNome": "entrada automatica",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "fechadura_trancou"
+    }
+  },
+  {
+    "embed": {
+      "description": "O jogador Fabio PeÃ§a (ID: 331) trancou a arena."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": null,
+      "descricao": "O jogador Fabio Peça (ID: 331) trancou a arena.",
+      "atorNome": "Fabio Peça",
+      "atorIdFivem": "331",
+      "alvoNome": "arena",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "fechadura_trancou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Honra adicionada",
+      "description": "Torcida: gavioes\nID: 2\nValor: 3000"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Honra adicionada",
+      "descricao": "Torcida: gavioes ID: 2 Valor: 3000",
+      "atorNome": null,
+      "atorIdFivem": "2",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 3000,
+      "acao": "honra_adicionada"
+    }
+  },
+  {
+    "embed": {
+      "title": "Gastou honra",
+      "description": "Torcida: gavioes\nID: 13067\nValor: 600\nItem: 1x Veículo VIP"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Gastou honra",
+      "descricao": "Torcida: gavioes ID: 13067 Valor: 600 Item: 1x Veículo VIP",
+      "atorNome": null,
+      "atorIdFivem": "13067",
+      "alvoNome": "1x Veículo VIP",
+      "alvoIdFivem": null,
+      "valor": 600,
+      "acao": "honra_gastou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Honra",
+      "description": "Usuário: 6\nValor: -500"
+    },
+    "registro": {
+      "categoria": "economia",
+      "titulo": "Honra",
+      "descricao": "Usuário: 6 Valor: -500",
+      "atorNome": null,
+      "atorIdFivem": "6",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": 500,
+      "acao": "honra_gastou"
+    }
+  },
+  {
+    "embed": {
+      "description": "#1164 Pipper Dazn adicionou impedimento #5150 Mkzin RSJ."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": null,
+      "descricao": "#1164 Pipper Dazn adicionou impedimento #5150 Mkzin RSJ.",
+      "atorNome": "Pipper Dazn",
+      "atorIdFivem": "1164",
+      "alvoNome": "Mkzin RSJ",
+      "alvoIdFivem": "5150",
+      "valor": null,
+      "acao": "impedimento_adicionou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Entrada",
+      "description": "#13138 Will lhp entrou no servidor."
+    },
+    "registro": {
+      "categoria": "conexao",
+      "titulo": "Entrada",
+      "descricao": "#13138 Will lhp entrou no servidor.",
+      "atorNome": "Will lhp",
+      "atorIdFivem": "13138",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "jogador_entrou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Recrutamento",
+      "description": "#15277 Tiago Magrão recrutou #19465 Gelado Silva."
+    },
+    "registro": {
+      "categoria": "recrutamento",
+      "titulo": "Recrutamento",
+      "descricao": "#15277 Tiago Magrão recrutou #19465 Gelado Silva.",
+      "atorNome": "Tiago Magrão",
+      "atorIdFivem": "15277",
+      "alvoNome": "Gelado Silva",
+      "alvoIdFivem": "19465",
+      "valor": null,
+      "acao": "jogador_recrutou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Saída",
+      "description": "#19200 Bigode lmzz saiu do servidor."
+    },
+    "registro": {
+      "categoria": "conexao",
+      "titulo": "Saída",
+      "descricao": "#19200 Bigode lmzz saiu do servidor.",
+      "atorNome": "Bigode lmzz",
+      "atorIdFivem": "19200",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "jogador_saiu"
+    }
+  },
+  {
+    "embed": {
+      "title": "multou",
+      "description": "#14589 Guilherme Skunk multou #4072 cabeleira LHP (Não obedece, finge que não escuta radio!)."
+    },
+    "registro": {
+      "categoria": "disciplina",
+      "titulo": "multou",
+      "descricao": "#14589 Guilherme Skunk multou #4072 cabeleira LHP (Não obedece, finge que não escuta radio!).",
+      "atorNome": "Guilherme Skunk",
+      "atorIdFivem": "14589",
+      "alvoNome": "cabeleira LHP",
+      "alvoIdFivem": "4072",
+      "valor": null,
+      "acao": "multou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Registro de Atividade: Rarin Dimarolla",
+      "description": "O Novato Rarin Dimarolla (ID: 8914 ) entrou na sua torcida Novato.",
+      "footer": {
+        "text": "Time: Gaviões da Fiel | Categoria: lideranca • Hoje às 20:15"
+      }
+    },
+    "registro": {
+      "categoria": "lideranca",
+      "titulo": "Registro de Atividade: Rarin Dimarolla",
+      "descricao": "O Novato Rarin Dimarolla (ID: 8914 ) entrou na sua torcida Novato.",
+      "atorNome": "Rarin Dimarolla",
+      "atorIdFivem": "8914",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "novato_entrou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Registro de Atividade: Teste Novato",
+      "description": "O Novato **Teste Novato** (ID: **9999**) entrou na sua torcida **Novato**.",
+      "footer": {
+        "text": "Time: Gaviões da Fiel | Categoria: lideranca • Hoje às 10:00"
+      }
+    },
+    "registro": {
+      "categoria": "lideranca",
+      "titulo": "Registro de Atividade: Teste Novato",
+      "descricao": "O Novato Teste Novato (ID: 9999) entrou na sua torcida Novato.",
+      "atorNome": "Teste Novato",
+      "atorIdFivem": "9999",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "novato_entrou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Guardou presidente",
+      "description": "[Id do Usuário]: 1969\n[Item]: GDF Caixa\n[Spawn Item]: hoolibras_gdf_caixa-123\n[Quantidade]: 1"
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Guardou presidente",
+      "descricao": "[Id do Usuário]: 1969 [Item]: GDF Caixa [Spawn Item]: hoolibras_gdf_caixa-123 [Quantidade]: 1",
+      "atorNome": null,
+      "atorIdFivem": "1969",
+      "alvoNome": "GDF Caixa",
+      "alvoIdFivem": null,
+      "valor": 1,
+      "acao": "patrimonio_guardou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Guardou presidente",
+      "description": "[Id do Usuário]: 1969\n[Item]: GDF Faixa 01\n[Spawn Item]: hoolibras_gdf_retangular_01-1735196337\n[Quantidade]: 1"
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Guardou presidente",
+      "descricao": "[Id do Usuário]: 1969 [Item]: GDF Faixa 01 [Spawn Item]: hoolibras_gdf_retangular_01-1735196337 [Quantidade]: 1",
+      "atorNome": null,
+      "atorIdFivem": "1969",
+      "alvoNome": "GDF Faixa 01",
+      "alvoIdFivem": null,
+      "valor": 1,
+      "acao": "patrimonio_guardou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Retirou presidente",
+      "description": "[Id do Usuário]: 1969\n[Item]: TOR Faixa 01\n[Spawn Item]: hoolibras_tor_retangular_01-1728582654-1730418296\n[Quantidade]: 1"
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Retirou presidente",
+      "descricao": "[Id do Usuário]: 1969 [Item]: TOR Faixa 01 [Spawn Item]: hoolibras_tor_retangular_01-1728582654-1730418296 [Quantidade]: 1",
+      "atorNome": null,
+      "atorIdFivem": "1969",
+      "alvoNome": "TOR Faixa 01",
+      "alvoIdFivem": null,
+      "valor": 1,
+      "acao": "patrimonio_removeu"
+    }
+  },
+  {
+    "embed": {
+      "title": "Portão",
+      "description": "#7311 Bragunso Pertubado destrancou o portão externo."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Portão",
+      "descricao": "#7311 Bragunso Pertubado destrancou o portão externo.",
+      "atorNome": "Bragunso Pertubado",
+      "atorIdFivem": "7311",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "portao_destrancou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Portão",
+      "description": "#1983 Joao Vitor trancou o portão do galpão."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Portão",
+      "descricao": "#1983 Joao Vitor trancou o portão do galpão.",
+      "atorNome": "Joao Vitor",
+      "atorIdFivem": "1983",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "portao_trancou"
+    }
+  },
+  {
+    "embed": {
+      "title": "promoveu",
+      "description": "#560 Gabriel Inajar promoveu #7670 Milgrau LHP (Sócio > Recrutador)."
+    },
+    "registro": {
+      "categoria": "hierarquia",
+      "titulo": "promoveu",
+      "descricao": "#560 Gabriel Inajar promoveu #7670 Milgrau LHP (Sócio > Recrutador).",
+      "atorNome": "Gabriel Inajar",
+      "atorIdFivem": "560",
+      "alvoNome": "Milgrau LHP",
+      "alvoIdFivem": "7670",
+      "valor": null,
+      "acao": "promoveu_cargo"
+    }
+  },
+  {
+    "embed": {
+      "title": "rebaixou",
+      "description": "#1535 Texugo daBaixada rebaixou #196 Miguel ZonaLeste (Diretor > Recrutador)."
+    },
+    "registro": {
+      "categoria": "hierarquia",
+      "titulo": "rebaixou",
+      "descricao": "#1535 Texugo daBaixada rebaixou #196 Miguel ZonaLeste (Diretor > Recrutador).",
+      "atorNome": "Texugo daBaixada",
+      "atorIdFivem": "1535",
+      "alvoNome": "Miguel ZonaLeste",
+      "alvoIdFivem": "196",
+      "valor": null,
+      "acao": "rebaixou_cargo"
+    }
+  },
+  {
+    "embed": {
+      "title": "removeu",
+      "description": "#10728 Jhow Sccp removido automaticamente da torcida (sem login há mais de 10 dias)."
+    },
+    "registro": {
+      "categoria": "saida",
+      "titulo": "removeu",
+      "descricao": "#10728 Jhow Sccp removido automaticamente da torcida (sem login há mais de 10 dias).",
+      "atorNome": null,
+      "atorIdFivem": null,
+      "alvoNome": "Jhow Sccp",
+      "alvoIdFivem": "10728",
+      "valor": null,
+      "acao": "removido_torcida_automatico"
+    }
+  },
+  {
+    "embed": {
+      "title": "removeu",
+      "description": "#2127 Eduardo Fkk saiu da torcida."
+    },
+    "registro": {
+      "categoria": "saida",
+      "titulo": "removeu",
+      "descricao": "#2127 Eduardo Fkk saiu da torcida.",
+      "atorNome": "Eduardo Fkk",
+      "atorIdFivem": "2127",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "saiu_torcida"
+    }
+  },
+  {
+    "embed": {
+      "title": "Sede",
+      "description": "#13067 Cris Sabará destrancou a sede."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Sede",
+      "descricao": "#13067 Cris Sabará destrancou a sede.",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "sede_destrancou"
+    }
+  },
+  {
+    "embed": {
+      "description": "#163 Gladiador LHP trancou a sede."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": null,
+      "descricao": "#163 Gladiador LHP trancou a sede.",
+      "atorNome": "Gladiador LHP",
+      "atorIdFivem": "163",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "sede_trancou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Sede",
+      "description": "#163 Gladiador LHP trancou a sede."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Sede",
+      "descricao": "#163 Gladiador LHP trancou a sede.",
+      "atorNome": "Gladiador LHP",
+      "atorIdFivem": "163",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "sede_trancou"
+    }
+  },
+  {
+    "embed": {
+      "description": "#13067 Cris Sabará removeu suspensão da torcida #10529 ajota ferreira."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": null,
+      "descricao": "#13067 Cris Sabará removeu suspensão da torcida #10529 ajota ferreira.",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "ajota ferreira",
+      "alvoIdFivem": "10529",
+      "valor": null,
+      "acao": "suspensao_removeu"
+    }
+  },
+  {
+    "embed": {
+      "title": "tag",
+      "description": "#1588 Renato Lhp <b>adicionou tag</b> #1588 Renato Lhp (RSJ)."
+    },
+    "registro": {
+      "categoria": "tag",
+      "titulo": "tag",
+      "descricao": "#1588 Renato Lhp adicionou tag #1588 Renato Lhp (RSJ).",
+      "atorNome": "Renato Lhp",
+      "atorIdFivem": "1588",
+      "alvoNome": "Renato Lhp",
+      "alvoIdFivem": "1588",
+      "valor": null,
+      "acao": "tag_adicionou"
+    }
+  },
+  {
+    "embed": {
+      "title": "tag",
+      "description": "#1716 Akemi GDF adicionou tag #3157 Ghosting JIUTHAI (RSJ)."
+    },
+    "registro": {
+      "categoria": "tag",
+      "titulo": "tag",
+      "descricao": "#1716 Akemi GDF adicionou tag #3157 Ghosting JIUTHAI (RSJ).",
+      "atorNome": "Akemi GDF",
+      "atorIdFivem": "1716",
+      "alvoNome": "Ghosting JIUTHAI",
+      "alvoIdFivem": "3157",
+      "valor": null,
+      "acao": "tag_adicionou"
+    }
+  },
+  {
+    "embed": {
+      "description": "#163 Gladiador LHP alterou tag (R.S.J. > R.S.J.)."
+    },
+    "registro": {
+      "categoria": "config",
+      "titulo": null,
+      "descricao": "#163 Gladiador LHP alterou tag (R.S.J. > R.S.J.).",
+      "atorNome": "Gladiador LHP",
+      "atorIdFivem": "163",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "tag_alterou"
+    }
+  },
+  {
+    "embed": {
+      "title": "Registro de Atividade: Mgzin Lhp",
+      "description": "O jogador Mgzin Lhp (ID: 377) usou o sistema de trancar porta.",
+      "footer": {
+        "text": "Time: Gaviões da Fiel | Categoria: lideranca"
+      }
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": "Registro de Atividade: Mgzin Lhp",
+      "descricao": "O jogador Mgzin Lhp (ID: 377) usou o sistema de trancar porta.",
+      "atorNome": "Mgzin Lhp",
+      "atorIdFivem": "377",
+      "alvoNome": null,
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "usou_sistema_porta"
+    }
+  }
+]

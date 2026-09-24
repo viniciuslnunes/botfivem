@@ -2,6 +2,7 @@
 // taxa, e quem gere a rifa confere o pagamento. O número é a chave; a disputa entre
 // dois compradores pelo mesmo número é da chave primária (rifa_id, numero), nunca daqui.
 const crypto = require('crypto');
+const tema = require('../../tema');
 
 const MINUTOS_RESERVA = 15;
 const MAX_NUMEROS_POR_COMPRA = 50;
@@ -34,7 +35,7 @@ const REGRA_NAO_VENDIDO_CHOICES = [
 ];
 
 const STATUS_RIFA = {
-  ABERTA: { rotulo: 'Vendendo', emoji: '🟢' },
+  ABERTA: { rotulo: 'Vendendo', emoji: tema.emoji.ativo },
   ENCERRADA: { rotulo: 'Vendas encerradas', emoji: '🟡' },
   SORTEADA: { rotulo: 'Sorteada', emoji: '🏆' },
   CANCELADA: { rotulo: 'Cancelada', emoji: '❌' },

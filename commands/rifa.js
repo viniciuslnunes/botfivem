@@ -12,6 +12,7 @@ const R = require('../utils/rifas/regras');
 const { publicarRifa, atualizarMensagemRifa, fecharMensagemPagamento, linkDaMensagem } = require('../utils/rifas/mensagem');
 const { canalDePagamentos, montarEstruturaRifas } = require('../utils/rifas/estrutura');
 const { podeGerirRifas, podeVerRifas } = require('../utils/rifas/permissoes');
+const tema = require('../tema');
 require('../utils/rifas/interacoes'); // registra botões, modais e tarefas da rifa
 
 const MSG_SEM_GESTAO = '❌ SÓ A PRESIDÊNCIA OU O GESTOR DE SOCIAL E EVENTOS GERE AS RIFAS.';
@@ -112,7 +113,7 @@ async function lista(interaction) {
     return `${R.STATUS_RIFA[r.status].emoji} **#${r.id} ${link ? `[${r.titulo}](${link})` : r.titulo}** · ${formatarNumero(r.vendidos)}/${formatarNumero(r.total_numeros)} vendidos${prazo}`;
   });
   return interaction.editReply({
-    embeds: [{ color: 0x000000, title: '🎟️ RIFAS EM ANDAMENTO', description: truncar(linhas.join('\n') || '*Nenhuma rifa em andamento.*', 4096) }],
+    embeds: [{ color: tema.cor.primaria, title: '🎟️ RIFAS EM ANDAMENTO', description: truncar(linhas.join('\n') || '*Nenhuma rifa em andamento.*', 4096) }],
   });
 }
 
@@ -213,7 +214,7 @@ async function sortear(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: `🏆 RIFA #${sorteada.id} SORTEADA — ${sorteada.titulo.toUpperCase()}`,
     ator: interaction.user.id,
-    cor: 0xF1C40F,
+    cor: tema.cor.aviso,
     campos: [
       { name: 'NÚMERO', value: numero, inline: true },
       { name: 'VENCEDOR', value: `<@${sorteada.vencedor_id}>`, inline: true },
@@ -236,7 +237,7 @@ async function cancelar(interaction) {
   const { rifa, pendentes, pagantes } = r;
   await atualizarMensagemRifa(interaction.client, rifa.id).catch(err => console.error('[rifas] Erro ao atualizar mensagem:', err));
   for (const compra of pendentes) {
-    await fecharMensagemPagamento(interaction.client, compra.mensagem_equipe_ref, { texto: '❌ Rifa cancelada antes da conferência', cor: 0xFF0000 }).catch(() => {});
+    await fecharMensagemPagamento(interaction.client, compra.mensagem_equipe_ref, { texto: '❌ Rifa cancelada antes da conferência', cor: tema.cor.perigo }).catch(() => {});
     // Quem avisou que pagou pode ter pago de verdade: precisa saber que a devolução é com a organização
     if (compra.status === 'AGUARDANDO') {
       await avisarPorDM(interaction.client, compra.discord_id, {
@@ -252,7 +253,7 @@ async function cancelar(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: `❌ RIFA #${rifa.id} CANCELADA — ${rifa.titulo.toUpperCase()}`,
     ator: interaction.user.id,
-    cor: 0xFF0000,
+    cor: tema.cor.perigo,
     campos: [
       { name: 'MOTIVO', value: truncar(motivo, 1000), inline: false },
       { name: 'A DEVOLVER NO JOGO', value: formatarDinheiro(rifa.arrecadado), inline: true },
@@ -293,7 +294,7 @@ async function relatorio(interaction) {
 
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: truncar(`📋 RIFA #${rifa.id} — ${rifa.titulo.toUpperCase()}`, 256),
       description: `${R.STATUS_RIFA[rifa.status].emoji} ${R.STATUS_RIFA[rifa.status].rotulo}${link ? ` · [ver rifa](${link})` : ''}`,
       fields: [

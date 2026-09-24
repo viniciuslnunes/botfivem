@@ -1,4 +1,5 @@
 const config = require('../../config/index.js');
+const tema = require('../../tema');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const { ehSocioOuAcima } = require('../permissoes');
 
@@ -17,7 +18,7 @@ async function definirLink(novoLink) {
 }
 
 function textoConvite(link) {
-  return `🦅 Convite do grupo de sócios dos **GAVIÕES DA FIEL - FIVEM** no WhatsApp:\n${link}`;
+  return `${tema.emoji.marca} Convite do grupo de sócios ${tema.marca.de} **${tema.marca.nomeSegmentado}** no WhatsApp:\n${link}`;
 }
 
 // Guarda central: o link NUNCA pode ir pra quem não tem cargo de sócio pra

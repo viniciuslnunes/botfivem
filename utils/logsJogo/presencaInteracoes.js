@@ -12,6 +12,7 @@ const E = require('./estatisticas');
 const relatorios = require('./relatorios');
 const { gerarGraficoOcupacao } = require('./graficoOcupacao');
 const { incrementarContadorVinculados } = require('./painelSociosSemId');
+const tema = require('../../tema');
 
 // Chave no bot_config pros números batidos à mão (painel/ranking do jogo)
 // que aparecem fixos no painel, ao lado dos automáticos. Exportada porque
@@ -28,7 +29,7 @@ const CAMPOS_MANUAIS = [
     chave: 'socios', rotuloSelect: 'Sócios setados', rotuloCampo: 'SÓCIOS SETADOS',
     // Também soma sozinho, na hora, a cada recrutamento que o próprio jogo
     // loga no webhook (ver incrementarSociosManual, chamado por
-    // events/messageCreate.js) — editar aqui só ajusta o número na mão por
+    // utils/logsJogo/pipeline.js) — editar aqui só ajusta o número na mão por
     // cima disso, não substitui a soma automática.
     descricaoSelect: 'Some sozinho a cada recrutamento do webhook — editar aqui só ajusta por cima',
   },
@@ -107,7 +108,7 @@ function selectVincularIdUsuario() {
 // Passo 2: modal com o ID atual (se já tiver um) já preenchido, pra edição
 // virar só trocar o número. Sem ID, o campo some vazio — replica exatamente
 // o que o fluxo de recrutamento faz no apelido ao aprovar (ver
-// events/interactionCreate.js, formatarNick), só que a partir de um membro
+// utils/recrutamento/interacoes.js, formatarNick), só que a partir de um membro
 // que já está no servidor.
 function modalVincularId(discordUserId, idAtual) {
   return new ModalBuilder()
@@ -177,7 +178,7 @@ async function lerManualAtual() {
 // Único jeito de mexer em "SÓCIOS SETADOS" que não passa pelo botão EDITAR
 // (select→modal, CAMPOS_MANUAIS): o log de "fulano recrutou beltrano" do
 // canal logsJogo.canalRecrutamentoJogo chama isso direto (ver
-// events/messageCreate.js), somando 1 por recrutamento novo. Preserva
+// utils/logsJogo/pipeline.js), somando 1 por recrutamento novo. Preserva
 // quem/quando da última edição manual — só o valor muda.
 //
 // Feito num UPDATE/INSERT só (jsonb_set direto no Postgres), não
@@ -312,7 +313,7 @@ function renderizarPagina(consultaId, consulta, pagina) {
   const linhas = fatia.map((e, i) => linhaDaEntrada(e, atual * POR_PAGINA + i, consulta.ehAgora));
 
   const embed = {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: consulta.titulo,
     description: consulta.linhaTopo,
     fields: [
@@ -374,7 +375,7 @@ function embedFichaJogador(consulta, entrada) {
     linhas.push(`**Tempo jogado no período:** ${E.formatarDuracao(entrada.ms)}`, `**Posição no ranking:** #${posicao} de ${consulta.entradas.length}`);
   }
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `🎮 ${escapeMarkdown(entrada.nome ?? '?')} — ${consulta.titulo.replace('🎮 PRESENÇA DE JOGADORES — ', '')}`,
     description: linhas.join('\n'),
   };
@@ -393,7 +394,7 @@ function embedRanking(dados) {
   const linhas = top10.map((e, i) =>
     `${MEDALHAS[i] ?? `${i + 1}.`} **${escapeMarkdown(e.nome ?? '?')}** \`${e.id}\` — ${E.formatarDuracao(e.ms)}`);
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `🏆 RANKING — ${dados.titulo.replace('🎮 PRESENÇA DE JOGADORES — ', '')}`,
     description: dados.linhaTopo,
     fields: [{
@@ -419,7 +420,7 @@ function embedFichaCompleta(membro, ficha) {
     linhas.push(`**${p.rotulo}:** ${E.formatarDuracao(p.ms)}`);
   }
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `🎮 ${membro.displayName ?? ficha.nome ?? '?'}`,
     description: linhas.join('\n'),
     footer: { text: 'Com base nos logs do jogo recebidos pelo webhook · canal logs-painel' },

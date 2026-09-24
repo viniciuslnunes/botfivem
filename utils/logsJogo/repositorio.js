@@ -295,6 +295,13 @@ async function ultimaOcorrencia(acoes) {
   return res.rows[0]?.ultima ?? null;
 }
 
+// Último log gravado de cada canal de log — base do /status: um canal que o
+// jogo parou de usar aparece como parado em vez de sumir.
+async function ultimaOcorrenciaPorCanal() {
+  const res = await db.query('SELECT canal_id, MAX(ocorrido_em) AS ultima FROM logs_jogo GROUP BY canal_id');
+  return new Map(res.rows.map(l => [l.canal_id, l.ultima]));
+}
+
 // Quantos eventos de um conjunto de ações por dia — sparkline dos painéis novos
 // (caixa, baú), equivalente de contarPorDia pra mais de uma ação.
 async function contarPorDiaPorAcoes(acoes, periodo) {
@@ -437,7 +444,7 @@ const ACOES_BAU = ['bau_guardou', 'bau_removeu'];
 async function saldoBau() {
   const res = await db.query(
     `SELECT CASE
-              -- "Baú de Recompensas [GDF] - Retirada (...)": o colchete é da
+              -- "Baú de Recompensas [TAG] - Retirada (...)": o colchete é da
               -- torcida, não do compartimento (mesma conta de E.bauDoTitulo)
               WHEN titulo ILIKE 'Ba_ de Recompensas%' THEN 'Recompensas'
               ELSE substring(titulo from '\\[(.+)\\]')
@@ -781,6 +788,7 @@ async function ultimoPorPatrimonio() {
 }
 
 module.exports = {
+  ultimaOcorrenciaPorCanal,
   inserirRegistro,
   desconhecidosComBruto,
   atualizarRegistroReprocessado,

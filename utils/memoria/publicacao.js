@@ -5,6 +5,7 @@ const { urlDaMidia } = require('../arquivoMidia');
 const { TIPOS_EVENTO, resumirPresenca } = require('../eventos/regras');
 const repo = require('./repositorio');
 const { tituloDoDia, formatarDia } = require('./regras');
+const tema = require('../../tema');
 
 // A memória é um fórum: um tópico por dia civil. O eixo é o dia, não o feed.
 const CHAVE_FORUM = 'canal_forum_memoria';
@@ -53,7 +54,7 @@ async function publicarFato(client, fato) {
   const imagem = await urlDaMidia(client, fato.midia_ref);
   const mensagem = await topico.send({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       description: fato.texto,
       fields: [{ name: 'REGISTRADO POR', value: `<@${fato.autor_id}>`, inline: true }],
       ...(imagem ? { image: { url: imagem } } : {}),
@@ -73,7 +74,7 @@ async function publicarResumoEvento(client, evento, inscricoes) {
   const tipo = TIPOS_EVENTO[evento.tipo] ?? TIPOS_EVENTO.GERAL;
   return topico.send({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `${tipo.emoji} ${evento.titulo.toUpperCase()}`,
       description: `${p.presentes} presente${p.presentes !== 1 ? 's' : ''}${evento.local ? ` · 📍 ${evento.local}` : ''}`,
     }],

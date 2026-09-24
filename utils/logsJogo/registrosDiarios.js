@@ -5,6 +5,7 @@ const E = require('./estatisticas');
 const repo = require('./repositorio');
 const relatorios = require('./relatorios');
 const { botaoVerJogadores } = require('./registrosDiariosInteracoes');
+const tema = require('../../tema');
 
 // Canal-acervo: um registro por dia (pico de simultâneos, jogadores
 // distintos e o tempo de cada um), reaproveitando a mesma inteligência do
@@ -101,7 +102,7 @@ function linhaJogador(entrada, indice) {
 // mesmo padrão já usado sem problema no painel de presença ao vivo.
 function montarEmbedRegistro(dia, dados) {
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `📅 REGISTRO DIÁRIO — ${tituloDia(dia)}`,
     description: dados.linhaTopo,
     fields: [dados.resumo],

@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const repo = require('./repositorio');
+const tema = require('../../tema');
 
 // Segurança do patrimônio (sede/portão), a partir dos eventos que o parser
 // já reconhece (sede_trancou/destrancou, portao_trancou/destrancou — ver
@@ -43,7 +44,7 @@ function embedEstadoAtual(fechaduras) {
     return `**${f.rotulo}**: ${status} ${desde} — ${f.por ?? '?'}`;
   });
   return new EmbedBuilder()
-    .setColor(0x000000)
+    .setColor(tema.cor.primaria)
     .setTitle('🔐 SEGURANÇA DO PATRIMÔNIO')
     .setDescription(linhas.join('\n'))
     .setFooter({ text: 'Com base nos logs do jogo recebidos pelo webhook · canal logs-painel' })

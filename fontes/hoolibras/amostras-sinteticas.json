@@ -1,0 +1,87 @@
+[
+  {
+    "sintetica": true,
+    "embed": {
+      "description": "#13067 Cris Sabará removeu blacklist da torcida #15676 Rafinha."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": null,
+      "descricao": "#13067 Cris Sabará removeu blacklist da torcida #15676 Rafinha.",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "Rafinha",
+      "alvoIdFivem": "15676",
+      "valor": null,
+      "acao": "blacklist_removeu"
+    }
+  },
+  {
+    "sintetica": true,
+    "embed": {
+      "description": "#1164 Pipper Dazn removeu impedimento #5150 Mkzin RSJ."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": null,
+      "descricao": "#1164 Pipper Dazn removeu impedimento #5150 Mkzin RSJ.",
+      "atorNome": "Pipper Dazn",
+      "atorIdFivem": "1164",
+      "alvoNome": "Mkzin RSJ",
+      "alvoIdFivem": "5150",
+      "valor": null,
+      "acao": "impedimento_removeu"
+    }
+  },
+  {
+    "sintetica": true,
+    "embed": {
+      "description": "O jogador Cartoon Rsj (ID: 371) alternou a proteção de sede."
+    },
+    "registro": {
+      "categoria": "patrimonio",
+      "titulo": null,
+      "descricao": "O jogador Cartoon Rsj (ID: 371) alternou a proteção de sede.",
+      "atorNome": "Cartoon Rsj",
+      "atorIdFivem": "371",
+      "alvoNome": "proteção de sede",
+      "alvoIdFivem": null,
+      "valor": null,
+      "acao": "protecao_alternou"
+    }
+  },
+  {
+    "sintetica": true,
+    "embed": {
+      "description": "#13067 Cris Sabará adicionou suspensão da torcida #10529 ajota ferreira."
+    },
+    "registro": {
+      "categoria": "restricao",
+      "titulo": null,
+      "descricao": "#13067 Cris Sabará adicionou suspensão da torcida #10529 ajota ferreira.",
+      "atorNome": "Cris Sabará",
+      "atorIdFivem": "13067",
+      "alvoNome": "ajota ferreira",
+      "alvoIdFivem": "10529",
+      "valor": null,
+      "acao": "suspensao_adicionou"
+    }
+  },
+  {
+    "sintetica": true,
+    "embed": {
+      "description": "#1716 Akemi GDF removeu tag #3157 Ghosting JIUTHAI (RSJ)."
+    },
+    "registro": {
+      "categoria": "tag",
+      "titulo": null,
+      "descricao": "#1716 Akemi GDF removeu tag #3157 Ghosting JIUTHAI (RSJ).",
+      "atorNome": "Akemi GDF",
+      "atorIdFivem": "1716",
+      "alvoNome": "Ghosting JIUTHAI",
+      "alvoIdFivem": "3157",
+      "valor": null,
+      "acao": "tag_removeu"
+    }
+  }
+]

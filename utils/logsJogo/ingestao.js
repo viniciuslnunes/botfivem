@@ -1,6 +1,6 @@
 const { SnowflakeUtil } = require('discord.js');
 const config = require('../../config/index.js');
-const { parseRegistro } = require('./parser');
+const fonte = require('./fonte');
 const repo = require('./repositorio');
 
 // Os logs continuam no canal do webhook; aqui eles só são lidos e gravados.
@@ -18,7 +18,7 @@ function registrosDaMensagem(message) {
       messageId: message.id,
       embedIndice: indice,
       canalId: message.channelId,
-      ...parseRegistro(dados),
+      ...fonte.parseRegistro(dados),
       // A hora em que o webhook publicou é a hora do evento no jogo
       ocorridoEm: message.createdAt,
       bruto: { ...dados, autor: message.author?.username ?? null, webhookId: message.webhookId ?? null },
@@ -138,7 +138,7 @@ async function reprocessarDesconhecidos(limite = REPROCESSAR_MAX) {
   const pendentes = await repo.desconhecidosComBruto(limite);
   let corrigidos = 0;
   for (const linha of pendentes) {
-    const novo = parseRegistro(linha.bruto);
+    const novo = fonte.parseRegistro(linha.bruto);
     if (novo.acao === 'desconhecido') continue;
     await repo.atualizarRegistroReprocessado(linha.id, novo);
     corrigidos++;

@@ -1,6 +1,7 @@
 // Mensagem fixa do canal ❌・nao-recrutar (bloquear / remover ID bloqueado)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
 // Garante a mensagem com os dois botões: edita a já existente (inclusive a antiga,
 // que só tinha "BLOQUEAR NOVO ID") ou envia uma nova se não houver nenhuma
@@ -9,8 +10,8 @@ async function garantirMensagemNaoRecrutar(client) {
   if (!canal || !canal.isTextBased()) return;
 
   const embed = new EmbedBuilder()
-    .setColor(0x000000)
-    .setTitle('NÃO RECRUTAR - GAVIÕES DA FIEL - FIVEM')
+    .setColor(tema.cor.primaria)
+    .setTitle(tema.tituloSegmentado('NÃO RECRUTAR'))
     .setDescription('Use os botões abaixo para adicionar ou remover um ID da lista de não recrutar!');
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

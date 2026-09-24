@@ -3,6 +3,7 @@ const { lerConfig, gravarConfig } = require('../botConfig');
 const { garantirMembrosCarregados } = require('../membrosGuild');
 const { listarDepartamentos } = require('./repositorio');
 const { listaLimitada } = require('./regras');
+const tema = require('../../tema');
 
 function linhaBotaoQuadro() {
   return new ActionRowBuilder().addComponents(
@@ -26,8 +27,8 @@ function montarEmbed(guild, areas) {
     };
   });
   return {
-    color: 0x000000,
-    title: '🏛️ DEPARTAMENTOS — GAVIÕES DA FIEL FIVEM',
+    color: tema.cor.primaria,
+    title: tema.titulo('🏛️ DEPARTAMENTOS'),
     description: '👑 = gestor da área',
     fields,
     footer: { text: 'Atualizado automaticamente' },

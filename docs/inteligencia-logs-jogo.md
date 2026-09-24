@@ -21,7 +21,7 @@ painéis como origem do dado.
 
 ## Do log ao painel
 
-1. **Parser** (`utils/logsJogo/parser.js`): uma regra por família de log. Quase
+1. **Parser** (o da fonte do tenant: `fontes/hoolibras/parser.js`, acessado por `utils/logsJogo/fonte.js`): uma regra por família de log. Quase
    todas leem só a descrição; baú e banco leem também o **título**, porque é
    nele que o jogo diz o que aconteceu (`Guardou [GDF Sócio]`, `Sacou dinheiro`).
    O que não casa com nenhuma regra vira `desconhecido`, mas nunca é descartado.
@@ -30,8 +30,8 @@ painéis como origem do dado.
    atual todo registro que ainda está como `desconhecido` e corrige a linha no
    lugar. Roda no arranque do bot e no `/logs-sincronizar`. É o que faz uma regra
    nova valer também pro histórico (a sincronização não atualiza linha existente).
-4. **Painel reativo** (`events/messageCreate.js`): cada log novo acorda só o
-   painel da categoria dele (`PAINEIS_POR_CATEGORIA`), com debounce próprio.
+4. **Painel reativo** (`utils/logsJogo/pipeline.js`): cada log novo acorda só o
+   painel da categoria dele (`painelLog.aoRegistros` de cada módulo de painel), com debounce próprio.
 5. **Alertas na hora** (`alertas.js`): retirada grande do baú
    (`bau.alertaRetiradaQtd`) e saque grande do banco (`caixa.alertaSaqueValor`).
 
@@ -152,8 +152,9 @@ Painel novo do zero: regra(s) no parser com teste usando **exemplo real** →
 consulta no repositório se precisar (`eventosDoAtor`/`eventosDoAlvo` cobrem a
 maioria das "fichas de jogador") → `painelX.js` (resumo curto) +
 `painelXInteracoes.js` (exploração, usando `painelComponentesFixos.js` e
-`consultasEmMemoria.js`) → `iniciar` em `events/ready.js` → categoria em
-`PAINEIS_POR_CATEGORIA` (events/messageCreate.js).
+`consultasEmMemoria.js`) → manifesto em `modulos/painel<X>.js` via
+`manifestoDePainel` (`iniciar` + categorias que o acordam) e registro em
+`modulos/index.js`.
 
 ## Formato de log novo
 
@@ -209,7 +210,7 @@ contagem e exemplo. Para resolver:
   `📜・historico-do-associado` (campo CONDUTA). `linhaAdvertenciaDiscord`
   devolve `null` sem `membro` em mãos (nunca finge "nenhuma advertência" sem
   ter checado o cargo de verdade — mesma regra de "marcar resolvido só depois
-  da ação de fato", ver `docs/padroes-e-canais.md` § 1.5) — por isso só
+  da ação de fato", ver `docs/padroes.md` § 1.5) — por isso só
   aparece nos 3 pontos com o `GuildMember` vivo na hora (busca direta por
   UserSelect); o detalhe de disciplina/restrições aberto a partir do
   histórico (que só tem `idFivem`/nome guardados, sem `membro`) fica sem essa
@@ -224,7 +225,7 @@ contagem e exemplo. Para resolver:
      sócio agora — quem já saiu não é mais "associado em atenção", fica só na
      ficha manual de `⛔・banidos-e-impedidos`.
   2. **Discord → Jogo** (`verificarRestricaoAoAdvertir`, chamada de
-     `events/interactionCreate.js` ao registrar advertência de sócio): se o
+     `utils/advertencia/interacoes.js` ao registrar advertência de sócio): se o
      sócio advertido já está com restrição ativa no jogo, avisa na hora — sem
      isso a liderança só saberia das duas coisas juntas se fosse conferir os
      dois canais na mão.

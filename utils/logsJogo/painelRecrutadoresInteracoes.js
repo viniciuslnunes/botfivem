@@ -10,6 +10,7 @@ const F = require('./painelFormato');
 const P = require('./presenca');
 const repo = require('./repositorio');
 const relatorios = require('./relatorios');
+const tema = require('../../tema');
 
 // Canal 🦅・painel-recrutadores: cruza o cargo RECRUTADOR (Discord) com o que
 // o jogo logou de verdade (jogador_recrutou, ator = recrutador) e com o tempo
@@ -70,7 +71,7 @@ function celulaRatio(recrutamentos, ms) {
 
 function celulaStatus(l) {
   if (!l.idFivem) return '❔';
-  return l.online ? '🟢' : '⚪';
+  return l.online ? tema.emoji.ativo : tema.emoji.inativo;
 }
 
 // % de quem foi recrutado por essa pessoa e NÃO saiu/foi expulso/removido

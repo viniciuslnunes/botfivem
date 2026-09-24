@@ -1,6 +1,7 @@
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 require('chart.js/auto');
 const E = require('./estatisticas');
+const tema = require('../../tema');
 
 // Domínio de territórios por DIA — eixo X = dia, três séries: horas de
 // domínio (barra), conquistas totais do dia (linha) e maior disputa por um
@@ -19,13 +20,13 @@ const E = require('./estatisticas');
 
 const W = 700;
 const H = 320;
-const FUNDO = '#000000';
-const GRADE = '#262626';
-const TEXTO = '#FFFFFF';
-const TEXTO_FRACO = '#999999';
-const COR_HORAS = '#8C8C8C';
-const COR_CONQUISTAS = '#FFFFFF';
-const COR_DISPUTA = '#CFCFCF';
+const FUNDO = tema.imagem.fundo;
+const GRADE = tema.imagem.grade;
+const TEXTO = tema.imagem.texto;
+const TEXTO_FRACO = tema.imagem.textoFraco;
+const COR_HORAS = tema.imagem.barra;
+const COR_CONQUISTAS = tema.imagem.destaque;
+const COR_DISPUTA = tema.imagem.disputa;
 
 const chartJSNodeCanvas = new ChartJSNodeCanvas({ width: W, height: H, backgroundColour: FUNDO });
 

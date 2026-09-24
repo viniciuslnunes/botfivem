@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { registrarModulo } = require('../modulos');
 const relatorios = require('./relatorios');
+const tema = require('../../tema');
 
 // Lista de jogadores do registro diário deixou de morar na mensagem do canal
 // (ver registrosDiarios.js) — uma description gigante e cheia de markdown
@@ -51,7 +52,7 @@ function renderizarPagina(dia, entradas, pagina) {
   const linhas = fatia.map((e, i) => linhaJogador(e, atual * POR_PAGINA + i));
 
   const embed = {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `📅 JOGADORES — ${tituloDia(dia)}`,
     description: linhas.join('\n') || '*Ninguém online registrado.*',
     footer: { text: `Com base nos logs do jogo recebidos pelo webhook · canal logs-painel · Página ${atual + 1}/${totalPaginas}` },

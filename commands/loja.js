@@ -7,6 +7,7 @@ const repo = require('../utils/loja/repositorio');
 const regras = require('../utils/loja/regras');
 const { montarEstruturaLoja } = require('../utils/loja/estrutura');
 const { podeGerirLoja } = require('../utils/loja/permissoes');
+const tema = require('../tema');
 require('../utils/loja/interacoes'); // registra os botões da vitrine e dos pedidos
 
 const MSG_SEM_GESTAO = '❌ SÓ A PRESIDÊNCIA OU O GESTOR DE MATERIAIS E LOJA GERE O CATÁLOGO.';
@@ -89,9 +90,9 @@ async function listar(interaction) {
   if (!(await podeGerirLoja(interaction.member))) return interaction.reply({ content: MSG_SEM_GESTAO, flags: 64 });
   await interaction.deferReply({ flags: 64 });
   const produtos = await repo.listarProdutos({ apenasAtivos: false });
-  const linhas = produtos.map(p => `${p.ativo ? '🟢' : '🔴'} \`#${p.id}\` **${p.nome}** · ${formatarDinheiro(p.preco)} · ${regras.formatarEstoque(p.estoque)}`);
+  const linhas = produtos.map(p => `${p.ativo ? tema.emoji.ativo : tema.emoji.perigo} \`#${p.id}\` **${p.nome}** · ${formatarDinheiro(p.preco)} · ${regras.formatarEstoque(p.estoque)}`);
   return interaction.editReply({
-    embeds: [{ color: 0x000000, title: '📦 CATÁLOGO DA LOJA', description: truncar(linhas.join('\n') || '*Nenhum produto cadastrado.*', 4096) }],
+    embeds: [{ color: tema.cor.primaria, title: '📦 CATÁLOGO DA LOJA', description: truncar(linhas.join('\n') || '*Nenhum produto cadastrado.*', 4096) }],
   });
 }
 
@@ -104,7 +105,7 @@ async function vendas(interaction) {
   const pedidos = linhas.reduce((s, l) => s + l.pedidos, 0);
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `🛒 VENDAS — ${periodo.rotulo}`,
       description: truncar(linhas.map((l, i) => `${i + 1}. **${l.produto_nome}** · ${formatarNumero(l.unidades)} un. · ${formatarDinheiro(l.total)}`).join('\n') || '*Nenhuma venda confirmada no período.*', 4096),
       fields: [

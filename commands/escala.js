@@ -7,6 +7,7 @@ const { listaLimitada } = require('../utils/departamentos/regras');
 const repo = require('../utils/escala/repositorio');
 const regras = require('../utils/escala/regras');
 const { montarConviteEscala } = require('../utils/escala/interacoes');
+const tema = require('../tema');
 
 async function carregarEventoGerivel(interaction) {
   const evento = await eventosRepo.buscarEvento(interaction.options.getInteger('evento'));
@@ -66,9 +67,9 @@ async function ver(interaction) {
   if (pendencias.length) fields.push({ name: 'PRECISA DE ATENÇÃO', value: regras.textoPendencias(pendencias), inline: false });
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `🎖️ ESCALA — ${evento.titulo.toUpperCase()}`,
-      description: `<t:${Math.floor(new Date(evento.inicio_em).getTime() / 1000)}:F> · ✅ aceitou · ⏳ sem resposta · ❌ recusou`,
+      description: `<t:${Math.floor(new Date(evento.inicio_em).getTime() / 1000)}:F> · ${tema.emoji.ok} aceitou · ${tema.emoji.pendente} sem resposta · ${tema.emoji.recusado} recusou`,
       fields: fields.length ? fields : [{ name: 'ESCALA', value: '*Ninguém convocado ainda.*', inline: false }],
     }],
     allowedMentions: { parse: [] },

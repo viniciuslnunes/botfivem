@@ -8,6 +8,7 @@ const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
 const { criarPainelCanal } = require('../logsJogo/painelCanal');
 const { garantirMembrosCarregados } = require('../membrosGuild');
 const { obterLink, definirLink, enviarConvitePara } = require('./conviteWhatsapp');
+const tema = require('../../tema');
 
 // Canal 📲・convite-whatsapp: reenvia o convite do grupo de sócios no WhatsApp
 // por DM — pra um sócio específico ou pra todos de uma vez — e deixa trocar o
@@ -25,7 +26,7 @@ async function montarBlocos() {
   const link = await obterLink();
   return [{
     embeds: [{
-      color: 0x25D366,
+      color: tema.cor.primaria,
       title: '📲 CONVITE DO GRUPO DE WHATSAPP — SÓCIOS',
       description: 'Reenvia o link do grupo de sócios no WhatsApp por DM.\n'
         + '**Nunca é enviado pra quem não tem cargo de sócio pra cima** (visitante, provar-manto).',
@@ -50,7 +51,7 @@ const painel = criarPainelCanal({
   nomeCanal: '📲・convite-whatsapp',
   razao: 'Painel para enviar e alterar o convite do grupo de sócios no WhatsApp',
   intervaloMin: 60,
-  canalVizinhoId: config.canais.telefoneNarnia,
+  canalVizinhoId: config.canais.telefoneSocio,
   montarBlocos,
   montarAcao,
 });
@@ -72,7 +73,7 @@ async function enviarParaUm(interaction) {
   const link = await obterLink();
   const resultado = await enviarConvitePara(membro, link);
   const msgs = {
-    enviado: `✅ Convite enviado por DM para ${membro}.`,
+    enviado: `${tema.emoji.ok} Convite enviado por DM para ${membro}.`,
     sem_cargo: `❌ ${membro} não tem cargo de sócio pra cima — convite NÃO enviado (evita vazar o grupo pra fora da torcida).`,
     falhou: `⚠️ Não consegui mandar DM para ${membro} (DM fechada).`,
   };
@@ -98,7 +99,7 @@ async function enviarParaTodos(interaction) {
   }
 
   return interaction.editReply({
-    content: `📢 CONVITE ENVIADO A TODOS OS SÓCIOS.\n✅ ${enviados} receberam.\n⚠️ ${falharam} com DM fechada.\n(${semCargo} membros ignorados por não terem cargo de sócio pra cima.)`
+    content: `📢 CONVITE ENVIADO A TODOS OS SÓCIOS.\n${tema.emoji.ok} ${enviados} receberam.\n⚠️ ${falharam} com DM fechada.\n(${semCargo} membros ignorados por não terem cargo de sócio pra cima.)`
   });
 }
 
@@ -123,7 +124,7 @@ async function alterarLink(interaction) {
   }
   await definirLink(novoLink);
   painel.atualizar(interaction.client).catch(err => console.error(`[${SLUG}] Erro ao atualizar painel após trocar o link:`, err));
-  return interaction.reply({ content: `✅ LINK ATUALIZADO:\n${novoLink}`, flags: 64 });
+  return interaction.reply({ content: `${tema.emoji.ok} LINK ATUALIZADO:\n${novoLink}`, flags: 64 });
 }
 
 registrarModulo('convitewa', async interaction => {

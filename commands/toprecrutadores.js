@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
+const tema = require('../tema');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,7 +24,7 @@ module.exports = {
     }
     await interaction.editReply({
       embeds: [{
-        color: 0x000000,
+        color: tema.cor.primaria,
         title: '🏆 TOP RECRUTADORES',
         description: desc
       }],

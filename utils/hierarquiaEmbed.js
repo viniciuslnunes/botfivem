@@ -1,8 +1,7 @@
-const path = require('path');
 const db = require('./db');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
-const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
 const CANAL_HIERARQUIA = config.canais.hierarquia;
 const CONFIG_KEY = 'hierarquia_message_id';
 
@@ -39,10 +38,10 @@ function construirEmbed(guild) {
   }
 
   return {
-    color: 0x000000,
-    title: '🦅 HIERARQUIA — GAVIÕES DA FIEL FIVEM',
+    color: tema.cor.primaria,
+    title: tema.titulo('🦅 HIERARQUIA'),
     fields: fields.length ? fields : [{ name: 'SEM MEMBROS', value: 'Nenhum membro encontrado.', inline: false }],
-    thumbnail: { url: 'attachment://gavioesdafielfivem_logo.png' },
+    thumbnail: { url: tema.urlLogo() },
     footer: { text: 'Atualizado automaticamente' },
     timestamp: new Date().toISOString(),
   };
@@ -67,7 +66,7 @@ async function atualizarHierarquia(client) {
         const msg = await canal.messages.fetch(messageId);
         await msg.edit({
           embeds: [embed],
-          files: [{ attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }],
+          files: [tema.logo()],
           allowedMentions: { users: [] },
         });
         return;
@@ -78,7 +77,7 @@ async function atualizarHierarquia(client) {
 
     const sent = await canal.send({
       embeds: [embed],
-      files: [{ attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' }],
+      files: [tema.logo()],
       allowedMentions: { users: [] },
     });
     await setHierarquiaMessageId(sent.id);

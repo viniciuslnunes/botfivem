@@ -10,7 +10,8 @@ const repo = require('./repositorio');
 const E = require('./estatisticas');
 const A = require('./analises');
 const { advertenciaAtivaDoMembro } = require('./advertenciaDiscord');
-const { rotuloItem, limitesEfetivosFarm } = require('./painelFarmInteracoes');
+const { rotuloItem, limitesEfetivosFarm } = require('./farmLimites');
+const tema = require('../../tema');
 
 const CHAVE_CANAL_ALERTA_BAU = 'canal_alerta_bau';
 
@@ -89,7 +90,7 @@ function autorizadoParaTirarFarm(membro, area) {
 // mesmo embed serve pras duas direções — jogo aplicou restrição num sócio já
 // advertido no Discord (REGRAS abaixo), ou o Discord acabou de advertir um
 // sócio que já está com restrição ativa no jogo (verificarRestricaoAoAdvertir,
-// chamada de events/interactionCreate.js). Um debounce só
+// chamada por utils/advertencia/interacoes.js). Um debounce só
 // (`ultimosAlertasAtencao`, por tipo+ID) cobre as duas: se uma direção já
 // alertou por essa restrição há pouco, a outra não repete o aviso.
 function alertaAtencaoJaEnviado(tipo, idFivem) {
@@ -102,7 +103,7 @@ function alertaAtencaoJaEnviado(tipo, idFivem) {
 
 function embedAtencaoSocio({ titulo, descricao, membro, idFivem, tipo, nivelAdv, bloqueadoNoDiscord }) {
   return new EmbedBuilder()
-    .setColor(0xFF0000)
+    .setColor(tema.cor.perigo)
     .setTitle(titulo)
     .setDescription(descricao)
     .addFields(
@@ -117,7 +118,7 @@ function embedAtencaoSocio({ titulo, descricao, membro, idFivem, tipo, nivelAdv,
     .setTimestamp();
 }
 
-// Chamada por events/interactionCreate.js logo depois de registrar uma
+// Chamada por utils/advertencia/interacoes.js logo depois de registrar uma
 // advertência de sócio: se esse sócio já está com blacklist/suspensão/
 // impedimento ativa no jogo, a advertência sozinha (sem essa checagem) não
 // deixaria a liderança saber que o caso já é mais grave do que parece no
@@ -159,7 +160,7 @@ async function verificarRestricaoAoAdvertir(client, membro) {
 // antes desta mesma retirada não gera um segundo aviso no mesmo dia, senão
 // vira alerta a cada nova retirada depois do primeiro estouro. Botão
 // REGISTRAR ADVERTÊNCIA abre o mesmo fluxo de select_prazo_adv já usado em
-// events/interactionCreate.js (ver painelFarmInteracoes.js#registrarModulo
+// utils/advertencia/interacoes.js (ver painelFarmInteracoes.js#registrarModulo
 // acao 'advertir') — pulando só o passo de selecionar o membro.
 async function montarAlertaLimiteDiarioFarm(registro, item, bau, membro, area) {
   const [limites, totalHoje] = await Promise.all([
@@ -172,7 +173,7 @@ async function montarAlertaLimiteDiarioFarm(registro, item, bau, membro, area) {
   if (totalHoje < limite || totalAntes >= limite) return null; // dentro do limite, ou já avisado hoje
 
   const alerta = new EmbedBuilder()
-    .setColor(0xFF0000)
+    .setColor(tema.cor.perigo)
     .setTitle('🌾 LIMITE DIÁRIO DE RETIRADA EXCEDIDO')
     .setDescription(`${membro} passou do limite diário parametrizado de **${rotuloItem(item)}** — pode ser uso legítimo num dia de pista mais puxado, mas vale conferir.`)
     .addFields(
@@ -206,7 +207,7 @@ const REGRAS = [
         if (!bloqueio) continue;
         ultimosAlertasBloqueio.set(idFivem, Date.now());
         const alerta = new EmbedBuilder()
-          .setColor(0xFF0000)
+          .setColor(tema.cor.perigo)
           .setTitle('🚫 ID DA LISTA "NÃO RECRUTAR" ATIVO NO JOGO')
           .setDescription(registro.descricao ? registro.descricao.slice(0, 1000) : 'Registro sem descrição.')
           .addFields(
@@ -274,7 +275,7 @@ const REGRAS = [
         ? (await repo.nomesPorIds([registro.atorIdFivem])).get(registro.atorIdFivem)
         : null;
       const alerta = new EmbedBuilder()
-        .setColor(0xFF0000)
+        .setColor(tema.cor.perigo)
         .setTitle('📦 RETIRADA GRANDE NO BAÚ DA TORCIDA')
         .setDescription(`Saiu uma quantidade acima do normal do baú de uma vez só.`)
         .addFields(
@@ -310,7 +311,7 @@ const REGRAS = [
         ? (await repo.nomesPorIds([registro.atorIdFivem])).get(registro.atorIdFivem)
         : null;
       const alerta = new EmbedBuilder()
-        .setColor(retirou ? 0xFF0000 : 0x00AA00)
+        .setColor(retirou ? tema.cor.perigo : tema.cor.destaque)
         .setTitle(retirou ? '🚩 PATRIMÔNIO RETIRADO DO BAÚ' : '🚩 PATRIMÔNIO GUARDADO NO BAÚ')
         .addFields(
           { name: '🎌 Item', value: rotulo, inline: true },
@@ -362,7 +363,7 @@ const REGRAS = [
       const nome = membro?.displayName
         ?? (registro.atorIdFivem ? (await repo.nomesPorIds([registro.atorIdFivem])).get(registro.atorIdFivem) : null);
       const alerta = new EmbedBuilder()
-        .setColor(0xFF0000)
+        .setColor(tema.cor.perigo)
         .setTitle('🌾 RETIRADA SUSPEITA NO BAÚ DO FARM')
         .setDescription('Item de farm saiu do baú por quem não é diretoria nem gestor do departamento Farm — pode ser furto do que o time produziu.')
         .addFields(
@@ -384,7 +385,7 @@ const REGRAS = [
       if (valor < config.logsJogo.caixa.alertaSaqueValor) return null;
 
       const alerta = new EmbedBuilder()
-        .setColor(0xFF0000)
+        .setColor(tema.cor.perigo)
         .setTitle('🏦 SAQUE GRANDE NO BANCO DA TORCIDA')
         .setDescription(registro.descricao ? registro.descricao.slice(0, 1000) : 'Registro sem descrição.')
         .addFields(

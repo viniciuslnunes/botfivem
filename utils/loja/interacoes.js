@@ -16,6 +16,7 @@ const repo = require('./repositorio');
 const regras = require('./regras');
 const { categoriaDaLoja } = require('./estrutura');
 const { podeAtenderPedido } = require('./permissoes');
+const tema = require('../../tema');
 
 // loja:ver · loja:produto · loja:tamanho:<id> · loja:comprar:<id>:<tam> · loja:pedido:<id>:<tam>
 // loja:confirmar:<pedido> · loja:cancelar:<pedido>
@@ -41,7 +42,7 @@ async function mostrarProduto(interaction, produtoId) {
 
   const imagem = await urlDaMidia(interaction.client, produto.imagem_ref);
   const embed = {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: produto.nome.toUpperCase(),
     description: produto.descricao || null,
     fields: [
@@ -79,7 +80,7 @@ function montarMensagemPedido(pedido) {
     content: `<@${pedido.discord_id}>`,
     embeds: [
       {
-        color: 0xFFFFFF,
+        color: tema.cor.destaque,
         title: `🛒 PEDIDO #${pedido.id}`,
         fields: [
           { name: 'PRODUTO', value: pedido.produto_nome.toUpperCase(), inline: true },
@@ -92,7 +93,7 @@ function montarMensagemPedido(pedido) {
         ],
       },
       {
-        color: 0x000000,
+        color: tema.cor.primaria,
         title: '💵 PAGAMENTO NO JOGO',
         description: `Pague **${formatarDinheiro(pedido.total)}** ao responsável da loja **dentro do jogo** e envie o print aqui.\nA equipe confirma o pedido depois de receber. O item fica reservado para você até lá.`,
       },
@@ -194,7 +195,7 @@ async function decidir(interaction, pedidoId, status) {
   await registrarLogGestao(interaction.client, {
     titulo: `🛒 PEDIDO #${r.pedido.id} ${confirmado ? 'CONFIRMADO' : 'CANCELADO'}`,
     ator: interaction.user.id,
-    cor: confirmado ? 0x000000 : 0xFF0000,
+    cor: confirmado ? tema.cor.primaria : tema.cor.perigo,
     campos: [
       { name: 'COMPRADOR', value: `<@${r.pedido.discord_id}>`, inline: true },
       { name: 'ITEM', value: `${r.pedido.quantidade}× ${r.pedido.produto_nome} (${regras.rotuloTamanho(r.pedido.tamanho)})`, inline: true },

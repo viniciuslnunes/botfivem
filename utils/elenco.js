@@ -1,8 +1,7 @@
-const path = require('path');
 const db = require('./db');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
-const IMG_PATH = path.join(__dirname, '../img/ruasaojorge.png');
 const CANAL_ELENCO = config.canais.elenco;
 const CONFIG_KEY = 'elenco_message_id';
 const CARGO_ELENCO = config.cargos.elenco;
@@ -30,10 +29,10 @@ function construirEmbed(guild) {
   if (descricao.length > 4096) descricao = descricao.substring(0, 4093) + '...';
 
   return {
-    color: 0x000000,
-    title: '🦅・[R.S.J] RUA SÃO JORGE - ELENCO',
+    color: tema.cor.primaria,
+    title: tema.marca.elenco.titulo,
     description: descricao,
-    image: { url: 'attachment://ruasaojorge.png' },
+    image: { url: tema.urlAnexo(tema.marca.elenco.logo) },
     footer: { text: `Total: ${membros.size} membros` },
     timestamp: new Date().toISOString(),
   };
@@ -57,7 +56,7 @@ async function atualizarElenco(client) {
         const msg = await canal.messages.fetch(messageId);
         await msg.edit({
           embeds: [embed],
-          files: [{ attachment: IMG_PATH, name: 'ruasaojorge.png' }],
+          files: [tema.anexo(tema.marca.elenco.logo)],
           allowedMentions: { users: [] },
         });
         return;
@@ -68,7 +67,7 @@ async function atualizarElenco(client) {
 
     const sent = await canal.send({
       embeds: [embed],
-      files: [{ attachment: IMG_PATH, name: 'ruasaojorge.png' }],
+      files: [tema.anexo(tema.marca.elenco.logo)],
       allowedMentions: { users: [] },
     });
     await setElencoMessageId(sent.id);

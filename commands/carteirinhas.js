@@ -4,6 +4,7 @@ const config = require('../config/index.js');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../utils/permissoes');
 const { registrarLogGestao } = require('../utils/logGestao');
 const { situacaoCarteirinha, novaValidadeRenovacao, textoSituacao, formatarDataBR } = require('../utils/carteirinha/regras');
+const tema = require('../tema');
 
 const FILTROS = [
   { name: 'Vencendo', value: 'VENCENDO' },
@@ -30,11 +31,11 @@ async function listarSituacao(interaction) {
 
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `🪪 CARTEIRINHAS — ${FILTROS.find(f => f.value === filtro).name.toUpperCase()}`,
       description: linhas.join('\n') || '*Nenhuma carteirinha nesta situação.*',
       fields: [
-        { name: '🟢 VIGENTES', value: String(contagem.VIGENTE), inline: true },
+        { name: `${tema.emoji.ativo} VIGENTES`, value: String(contagem.VIGENTE), inline: true },
         { name: '🟡 VENCENDO', value: String(contagem.VENCENDO), inline: true },
         { name: '🔴 VENCIDAS', value: String(contagem.VENCIDA), inline: true },
       ],
@@ -74,7 +75,7 @@ async function renovar(interaction) {
   });
   await usuario.send({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: '🪪 CARTEIRINHA RENOVADA',
       description: `Sua carteirinha de sócio nº **${numero}** foi renovada até **${formatarDataBR(novaValidade)}**.`,
     }],

@@ -1,6 +1,7 @@
 const F = require('./painelFormato');
 const { criarPainelCanal } = require('./painelCanal');
 const { linhaComponentesTags, tagsAtuais } = require('./painelTagsInteracoes');
+const tema = require('../../tema');
 
 // Canal 🏷️・tags-do-jogo: mensagem fixa curta (padrão interativo, ver
 // painelBau.js). Público — saber quem é do Arsenal ou da Rádio é referência,
@@ -15,12 +16,12 @@ async function montarBlocos() {
 
   const embed = {
     color: F.COR,
-    title: '🏷️ TAGS DO JOGO — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('🏷️ TAGS DO JOGO'),
     description: [
       `**${tags.length}** ${tags.length === 1 ? 'tag em uso' : 'tags em uso'} · **${pessoasComTag}** ${pessoasComTag === 1 ? 'pessoa com tag' : 'pessoas com tag'}`,
       maior ? `**MAIOR TAG:** ${F.nomeSeguro(maior.tag)} (${maior.membros.length})` : null,
       '*Reconstruído dos logs de adicionar/remover tag. Quem saiu ou foi expulso da torcida perde as tags, '
-        + 'e grafias antigas da mesma tag (R.S.J. / RSJ) contam como uma só.*',
+        + 'e grafias antigas da mesma tag (com ou sem pontos e espaços) contam como uma só.*',
     ].filter(Boolean).join('\n'),
     footer: { text: F.rodape('canal logs-registros') },
     timestamp: new Date().toISOString(),

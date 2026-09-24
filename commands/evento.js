@@ -12,6 +12,7 @@ const regras = require('../utils/eventos/regras');
 const { publicarEvento, atualizarMensagemEvento, linkDaMensagem } = require('../utils/eventos/mensagem');
 const { podeCriarEventos, podeGerirEvento } = require('../utils/eventos/permissoes');
 const { avisarPorDM } = require('../utils/eventos/interacoes');
+const tema = require('../tema');
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 const unix = d => Math.floor(new Date(d).getTime() / 1000);
@@ -80,7 +81,7 @@ async function lista(interaction) {
     return `${tipo.emoji} **#${e.id} ${link ? `[${e.titulo}](${link})` : e.titulo}** · <t:${unix(e.inicio_em)}:f> (<t:${unix(e.inicio_em)}:R>)`;
   });
   return interaction.editReply({
-    embeds: [{ color: 0x000000, title: '📅 PRÓXIMOS EVENTOS', description: linhas.join('\n') || '*Nenhum evento agendado.*' }],
+    embeds: [{ color: tema.cor.primaria, title: '📅 PRÓXIMOS EVENTOS', description: linhas.join('\n') || '*Nenhum evento agendado.*' }],
   });
 }
 
@@ -106,7 +107,7 @@ async function cancelar(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: `❌ EVENTO CANCELADO — ${evento.titulo.toUpperCase()}`,
     ator: interaction.user.id,
-    cor: 0xFF0000,
+    cor: tema.cor.perigo,
     campos: [
       { name: 'EVENTOS', value: cancelados.map(e => `#${e.id}`).join(', ') || '—', inline: true },
       { name: 'MOTIVO', value: motivo || 'Não informado', inline: true },
@@ -131,7 +132,7 @@ async function relatorio(interaction) {
 
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `📋 COMPARECIMENTO — ${periodo.rotulo}`,
       description: linhas.join('\n') || '*Nenhum evento realizado no período.*',
       fields: [

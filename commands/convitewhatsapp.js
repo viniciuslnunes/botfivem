@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../utils/permissoes');
 const { obterLink, enviarConvitePara } = require('../utils/recrutamento/conviteWhatsapp');
 const { garantirMembrosCarregados } = require('../utils/membrosGuild');
+const tema = require('../tema');
 
 // Pequeno intervalo entre DMs para não esbarrar em rate limit do Discord.
 const INTERVALO_MS = 400;
@@ -35,7 +36,7 @@ module.exports = {
     }
 
     await interaction.editReply({
-      content: `📞 CONVITE DO WHATSAPP ENVIADO.\n✅ ${enviados} DM(s) enviada(s) com sucesso.\n⚠️ ${falharam} com DM fechada (não recebeu).\n(${semCargo} membros ignorados por não terem cargo de sócio pra cima.)`
+      content: `📞 CONVITE DO WHATSAPP ENVIADO.\n${tema.emoji.ok} ${enviados} DM(s) enviada(s) com sucesso.\n⚠️ ${falharam} com DM fechada (não recebeu).\n(${semCargo} membros ignorados por não terem cargo de sócio pra cima.)`
     });
   },
 };

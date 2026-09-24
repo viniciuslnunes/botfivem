@@ -4,6 +4,7 @@ const { lerConfig, gravarConfig } = require('../botConfig');
 const { CHAVE_CANAL_LOGS_GESTAO } = require('../logGestao');
 const { buscarDepartamento } = require('../departamentos/repositorio');
 const { garantirMensagemFixa } = require('../mensagemFixa');
+const tema = require('../../tema');
 
 // Canal privado onde a equipe confere os pagamentos avisados pelos compradores.
 // Sem ele, a conferência cai no canal de logs de gestão.
@@ -49,7 +50,7 @@ async function montarEstruturaRifas(guild) {
 
   const intro = await garantirMensagemFixa(canal, 'intro_rifas_pagamentos', () => ({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: '🎟️ RIFAS — CONFERÊNCIA DE PAGAMENTOS',
       description: 'Quando um comprador avisa que pagou uma rifa no jogo, o aviso cai aqui para a equipe confirmar ou recusar.',
       footer: { text: 'Canal privado: presidência, vice e gestores do Social e do Financeiro' },

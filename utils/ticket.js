@@ -1,17 +1,17 @@
-const { PermissionFlagsBits } = require('discord.js');
-const path = require('path');
+const { PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
 const CATEGORIA_TICKETS = config.categorias.tickets;
 const CANAL_LOGS = config.canais.logsTicket;
-const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
+const T = tema.transcricao;
 const CARGO_DIRETOR = config.cargos.diretoria;
 
 const CATEGORIAS = {
-  parceria:          { label: '🤝 PARCERIA',           emoji: '🤝', cor: 0x000000 },
-  denuncia:          { label: '🚨 DENUNCIAR MEMBRO',   emoji: '🚨', cor: 0x000000 },
-  denuncia_diretor:  { label: '🚨 DENUNCIAR DIRETOR',  emoji: '🔒', cor: 0x000000 },
-  recrutamento:      { label: '📋 RECRUTAMENTO',       emoji: '📋', cor: 0x000000 },
+  parceria:          { label: '🤝 PARCERIA',           emoji: '🤝', cor: tema.cor.primaria },
+  denuncia:          { label: '🚨 DENUNCIAR MEMBRO',   emoji: '🚨', cor: tema.cor.primaria },
+  denuncia_diretor:  { label: '🚨 DENUNCIAR DIRETOR',  emoji: '🔒', cor: tema.cor.primaria },
+  recrutamento:      { label: '📋 RECRUTAMENTO',       emoji: '📋', cor: tema.cor.primaria },
 };
 
 // Gera nome do canal a partir do username
@@ -42,6 +42,37 @@ async function criarCanalTicket(guild, user, categoria = 'geral') {
     permissionOverwrites: permOverwrites,
   });
   return canal;
+}
+
+// Mensagem fixa do ticket no canal de tickets (só se ainda não existir).
+async function garantirMensagemTicket(client) {
+  try {
+    const canalTicket = await client.channels.fetch(config.canais.ticket);
+    if (canalTicket) {
+      const msgs = await canalTicket.messages.fetch({ limit: 20 });
+      const jaExiste = msgs.some(m => m.author.id === client.user.id && m.components.length > 0);
+      if (!jaExiste) {
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('abrir_ticket')
+            .setLabel('🎫 ABRIR TICKET')
+            .setStyle(ButtonStyle.Secondary)
+        );
+        const embed = new EmbedBuilder()
+          .setColor(tema.cor.primaria)
+          .setTitle(tema.tituloSegmentado('🎫 TICKET'))
+          .setDescription('Clique no botão abaixo para abrir um ticket e falar com a nossa equipe de suporte.')
+          .setImage(tema.urlAnexo(tema.marca.faixa));
+        await canalTicket.send({
+          embeds: [embed],
+          components: [row],
+          files: [tema.anexo(tema.marca.faixa)]
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao enviar mensagem fixa de ticket:', err);
+  }
 }
 
 // Gera transcript HTML das mensagens do canal
@@ -80,7 +111,7 @@ async function gerarTranscript(canal) {
   }
 
   function renderEmbed(e) {
-    const color = e.color ? `#${e.color.toString(16).padStart(6, '0')}` : '#cc0000';
+    const color = e.color ? `#${e.color.toString(16).padStart(6, '0')}` : T.destaque;
     const fields = (e.fields || []).map(f =>
       `<div class="ef ${f.inline ? 'inline' : ''}"><div class="ef-name">${escape(f.name)}</div><div class="ef-val">${escape(f.value)}</div></div>`
     ).join('');
@@ -136,49 +167,49 @@ async function gerarTranscript(canal) {
   <title>Transcript — #${canal.name}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #1e1f22; color: #dcddde; font-family: 'Segoe UI', sans-serif; font-size: 15px; }
+    body { background: ${T.fundoPagina}; color: ${T.texto}; font-family: 'Segoe UI', sans-serif; font-size: 15px; }
 
     /* HEADER */
-    .header { background: #111214; border-bottom: 3px solid #cc0000; padding: 20px 32px; display: flex; align-items: center; gap: 20px; }
+    .header { background: ${T.fundoCabecalho}; border-bottom: 3px solid ${T.destaque}; padding: 20px 32px; display: flex; align-items: center; gap: 20px; }
     .header-icon { font-size: 32px; }
-    .header-info h1 { color: #fff; font-size: 22px; margin-bottom: 4px; }
-    .header-meta { font-size: 13px; color: #888; display: flex; gap: 20px; flex-wrap: wrap; }
-    .header-meta span b { color: #ccc; }
+    .header-info h1 { color: ${T.textoForte}; font-size: 22px; margin-bottom: 4px; }
+    .header-meta { font-size: 13px; color: ${T.metaFraco}; display: flex; gap: 20px; flex-wrap: wrap; }
+    .header-meta span b { color: ${T.metaForte}; }
 
     /* MESSAGES */
     .messages { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
     .grupo { display: flex; gap: 14px; padding: 6px 8px; border-radius: 6px; }
-    .grupo:hover { background: #25262a; }
-    .avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; background: #2b2d31; }
+    .grupo:hover { background: ${T.fundoHover}; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; background: ${T.painel}; }
     .grupo-body { flex: 1; min-width: 0; }
     .grupo-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-    .autor { font-weight: 700; color: #fff; font-size: 15px; }
-    .bot-badge { background: #5865f2; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; }
-    .ts { font-size: 12px; color: #72767d; }
-    .msg-text { color: #dcddde; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .autor { font-weight: 700; color: ${T.textoForte}; font-size: 15px; }
+    .bot-badge { background: ${T.selo}; color: ${T.textoForte}; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; }
+    .ts { font-size: 12px; color: ${T.textoFraco}; }
+    .msg-text { color: ${T.texto}; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 
     /* EMBEDS */
-    .embed { border-left: 4px solid #cc0000; background: #2b2d31; border-radius: 4px; padding: 10px 14px; margin-top: 6px; max-width: 520px; }
-    .e-title { font-weight: 700; color: #fff; margin-bottom: 6px; font-size: 15px; }
-    .e-desc { color: #dcddde; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+    .embed { border-left: 4px solid ${T.destaque}; background: ${T.painel}; border-radius: 4px; padding: 10px 14px; margin-top: 6px; max-width: 520px; }
+    .e-title { font-weight: 700; color: ${T.textoForte}; margin-bottom: 6px; font-size: 15px; }
+    .e-desc { color: ${T.texto}; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
     .e-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .ef { min-width: 40%; }
     .ef.inline { flex: 1; }
-    .ef-name { font-weight: 700; color: #fff; font-size: 13px; margin-bottom: 2px; }
-    .ef-val { color: #dcddde; font-size: 14px; }
-    .e-footer { font-size: 12px; color: #72767d; margin-top: 8px; border-top: 1px solid #3a3b40; padding-top: 6px; }
+    .ef-name { font-weight: 700; color: ${T.textoForte}; font-size: 13px; margin-bottom: 2px; }
+    .ef-val { color: ${T.texto}; font-size: 14px; }
+    .e-footer { font-size: 12px; color: ${T.textoFraco}; margin-top: 8px; border-top: 1px solid ${T.linha}; padding-top: 6px; }
 
     /* ATTACHMENTS */
     .att-img { max-width: 400px; max-height: 300px; border-radius: 6px; margin-top: 6px; display: block; }
-    .att-file { display: inline-flex; align-items: center; gap: 6px; background: #2b2d31; color: #00aff4; padding: 6px 12px; border-radius: 4px; margin-top: 6px; text-decoration: none; font-size: 14px; }
+    .att-file { display: inline-flex; align-items: center; gap: 6px; background: ${T.painel}; color: ${T.link}; padding: 6px 12px; border-radius: 4px; margin-top: 6px; text-decoration: none; font-size: 14px; }
     .att-file:hover { text-decoration: underline; }
 
     /* SEPARATOR */
-    .day-sep { text-align: center; color: #72767d; font-size: 12px; margin: 16px 0; display: flex; align-items: center; gap: 10px; }
-    .day-sep::before, .day-sep::after { content: ''; flex: 1; height: 1px; background: #3a3b40; }
+    .day-sep { text-align: center; color: ${T.textoFraco}; font-size: 12px; margin: 16px 0; display: flex; align-items: center; gap: 10px; }
+    .day-sep::before, .day-sep::after { content: ''; flex: 1; height: 1px; background: ${T.linha}; }
 
     /* FOOTER */
-    .footer { text-align: center; padding: 20px; font-size: 12px; color: #444; border-top: 1px solid #2b2d31; margin-top: 24px; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: ${T.rodape}; border-top: 1px solid ${T.painel}; margin-top: 24px; }
   </style>
 </head>
 <body>
@@ -190,16 +221,16 @@ async function gerarTranscript(canal) {
         <span><b>Início:</b> ${inicio}</span>
         <span><b>Fechado:</b> ${fim}</span>
         <span><b>Mensagens:</b> ${total}</span>
-        <span><b>Servidor:</b> Gaviões da Fiel — FiveM</span>
+        <span><b>Servidor:</b> ${tema.marca.nomeNormal} — FiveM</span>
       </div>
     </div>
   </div>
   <div class="messages">
-    ${linhas || '<p style="color:#72767d;text-align:center;padding:40px">Nenhuma mensagem encontrada.</p>'}
+    ${linhas || '<p style="color:${T.textoFraco};text-align:center;padding:40px">Nenhuma mensagem encontrada.</p>'}
   </div>
-  <div class="footer">Transcript gerado automaticamente pelo bot Gaviões da Fiel FiveM</div>
+  <div class="footer">Transcript gerado automaticamente pelo bot ${tema.marca.nomeNormalFivem}</div>
 </body>
 </html>`;
 }
 
-module.exports = { criarCanalTicket, gerarTranscript, CANAL_LOGS, LOGO_PATH, CATEGORIAS };
+module.exports = { criarCanalTicket, gerarTranscript, garantirMensagemTicket, CANAL_LOGS, CATEGORIAS };

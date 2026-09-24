@@ -3,6 +3,7 @@ const E = require('./estatisticas');
 const F = require('./painelFormato');
 const { criarPainelCanal } = require('./painelCanal');
 const { linhaComponentesBau } = require('./painelBauInteracoes');
+const tema = require('../../tema');
 
 // Canal 📦・estoque-bau: o que entra e sai do baú da torcida (5 compartimentos:
 // GDF Sócio/Diretoria/Presidência/Recrutador + Recompensas), a partir do canal
@@ -56,7 +57,7 @@ async function montarBlocos() {
     return [{
       embeds: [{
         color: F.COR,
-        title: '📦 BAÚ DA TORCIDA — GAVIÕES DA FIEL FIVEM',
+        title: tema.titulo('📦 BAÚ DA TORCIDA'),
         description: [
           ...patrimonio,
           'Nenhum movimento de baú registrado ainda. Assim que o jogo publicar o primeiro '
@@ -76,7 +77,7 @@ async function montarBlocos() {
 
   const embed = {
     color: F.COR,
-    title: '📦 BAÚ DA TORCIDA — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('📦 BAÚ DA TORCIDA'),
     description: [
       ...patrimonio,
       `**COMPARTIMENTOS:** ${baus.length}`,

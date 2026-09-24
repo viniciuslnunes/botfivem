@@ -1,14 +1,10 @@
 const db = require('./db');
-const path = require('path');
 const config = require('../config/index.js');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { registrarModulo } = require('./modulos');
+const tema = require('../tema');
 
-const LOGO_PATH = path.join(__dirname, '../img/gavioesdafielfivem_logo.png');
-const LOGO_FILE = { attachment: LOGO_PATH, name: 'gavioesdafielfivem_logo.png' };
 
-const CAPA_PATH = path.join(__dirname, '../img/capa.png');
-const CAPA_FILE = { attachment: CAPA_PATH, name: 'capa.png' };
 
 const CANAL_MURAL = config.canais.mural;
 const CONFIG_KEY = 'mural_associados_message_id';
@@ -74,11 +70,11 @@ function construirEmbed(rowsPagina, atual, totalPaginas, totalSocios) {
     : `Total: ${totalSocios} sócio${totalSocios !== 1 ? 's' : ''}`;
 
   return {
-    color: 0x000000,
-    title: '📋 MURAL DE ASSOCIADOS — GAVIÕES DA FIEL FIVEM',
+    color: tema.cor.primaria,
+    title: tema.titulo('📋 MURAL DE ASSOCIADOS'),
     description: descricao,
-    thumbnail: { url: 'attachment://gavioesdafielfivem_logo.png' },
-    image: { url: 'attachment://capa.png' },
+    thumbnail: { url: tema.urlLogo() },
+    image: { url: tema.urlAnexo(tema.marca.capa) },
     footer: { text: rodape },
     timestamp: new Date().toISOString()
   };
@@ -126,14 +122,14 @@ async function atualizarMural(client) {
   if (messageId) {
     try {
       const msg = await canal.messages.fetch(messageId);
-      await msg.edit({ embeds: [embed], components, files: [LOGO_FILE, CAPA_FILE], allowedMentions: { users: [] } });
+      await msg.edit({ embeds: [embed], components, files: [tema.logo(), tema.anexo(tema.marca.capa)], allowedMentions: { users: [] } });
       return;
     } catch {
       // Mensagem não existe mais — envia nova abaixo
     }
   }
 
-  const nova = await canal.send({ embeds: [embed], components, files: [LOGO_FILE, CAPA_FILE], allowedMentions: { users: [] } });
+  const nova = await canal.send({ embeds: [embed], components, files: [tema.logo(), tema.anexo(tema.marca.capa)], allowedMentions: { users: [] } });
   await setMuralMessageId(nova.id);
 }
 

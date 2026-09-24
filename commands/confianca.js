@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const regras = require('../utils/confianca/regras');
 const { situacaoDe } = require('../utils/confianca/servico');
+const tema = require('../tema');
 
 // Nível é visível para qualquer um; score, progresso e sinais só para a própria pessoa.
 // Não existe ranking: confiança não é competição.
@@ -26,7 +27,7 @@ module.exports = {
       `${e.peso >= 0 ? '➕' : '➖'} ${regras.SINAIS_CONFIANCA[e.sinal]?.rotulo ?? e.sinal} · <t:${Math.floor(new Date(e.criado_em).getTime() / 1000)}:d>`);
     return interaction.editReply({
       embeds: [{
-        color: 0x000000,
+        color: tema.cor.primaria,
         title: `${situacao.nivel.emoji} SUA CONFIANÇA NA TORCIDA: ${situacao.nivel.rotulo.toUpperCase()}`,
         description: situacao.progresso
           ? `Faltam **${situacao.progresso.faltam} pontos** para **${regras.rotuloNivel(situacao.progresso.proximo)}**.`

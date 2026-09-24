@@ -1,12 +1,13 @@
 const { SlashCommandBuilder } = require('discord.js');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('elenco')
-    .setDescription('Lista todos os membros do elenco [R.S.J] com o cargo específico.'),
+    .setDescription(`Lista todos os membros do elenco ${tema.marca.elenco.sigla} com o cargo específico.`),
   async execute(interaction) {
-    const cargoRsj = config.cargos.elenco; // [R.S.J] RUA SÃO JORGE
+    const cargoRsj = config.cargos.elenco; // sub-marca do elenco (tema.marca.elenco)
 
     // Adia imediatamente para evitar expiração da interação
     await interaction.deferReply();
@@ -23,7 +24,7 @@ module.exports = {
     );
 
     if (!membros.size) {
-      return interaction.editReply('Nenhum membro encontrado no elenco [R.S.J].');
+      return interaction.editReply(`Nenhum membro encontrado no elenco ${tema.marca.elenco.sigla}.`);
     }
 
     let desc = '';
@@ -39,13 +40,13 @@ module.exports = {
 
     await interaction.editReply({
       embeds: [{
-        color: 0x000000,
-        title: '🦅・[R.S.J] RUA SÃO JORGE - ELENCO',
+        color: tema.cor.primaria,
+        title: tema.marca.elenco.titulo,
         description: desc,
         footer: { text: `Total: ${membros.size} membros` },
-        image: { url: 'attachment://ruasaojorge.png' }
+        image: { url: tema.urlAnexo(tema.marca.elenco.logo) }
       }],
-      files: [{ attachment: './img/ruasaojorge.png', name: 'ruasaojorge.png' }],
+      files: [tema.anexo(tema.marca.elenco.logo)],
       allowedMentions: { users: [] }
     });
   }

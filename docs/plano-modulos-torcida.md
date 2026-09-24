@@ -1,5 +1,12 @@
 # Plano — módulos de torcida do BotPDE no Discord da Gaviões da Fiel FiveM
 
+> **Nota (2026-09-24):** este é o registro histórico de decisão módulo a módulo. As
+> referências a `events/…`, `config/index.js` (como arquivo de dados) e
+> `utils/logsJogo/parser.js` descrevem o código **anterior** à reestruturação
+> para produto multi-torcida: hoje o roteamento vive em `plataforma/` + `modulos/`,
+> os dados em `tenants/<slug>/` e o parser em `fontes/hoolibras/`. Ver
+> `docs/contratos/` e `docs/plano-produto-multi-torcida.md`.
+
 > Planejamento de 2026-09-11. Substitui `unidades-regras-negocio.md` (que tratava
 > de hierarquia Sede → Subsede → PDE, fora do escopo).
 > Fonte das regras: repositório `botpde` (`docs/data/modulo-*.md`,

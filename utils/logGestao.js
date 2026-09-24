@@ -1,10 +1,11 @@
 const { lerConfig } = require('./botConfig');
+const tema = require('../tema');
 
 // Toda mutação administrativa deixa rastro: quem, o quê, em quem, quando.
 // O canal é criado por /departamentos setup; sem ele, o rastro fica no console.
 const CHAVE_CANAL_LOGS_GESTAO = 'canal_logs_gestao';
 
-async function registrarLogGestao(client, { titulo, ator = null, campos = [], cor = 0x000000 }) {
+async function registrarLogGestao(client, { titulo, ator = null, campos = [], cor = tema.cor.primaria }) {
   try {
     const canalId = await lerConfig(CHAVE_CANAL_LOGS_GESTAO);
     const canal = canalId ? await client.channels.fetch(canalId).catch(() => null) : null;

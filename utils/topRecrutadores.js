@@ -1,5 +1,6 @@
 const db = require('./db');
 const config = require('../config/index.js');
+const tema = require('../tema');
 
 const CANAL_TOP = config.canais.topRecrutadores;
 const CONFIG_KEY = 'top_recrutadores_message_id';
@@ -32,7 +33,7 @@ async function construirEmbed() {
   if (descricao.length > 4096) descricao = descricao.substring(0, 4093) + '...';
 
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: '🏆 TOP RECRUTADORES',
     description: descricao,
     footer: { text: `Total: ${rows.length} recrutador${rows.length !== 1 ? 'es' : ''}` },

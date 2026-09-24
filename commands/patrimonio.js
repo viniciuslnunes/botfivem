@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require('discord.js');
-const config = require('../config/index.js');
 const { registrarLogGestao } = require('../utils/logGestao');
 const { arquivarAnexo, urlDaMidia } = require('../utils/arquivoMidia');
 const { truncar } = require('../utils/logsJogo/estatisticas');
@@ -7,6 +6,7 @@ const eventosRepo = require('../utils/eventos/repositorio');
 const repo = require('../utils/patrimonio/repositorio');
 const regras = require('../utils/patrimonio/regras');
 const { escopoPatrimonioDe } = require('../utils/patrimonio/permissoes');
+const tema = require('../tema');
 
 const unix = d => Math.floor(new Date(d).getTime() / 1000);
 const MSG_FORA_DO_ESCOPO = '❌ ESTE ITEM ESTÁ FORA DO SEU ACERVO (PATRIMÔNIO, BANDEIRAS OU BATERIA).';
@@ -76,7 +76,7 @@ async function lista(interaction) {
   const itens = await repo.listarItens({ categorias, incluirBaixados: interaction.options.getBoolean('incluir_baixados') ?? false });
   const linhas = itens.map(i => `${regras.rotuloItem(i)}${i.status === 'BAIXADO' ? ' · ~~baixado~~' : i.emprestimo_discord_id ? ` · 📤 com <@${i.emprestimo_discord_id}>` : i.localizacao ? ` · 📍 ${i.localizacao}` : ''}`);
   return interaction.editReply({
-    embeds: [{ color: 0x000000, title: '🗃️ ACERVO DA TORCIDA', description: truncar(linhas.join('\n') || '*Nenhum item.*', 4096) }],
+    embeds: [{ color: tema.cor.primaria, title: '🗃️ ACERVO DA TORCIDA', description: truncar(linhas.join('\n') || '*Nenhum item.*', 4096) }],
     allowedMentions: { parse: [] },
   });
 }
@@ -93,10 +93,10 @@ async function ver(interaction) {
     ? `🔴 Baixado <t:${unix(item.baixado_em)}:d> — ${item.baixado_motivo}`
     : item.emprestimo_id
       ? `📤 Com <@${item.emprestimo_discord_id}> desde <t:${unix(item.emprestimo_saiu_em)}:f>${evento ? ` · para **${evento.titulo}**` : ' · saída avulsa'}`
-      : '🟢 Guardado';
+      : `${tema.emoji.ativo} Guardado`;
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: regras.rotuloItem(item),
       fields: [
         { name: 'SITUAÇÃO', value: situacao, inline: false },
@@ -152,7 +152,7 @@ async function devolver(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: comDano ? '⚠️ VOLTOU AO ACERVO COM DANO' : '📥 VOLTOU AO ACERVO',
     ator: interaction.user.id,
-    cor: comDano ? 0xFF0000 : 0x000000,
+    cor: comDano ? tema.cor.perigo : tema.cor.primaria,
     campos: [
       { name: 'ITEM', value: regras.rotuloItem(item), inline: true },
       { name: 'ESTAVA COM', value: `<@${emprestimo.discord_id}>`, inline: true },
@@ -202,7 +202,7 @@ async function baixar(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: '🔴 BAIXA NO ACERVO',
     ator: interaction.user.id,
-    cor: 0xFF0000,
+    cor: tema.cor.perigo,
     campos: [{ name: 'ITEM', value: regras.rotuloItem(item), inline: true }, { name: 'MOTIVO', value: motivo, inline: true }],
   });
   return interaction.reply({ content: `🔴 BAIXA REGISTRADA: ${regras.rotuloItem(item)}.`, flags: 64 });
@@ -220,7 +220,7 @@ async function pendencias(interaction) {
     `🔴 ${regras.rotuloItem({ id: e.item_id, nome: e.item_nome, categoria: e.categoria, subtipo: e.subtipo, quantidade: e.quantidade })} · com <@${e.discord_id}> · **${motivo}**${e.evento_titulo ? ` (${e.evento_titulo})` : ''}`);
   return interaction.editReply({
     embeds: [{
-      color: comPendencia.length ? 0xFF0000 : 0x000000,
+      color: comPendencia.length ? tema.cor.perigo : tema.cor.primaria,
       title: '🗃️ O QUE NÃO VOLTOU',
       description: truncar(linhas.join('\n') || '*Nada pendente: tudo o que saiu está dentro do prazo.*', 4096),
       footer: { text: `${abertos.length} item(ns) fora no total · alerta: evento já passou ou mais de 7 dias fora` },

@@ -7,6 +7,7 @@ const {
   farmDoPeriodo, linhaComponentesFarm, tabelaFarm, farmPorItem, tabelaFarmPorItem, rotuloItem, limitesEfetivosFarm, PERIODO_PADRAO,
 } = require('./painelFarmInteracoes');
 const { gerarGraficoFarmPorDia } = require('./graficoFarmPorDia');
+const tema = require('../../tema');
 
 const ITENS_FARM = config.logsJogo.farm.itens.map(i => i.toLowerCase());
 const BAUS_FARM = config.logsJogo.farm.baus;
@@ -42,7 +43,7 @@ async function montarBlocos() {
 
   const embed = {
     color: F.COR,
-    title: '🌾 INTELIGÊNCIA DE FARM — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('🌾 INTELIGÊNCIA DE FARM'),
     description: [
       ...(aviso ? [aviso, ''] : []),
       linhas.length

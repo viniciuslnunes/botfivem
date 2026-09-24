@@ -7,6 +7,7 @@ const repo = require('../utils/financeiro/repositorio');
 const { podeVerFinanceiro, podeLancarFinanceiro } = require('../utils/financeiro/permissoes');
 const eventosRepo = require('../utils/eventos/repositorio');
 const { formatarDataBR } = require('../utils/carteirinha/regras');
+const tema = require('../tema');
 
 const MSG_SEM_ACESSO = '❌ O CAIXA É VISTO PELA LIDERANÇA E PELA ÁREA FINANCEIRO.';
 const MSG_SEM_LANCAMENTO = '❌ SÓ A PRESIDÊNCIA OU O GESTOR DO FINANCEIRO LANÇA E EXCLUI NO CAIXA.';
@@ -44,7 +45,7 @@ async function lancar(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: `💰 LANÇAMENTO #${l.id} — ${l.tipo}`,
     ator: interaction.user.id,
-    cor: 0x000000,
+    cor: tema.cor.primaria,
     campos: [
       { name: 'VALOR', value: formatarDinheiro(l.valor), inline: true },
       { name: 'CATEGORIA', value: regras.rotuloCategoria(l.categoria), inline: true },
@@ -66,7 +67,7 @@ async function extrato(interaction) {
     `\`#${l.id}\` ${dataLancamento(l)} · ${l.tipo === 'RECEITA' ? '➕' : '➖'} **${formatarDinheiro(l.valor)}** · ${regras.rotuloCategoria(l.categoria)} · ${truncar(l.descricao, 60)}${l.origem !== 'MANUAL' ? ` · _${l.origem.toLowerCase()}_` : ''}`);
   return interaction.editReply({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: `💰 EXTRATO — ${periodo.rotulo}`,
       description: truncar(linhas.join('\n') || '*Nenhum lançamento no período.*', 4096),
       fields: [
@@ -98,7 +99,7 @@ async function montarBalanco(periodo, nivel) {
       inline: false,
     });
   }
-  return { color: 0x000000, title: `💰 BALANÇO — ${periodo.rotulo}`, fields, footer: { text: 'Prestação de contas da torcida · dinheiro do jogo' }, timestamp: new Date().toISOString() };
+  return { color: tema.cor.primaria, title: `💰 BALANÇO — ${periodo.rotulo}`, fields, footer: { text: 'Prestação de contas da torcida · dinheiro do jogo' }, timestamp: new Date().toISOString() };
 }
 
 async function balanco(interaction) {
@@ -142,7 +143,7 @@ async function excluir(interaction) {
   await registrarLogGestao(interaction.client, {
     titulo: `🗑️ LANÇAMENTO #${id} EXCLUÍDO`,
     ator: interaction.user.id,
-    cor: 0xFF0000,
+    cor: tema.cor.perigo,
     campos: [
       { name: 'TIPO', value: apagado.tipo, inline: true },
       { name: 'VALOR', value: formatarDinheiro(apagado.valor), inline: true },

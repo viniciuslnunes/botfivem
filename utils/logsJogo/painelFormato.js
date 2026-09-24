@@ -2,11 +2,12 @@ const { escapeMarkdown } = require('discord.js');
 const config = require('../../config/index.js');
 const E = require('./estatisticas');
 const repo = require('./repositorio');
+const tema = require('../../tema');
 
 // Formatação compartilhada pelos canais-painel de log. Existe pra que cada
 // painel novo seja só "que dado mostrar", nunca "como quebrar a lista".
 
-const COR = 0x000000;
+const COR = tema.cor.primaria;
 const LIMITE_DESCRICAO = 3900; // margem abaixo dos 4096 da description do Discord
 
 function rodape(origem) {

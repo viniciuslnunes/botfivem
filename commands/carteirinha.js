@@ -3,12 +3,13 @@ const db = require('../utils/db');
 const { gerarCarteirinha } = require('../utils/gerarCarteirinha');
 const { atualizarMural } = require('../utils/muralAssociados');
 const config = require('../config/index.js');
+const tema = require('../tema');
 const { situacaoCarteirinha, textoSituacao } = require('../utils/carteirinha/regras');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('carteirinha')
-    .setDescription('Gera sua carteirinha de sócio dos Gaviões da Fiel - FiveM'),
+    .setDescription(`Gera sua carteirinha de sócio ${tema.marca.dosNormal}`),
   async execute(interaction) {
     await interaction.deferReply({ flags: 64 });
 

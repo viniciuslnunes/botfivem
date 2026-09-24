@@ -1,5 +1,6 @@
 const config = require('../config/index.js');
 const { registrarTipo } = require('./agendador');
+const tema = require('../tema');
 
 // Tipos de tarefa executados pelo agendador persistente.
 
@@ -41,7 +42,7 @@ registrarTipo('adv_vencimento', async (client, p) => {
   if (!canal) return;
   await canal.send({
     embeds: [{
-      color: 0xFF0000,
+      color: tema.cor.perigo,
       title: variante.titulo,
       fields: [
         { name: variante.rotuloPessoa, value: `<@${p.membroId}>`, inline: true },

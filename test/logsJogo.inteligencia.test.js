@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseRegistro } = require('../utils/logsJogo/parser');
+const { parseRegistro } = require('../fontes/hoolibras/parser');
 const E = require('../utils/logsJogo/estatisticas');
 const A = require('../utils/logsJogo/analises');
 const { advertenciaAtivaDoMembro, linhaAdvertenciaDiscord } = require('../utils/logsJogo/advertenciaDiscord');
@@ -323,7 +323,7 @@ test('território: serieTerritorioPorDia zera dias sem log e alinha horas/conqui
 // Período "tudo" (resolverPeriodo) não tem `inicio` fixo — serieTerritorioPorDia
 // precisa cair pro dia mais antigo que apareceu nos dados, sem cortar nenhum
 // dia de fora nem quebrar quando não há dado nenhum.
-test('território: serieTerritorioPorDia sem período fixo (\"tudo\") usa o dia mais antigo dos dados como início', () => {
+test('território: serieTerritorioPorDia sem período fixo ("tudo") usa o dia mais antigo dos dados como início', () => {
   const { disputaPorDia, serieTerritorioPorDia } = require('../utils/logsJogo/painelTerritorioInteracoes');
   const linhasDiaAcao = [
     { dia: '2026-09-05', acao: 'coins_dominacao', total: 1 },

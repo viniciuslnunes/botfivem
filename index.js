@@ -1,8 +1,4 @@
-
-
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
 const faltando = ['DISCORD_TOKEN', 'DATABASE_URL'].filter(nome => !process.env[nome]);
@@ -11,10 +7,20 @@ if (faltando.length) {
   process.exit(1);
 }
 
-// Caminho explícito: sem o "/index.js", require('./config') pegaria o
-// config.js legado da raiz (removido) em vez do diretório config/.
-const config = require('./config/index.js');
-const utils = require('./utils/formatarNick');
+// Log em JSON (LOG_FORMATO=json) para quem hospeda: uma linha por evento, com tenant e módulo.
+// Instalado antes de tudo para que até os erros de validação saiam no formato escolhido.
+require('./plataforma/log').instalarLog({ formato: process.env.LOG_FORMATO || 'texto', tenant: require('./tenants/ativo').slug });
+
+// Valida o tenant (TENANT, default "gavioes") e resolve os módulos ANTES de
+// conectar: configuração errada derruba a subida com a lista completa de
+// problemas, em vez de quebrar no meio de um fluxo em produção.
+let plataforma;
+try {
+  plataforma = require('./plataforma');
+} catch (err) {
+  console.error('[boot] Configuração inválida — o bot não subiu:', err);
+  process.exit(1);
+}
 
 const client = new Client({
   intents: [
@@ -27,26 +33,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// Carregar comandos
-client.commands = new Map();
-const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'));
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  if (command.data && command.execute) {
-    client.commands.set(command.data.name, command);
-  }
-}
-
-// Carregar handlers de eventos
-const eventFiles = fs.readdirSync(path.join(__dirname, 'events')).filter(file => file.endsWith('.js'));
-for (const file of eventFiles) {
-  const eventHandler = require(`./events/${file}`);
-  // Alguns handlers recebem só client, outros recebem client+config+utils
-  if (eventHandler.length === 1) {
-    eventHandler(client);
-  } else {
-    eventHandler(client, config, utils);
-  }
-}
+// Carrega os módulos ligados (comandos, handlers) e liga os eventos do Discord
+plataforma.subir(client);
 
 client.login(process.env.DISCORD_TOKEN);

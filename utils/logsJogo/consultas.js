@@ -4,6 +4,7 @@ const { registrarModulo } = require('../modulos');
 const { ehLideranca } = require('../permissoes');
 const repo = require('./repositorio');
 const E = require('./estatisticas');
+const tema = require('../../tema');
 
 // Consulta paginada de /logs. O filtro fica em memória por 15 min, identificado
 // no customId dos botões (o customId do Discord tem só 100 caracteres).
@@ -43,7 +44,7 @@ async function renderizarPagina(consultaId, consulta, pagina) {
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   const embed = {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: '📜 LOGS DO JOGO',
     description: itens.length
       ? E.truncar(itens.map(linhaDoLog).join('\n\n'), 4096)
@@ -100,7 +101,7 @@ async function resolverIdFivem(interaction) {
   const membro = await interaction.guild.members.fetch(usuario.id).catch(() => null);
   const idFivem = E.idFivemDoNick(membro?.nickname ?? membro?.displayName);
   if (!idFivem) {
-    return { erro: `❌ O APELIDO DE ${usuario} NÃO TEM ID FIVEM NO PADRÃO \`S GDF | NOME - ID\`. USE A OPÇÃO \`id\`.` };
+    return { erro: `❌ O APELIDO DE ${usuario} NÃO TEM ID FIVEM NO PADRÃO \`${tema.marca.nickPrefixo}NOME - ID\`. USE A OPÇÃO \`id\`.` };
   }
   return { idFivem, rotulo: `${membro.displayName} (ID ${idFivem})` };
 }

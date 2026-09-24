@@ -1,5 +1,6 @@
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const path = require('path');
+const tema = require('../tema');
 
 const fontsDir = path.join(__dirname, '../fonts');
 registerFont(path.join(fontsDir, 'LiberationSans-Regular.ttf'),   { family: 'LiberationSans' });
@@ -43,27 +44,27 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
   const photoX = W - 12 - S; // = 548
 
   // 1. Fundo branco
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = tema.cartao.fundo;
   ctx.fillRect(0, 0, W, H);
 
   // 2. Faixas decorativas (desenhadas ANTES dos logos)
-  ctx.fillStyle = '#000000';
+  ctx.fillStyle = tema.cartao.tinta;
   ctx.fillRect(0, 308, W, 12);
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = tema.cartao.fundo;
   ctx.fillRect(0, 320, W, 8);
-  ctx.fillStyle = '#000000';
+  ctx.fillStyle = tema.cartao.tinta;
   ctx.fillRect(0, 328, W, H - 328);
 
-  // 3. Logo Gaviões — quadrado, contain (sem esticar)
+  // 3. Logo da torcida — quadrado, contain (sem esticar)
   try {
-    const logo = await loadImage(path.join(__dirname, '../img/gavioesdafielfivem_logo.png'));
+    const logo = await loadImage(tema.asset(tema.marca.logo));
     drawContain(ctx, logo, logoX, imgY, S, S);
   } catch {}
 
   // 4. Foto / Avatar — quadrado, cover (preenche sem esticar)
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = tema.cartao.fundo;
   ctx.fillRect(photoX - 3, imgY - 3, S + 6, S + 6);
-  ctx.strokeStyle = '#cccccc';
+  ctx.strokeStyle = tema.cartao.borda;
   ctx.lineWidth = 2;
   ctx.strokeRect(photoX, imgY, S, S);
 
@@ -80,31 +81,31 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
 
   // 5. Cabeçalho (zona branca)
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#000000';
+  ctx.fillStyle = tema.cartao.tinta;
   ctx.font = 'bold 44px LiberationSans';
-  ctx.fillText('GAVIÕES DA FIEL TORCIDA', W / 2, 48);
+  ctx.fillText(tema.marca.nomeTorcida, W / 2, 48);
 
   ctx.font = '14px LiberationSans';
-  const subtitulo = 'FORÇA INDEPENDENTE EM PROL DO GRANDE CORINTHIANS';
+  const subtitulo = tema.marca.carteirinha.subtitulo;
   const subW = ctx.measureText(subtitulo).width;
   ctx.fillText(subtitulo, W / 2, 66);
   ctx.fillRect((W - subW) / 2, 70, subW, 1.5);
 
   ctx.font = '14px LiberationSans';
   ctx.textAlign = 'right';
-  ctx.fillText('Fundado em 01/07/1969', photoX - 10, 92);
+  ctx.fillText(tema.marca.carteirinha.fundacao, photoX - 10, 92);
 
   // 6. Dados
   const dadosX = logoX + S + 14; // 266
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = tema.cartao.tintaSuave;
   ctx.font = 'bold 23px LiberationSans';
   ctx.fillText('Sócio nº:', dadosX, 162);
   ctx.font = '23px LiberationSans';
   ctx.fillText(String(numeroSocio).padStart(4, '0'), dadosX + 130, 162);
 
   ctx.font = 'bold 23px LiberationSans';
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = tema.cartao.tintaSuave;
   ctx.fillText('Validade:', dadosX, 218);
   ctx.font = '23px LiberationSans';
   ctx.fillText(validade, dadosX + 130, 218);
@@ -115,23 +116,25 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
   const assCX = (assX1 + assX2) / 2;
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = tema.cartao.sobreTinta;
   ctx.font = 'italic 22px LiberationSans';
-  ctx.fillText('Mano Beiço', assCX, 385);
+  ctx.fillText(tema.marca.carteirinha.assinatura.nome, assCX, 385);
+  ctx.globalAlpha = 1;
 
-  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeStyle = tema.cartao.sobreTinta;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(assX1, 400);
   ctx.lineTo(assX2, 400);
   ctx.stroke();
 
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = tema.cartao.sobreTinta;
   ctx.font = 'bold 15px LiberationSans';
-  ctx.fillText('Presidente', assCX, 420);
+  ctx.fillText(tema.marca.carteirinha.assinatura.cargo, assCX, 420);
 
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = tema.cartao.sobreTinta;
   ctx.font = 'bold 27px LiberationSans';
   ctx.fillText('Nome:', 30, 466);
   ctx.font = '25px LiberationSans';
@@ -139,7 +142,7 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
   ctx.fillText(nomeDisplay, 30 + 106, 466);
 
   // 8. Borda do cartão
-  ctx.strokeStyle = '#000000';
+  ctx.strokeStyle = tema.cartao.tinta;
   ctx.lineWidth = 2;
   ctx.strokeRect(1, 1, W - 2, H - 2);
 
@@ -147,9 +150,9 @@ async function gerarCarteirinha({ nome, numeroSocio, validade, avatarUrl }) {
 }
 
 function desenharPlaceholderFoto(ctx, x, y, w, h) {
-  ctx.fillStyle = '#f0f0f0';
+  ctx.fillStyle = tema.cartao.placeholderFundo;
   ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = '#aaaaaa';
+  ctx.fillStyle = tema.cartao.placeholderTexto;
   ctx.font = 'bold 22px LiberationSans';
   ctx.textAlign = 'center';
   ctx.fillText('FOTO', x + w / 2, y + h / 2 + 8);

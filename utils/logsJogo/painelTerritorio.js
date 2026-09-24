@@ -6,6 +6,7 @@ const {
   linhaComponentesTerritorio, porTerritorio, linhaTerritorioHoje, disputaPorDia, textoDisputa, serieTerritorioPorDia,
 } = require('./painelTerritorioInteracoes');
 const { gerarGraficoTerritoriosPorDia } = require('./graficoTerritoriosPorDia');
+const tema = require('../../tema');
 
 // Canal 🗺️・dominacao-territorios: mensagem fixa curta (padrão interativo, ver
 // painelBau.js). Público — conquista é orgulho da torcida, não auditoria.
@@ -53,7 +54,7 @@ async function montarBlocos() {
 
   const embed = {
     color: F.COR,
-    title: '🗺️ DOMINAÇÃO DE TERRITÓRIOS — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('🗺️ DOMINAÇÃO DE TERRITÓRIOS'),
     description: [
       ...(aviso ? [aviso, ''] : []),
       `**ÚLTIMOS 30 DIAS:** ${E.formatarNumero(horas)}h de domínio · ${E.formatarNumero(conquistas)} conquistas · ${E.formatarNumero(territorios.length)} territórios`,

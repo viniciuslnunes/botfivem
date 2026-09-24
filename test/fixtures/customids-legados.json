@@ -1,0 +1,142 @@
+[
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_ticket"
+  },
+  {
+    "tipo": "isStringSelectMenu",
+    "modo": "igual",
+    "id": "select_categoria_ticket"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "fechar_ticket"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "solicitar_carteirinha"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_bloquearid"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_desbloquearid"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_validarid"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_registrar_advertencia"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_remover_advertencia"
+  },
+  {
+    "tipo": "isUserSelectMenu",
+    "modo": "igual",
+    "id": "select_membro_adv_registrar"
+  },
+  {
+    "tipo": "isStringSelectMenu",
+    "modo": "prefixo",
+    "id": "select_prazo_adv:"
+  },
+  {
+    "tipo": "isUserSelectMenu",
+    "modo": "igual",
+    "id": "select_membro_adv_remover"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "igual",
+    "id": "modal_validarid"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "igual",
+    "id": "modal_bloquearid"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "igual",
+    "id": "modal_desbloquearid"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "prefixo",
+    "id": "modal_registrar_advertencia:"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "prefixo",
+    "id": "modal_remover_advertencia:"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_registrar_adv_rec"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_remover_adv_rec"
+  },
+  {
+    "tipo": "isUserSelectMenu",
+    "modo": "igual",
+    "id": "select_membro_adv_rec_registrar"
+  },
+  {
+    "tipo": "isStringSelectMenu",
+    "modo": "prefixo",
+    "id": "select_prazo_adv_rec:"
+  },
+  {
+    "tipo": "isUserSelectMenu",
+    "modo": "igual",
+    "id": "select_membro_adv_rec_remover"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "prefixo",
+    "id": "modal_registrar_adv_rec:"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "prefixo",
+    "id": "modal_remover_adv_rec:"
+  },
+  {
+    "tipo": "isModalSubmit",
+    "modo": "prefixo",
+    "id": "modal_recrutamento"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "abrir_recrutamento"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "reprovar_recrutamento"
+  },
+  {
+    "tipo": "isButton",
+    "modo": "igual",
+    "id": "aprovar_recrutamento"
+  }
+]

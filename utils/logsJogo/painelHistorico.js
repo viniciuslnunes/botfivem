@@ -1,6 +1,7 @@
 const F = require('./painelFormato');
 const { criarPainelCanal } = require('./painelCanal');
 const { linhaComponentesHistorico } = require('./painelHistoricoInteracoes');
+const tema = require('../../tema');
 
 // Canal 📜・historico-do-associado: cruza tudo que os outros canais de
 // inteligência (presença, carreira, baú, caixa, disciplina, restrições,
@@ -16,7 +17,7 @@ function montarBlocos() {
   return [{
     embeds: [{
       color: F.COR,
-      title: '📜 HISTÓRICO DO ASSOCIADO — GAVIÕES DA FIEL FIVEM',
+      title: tema.titulo('📜 HISTÓRICO DO ASSOCIADO'),
       description: [
         'Cruza tudo que já temos registrado sobre UM jogador: presença, carreira,',
         'baú, caixa, disciplina, restrições, tags, território e fechaduras.',

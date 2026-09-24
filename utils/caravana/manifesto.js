@@ -2,13 +2,14 @@ const { listaLimitada } = require('../departamentos/regras');
 const { formatarDinheiro } = require('../logsJogo/estatisticas');
 const { resumirEmbarque, pendenciasCaravana } = require('./regras');
 const { textoPendencias } = require('../escala/regras');
+const tema = require('../../tema');
 
 // Lista nominal por veículo com ida/volta: é o documento que vai para a porta do ônibus.
 // Traz só nome e marcação de embarque — nunca dados da ficha.
 function montarManifesto({ evento, veiculos, inscricoes, checkins, resultado = null, agora = new Date() }) {
   const confirmados = inscricoes.filter(i => i.status === 'CONFIRMADO');
   const embarque = resumirEmbarque(checkins);
-  const marca = id => `${embarque.ida.has(id) ? '🟢' : '⚪'}${embarque.volta.has(id) ? '🟢' : '⚪'} <@${id}>`;
+  const marca = id => `${embarque.ida.has(id) ? tema.emoji.ativo : tema.emoji.inativo}${embarque.volta.has(id) ? tema.emoji.ativo : tema.emoji.inativo} <@${id}>`;
 
   const fields = veiculos.map(v => {
     const passageiros = confirmados.filter(i => String(i.veiculo_id) === String(v.id));
@@ -37,9 +38,9 @@ function montarManifesto({ evento, veiculos, inscricoes, checkins, resultado = n
   }
 
   return {
-    color: 0x000000,
+    color: tema.cor.primaria,
     title: `🚌 MANIFESTO — ${evento.titulo.toUpperCase()}`.slice(0, 256),
-    description: `<t:${Math.floor(new Date(evento.inicio_em).getTime() / 1000)}:F> · ${confirmados.length} confirmado${confirmados.length !== 1 ? 's' : ''} · ida ${embarque.ida.size} · volta ${embarque.volta.size}\n🟢⚪ = embarcou na ida / na volta`,
+    description: `<t:${Math.floor(new Date(evento.inicio_em).getTime() / 1000)}:F> · ${confirmados.length} confirmado${confirmados.length !== 1 ? 's' : ''} · ida ${embarque.ida.size} · volta ${embarque.volta.size}\n${tema.emoji.ativo}${tema.emoji.inativo} = embarcou na ida / na volta`,
     fields: fields.slice(0, 25),
   };
 }

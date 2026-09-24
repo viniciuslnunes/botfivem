@@ -5,6 +5,7 @@ const { ehLideranca, temAlgumCargo, MSG_SO_LIDERANCA } = require('../permissoes'
 const { registrarLogGestao } = require('../logGestao');
 const { listarDepartamentos } = require('../departamentos/repositorio');
 const { assinaturaMensagem, temLinkOuAnexo, avaliarHistorico, avaliarAltaCerteza } = require('./regras');
+const tema = require('../../tema');
 
 // antispam:banir:<userId> · antispam:liberar:<userId> · antispam:ignorar:<userId>
 
@@ -236,7 +237,7 @@ async function enviarAlerta(guild, author, historico, resultado, { acao, apagada
 
   await canal.send({
     embeds: [{
-      color: 0x000000,
+      color: tema.cor.primaria,
       title: titulo,
       description: descricoes[resultado.motivo] + aviso,
       thumbnail: { url: author.displayAvatarURL() },
@@ -256,7 +257,7 @@ async function enviarAlerta(guild, author, historico, resultado, { acao, apagada
       new ButtonBuilder().setCustomId(`antispam:castigar:${author.id}`).setLabel(`CASTIGO ${config.antiSpam.castigoManualDias}D`).setEmoji('⏳').setStyle(ButtonStyle.Primary),
       soAlerta
         ? new ButtonBuilder().setCustomId(`antispam:ignorar:${author.id}`).setLabel('NÃO ERA SPAM').setEmoji('👍').setStyle(ButtonStyle.Secondary)
-        : new ButtonBuilder().setCustomId(`antispam:liberar:${author.id}`).setLabel('LIBERAR').setEmoji('✅').setStyle(ButtonStyle.Secondary),
+        : new ButtonBuilder().setCustomId(`antispam:liberar:${author.id}`).setLabel('LIBERAR').setEmoji(tema.emoji.ok).setStyle(ButtonStyle.Secondary),
     )],
     allowedMentions: { parse: [] },
   });
@@ -287,7 +288,7 @@ registrarModulo('antispam', async interaction => {
       if (!membro) return interaction.followUp({ content: '❌ ESSE MEMBRO NÃO ESTÁ MAIS NO SERVIDOR.', flags: 64 });
       await membro.timeout(null, `Anti-spam: liberado por ${ator.tag}`);
       pegoAte.delete(userId);
-      decisao = '✅ LIBERADO (CASTIGO REMOVIDO)';
+      decisao = `${tema.emoji.ok} LIBERADO (CASTIGO REMOVIDO)`;
     } else if (acao === 'ignorar') {
       // Alta certeza já pode ter castigado sozinho — remove o castigo se houver
       const membro = await guild.members.fetch(userId).catch(() => null);

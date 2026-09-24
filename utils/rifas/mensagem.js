@@ -4,6 +4,7 @@ const { formatarDinheiro, formatarNumero, truncar } = require('../logsJogo/estat
 const { urlDaMidia } = require('../arquivoMidia');
 const repo = require('./repositorio');
 const R = require('./regras');
+const tema = require('../../tema');
 
 // A mensagem da rifa é sempre reconstruída a partir do banco — nunca editada "de cabeça"
 
@@ -97,7 +98,7 @@ function montarMensagemRifa(rifa, { reservados = 0, imagemUrl = null } = {}) {
   ].filter(Boolean).join('\n\n');
 
   const embed = {
-    color: rifa.status === 'CANCELADA' ? 0xFF0000 : rifa.status === 'SORTEADA' ? 0xF1C40F : 0x000000,
+    color: rifa.status === 'CANCELADA' ? tema.cor.perigo : rifa.status === 'SORTEADA' ? tema.cor.aviso : tema.cor.primaria,
     title: truncar(`${status.emoji} RIFA — ${rifa.titulo.toUpperCase()}`, 256),
     description: descricao || null,
     fields,
@@ -147,7 +148,7 @@ async function atualizarMensagemRifa(client, rifaId) {
 // Conferência da equipe. `decisao` fecha a mensagem: sem botões, com quem decidiu
 function montarMensagemPagamento({ compra, rifa, numeros, decisao = null }) {
   const embed = {
-    color: decisao ? decisao.cor : 0xF1C40F,
+    color: decisao ? decisao.cor : tema.cor.aviso,
     title: `🎟️ PAGAMENTO DE RIFA — COMPRA #${compra.id}`,
     description: decisao ? null : 'O comprador avisou que pagou **no jogo**. Confira o recebimento antes de confirmar.',
     fields: [

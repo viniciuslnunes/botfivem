@@ -3,6 +3,7 @@ const F = require('./painelFormato');
 const A = require('./analises');
 const { criarPainelCanal } = require('./painelCanal');
 const { linhaComponentesRestricoes, buscarAtivas } = require('./painelRestricoesInteracoes');
+const tema = require('../../tema');
 
 // Canal ⛔・banidos-e-impedidos: mensagem fixa curta (padrão interativo, ver
 // painelBau.js) — a lista por tipo, a ficha de jogador e o fluxo do período
@@ -18,7 +19,7 @@ async function montarBlocos() {
 
   const embed = {
     color: F.COR,
-    title: '⛔ BANIDOS E IMPEDIDOS — GAVIÕES DA FIEL FIVEM',
+    title: tema.titulo('⛔ BANIDOS E IMPEDIDOS'),
     description: [
       `**BLACKLIST:** ${E.formatarNumero(porTipo.blacklist ?? 0)}`,
       `**SUSPENSÃO:** ${E.formatarNumero(porTipo.suspensao ?? 0)}`,

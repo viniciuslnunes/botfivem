@@ -1,0 +1,23 @@
+# Atualizações automáticas como Pull Request. O CI (Node 20/22/24, lint, testes,
+# integração e auditoria) é o portão: PR verde = a suíte que protege os fluxos
+# do servidor passou com a versão nova. Ver docs/atualizacoes.md.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # correções e menores juntas num PR só; major sempre sozinho (mais risco)
+      minor-e-patch:
+        update-types: [minor, patch]
+    ignore:
+      # discord.js 15 e chart.js/canvas majors mudam API: só com decisão consciente
+      - dependency-name: discord.js
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

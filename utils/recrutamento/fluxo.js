@@ -8,6 +8,7 @@ const regras = require('./regras');
 const { decisaoEmAndamento, travarFicha, liberarFicha } = require('./trava');
 const { registrarSinal } = require('../confianca/servico');
 const { agendarAtualizacaoReativa: agendarAtualizacaoReprovados } = require('./painelReenvio');
+const tema = require('../../tema');
 
 const MSG_JA_ANALISADA = '⚠️ ESTA SOLICITAÇÃO JÁ ESTÁ SENDO (OU JÁ FOI) ANALISADA POR OUTRO RECRUTADOR.';
 
@@ -133,8 +134,8 @@ async function avisarCandidato(client, discordId, { rotulo, justificativa, permi
     const usuario = await client.users.fetch(discordId);
     await usuario.send({
       embeds: [{
-        color: 0xFF0000,
-        title: '❌ RECRUTAMENTO — GAVIÕES DA FIEL FIVEM',
+        color: tema.cor.perigo,
+        title: tema.titulo('❌ RECRUTAMENTO'),
         description: 'Sua solicitação de recrutamento foi **reprovada**.',
         fields: [
           { name: 'MOTIVO', value: rotulo, inline: false },
@@ -197,7 +198,7 @@ async function processarReprovacao(interaction, fichaId) {
           { name: 'PODE TENTAR DE NOVO', value: permiteReenvio ? 'SIM' : 'NÃO — DEFINITIVA', inline: true },
           { name: 'JUSTIFICATIVA', value: laudo.justificativa, inline: false },
         ],
-        color: 0xFF0000,
+        color: tema.cor.perigo,
       }],
       components: [],
     });

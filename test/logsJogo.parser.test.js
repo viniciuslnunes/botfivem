@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseRegistro, extrairValor, extrairCategoria } = require('../utils/logsJogo/parser');
+const { parseRegistro, extrairValor, extrairCategoria } = require('../fontes/hoolibras/parser');
 
 test('novato no formato real do webhook', () => {
   const r = parseRegistro({
