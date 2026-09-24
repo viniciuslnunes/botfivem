@@ -89,6 +89,47 @@ async function liberarReenvio(messageId, { porId, motivo }) {
   return rows[0] ?? null;
 }
 
+async function guardarMensagemTelefone(messageId, telefoneMessageId) {
+  await db.query('UPDATE fichas_recrutamento SET telefone_message_id = $2 WHERE message_id = $1', [messageId, telefoneMessageId]);
+}
+
+async function existeFichaMaisNova(discordId, criadoEm) {
+  const { rows } = await db.query(
+    'SELECT 1 FROM fichas_recrutamento WHERE discord_id = $1 AND criado_em > $2 LIMIT 1',
+    [discordId, criadoEm]
+  );
+  return rows.length > 0;
+}
+
+// Devolve a ficha para PENDENTE, só se ainda está no status esperado e dentro da janela
+// (a trava de linha resolve dois cliques simultâneos). Roda dentro de uma transação
+// (`conexao`), junto com o que precisa desfazer nas outras tabelas. null = não desfez.
+async function desfazerDecisao(conexao, messageId, { porId, statusEsperado, janelaMin }) {
+  const { rows } = await conexao.query(
+    `UPDATE fichas_recrutamento
+        SET status = 'PENDENTE', decidido_por_id = NULL, decidido_em = NULL,
+            reprovado_categoria = NULL, reprovado_motivo = NULL, permite_reenvio = NULL,
+            reenvio_liberado_por_id = NULL, reenvio_liberado_em = NULL, reenvio_liberado_motivo = NULL,
+            desfeita_por_id = $2, desfeita_em = now(), desfeitas = desfeitas + 1
+      WHERE message_id = $1 AND status = $3 AND decidido_em > now() - ($4 || ' minutes')::interval
+      RETURNING *`,
+    [messageId, porId, statusEsperado, String(janelaMin)]
+  );
+  return rows[0] ?? null;
+}
+
+// Tira do ranking a aprovação desta ficha (ou, em aprovação anterior à coluna, a última do aprovador)
+async function removerAprovacaoContada(conexao, messageId, aprovadorId) {
+  await conexao.query(
+    `DELETE FROM aprovacoes_recrutamento
+      WHERE id = (SELECT id FROM aprovacoes_recrutamento
+                   WHERE ficha_message_id = $1 OR (ficha_message_id IS NULL AND aprovador_id = $2)
+                   ORDER BY (ficha_message_id IS NULL), criado_em DESC LIMIT 1)`,
+    [messageId, aprovadorId]
+  );
+}
+
 module.exports = {
   registrarFicha, situacaoDoCandidato, buscarFicha, decidirFicha, listarReprovacoesDefinitivas, liberarReenvio,
+  guardarMensagemTelefone, existeFichaMaisNova, desfazerDecisao, removerAprovacaoContada,
 };

@@ -45,6 +45,8 @@ stub('utils/recrutamento/painelReenvio.js', { iniciarPainelReenvio: rotinaSync('
 stub('utils/recrutamento/painelConviteWhatsapp.js', { iniciarPainelConviteWhatsapp: rotinaSync('iniciarPainelConviteWhatsapp') });
 // Rotinas novas (fora do ready.js original): stub neutro, sem timer nem Discord
 stub('utils/recrutamento/painelManto.js', { iniciarPainelManto: () => {}, aoMensagem: async () => false });
+stub('utils/advertenciaRecrutadorAuto/varredura.js', { iniciar: () => {} });
+stub('utils/advertenciaRecrutadorAuto/paineis.js', { iniciarPaineis: () => {}, atualizarAdvertidos: () => {} });
 stub('utils/sugestoes/painel.js', { garantirPainelNoFim: async () => {} });
 stub('utils/recrutamento/mensagemFixa.js', { garantirMensagemRecrutamento: rotina('garantirMensagemRecrutamento', undefined) });
 const ticketReal = require('../utils/ticket');
@@ -132,9 +134,9 @@ test('mensagem: a ordem dos módulos com aoMensagem é a do antigo messageCreate
 
 test('membro: os módulos com aoMembroAtualizado cobrem tudo que o antigo guildMemberUpdate tratava', () => {
   const ids = manifestos.filter(m => m.aoMembroAtualizado).map(m => m.id).sort();
-  // hierarquia, quadro de recrutadores, elenco, carteirinha, áreas (departamentos),
+  // advertência automática de recrutador (tabela de advertidos), hierarquia, quadro de recrutadores, elenco, carteirinha, áreas (departamentos),
   // sócio sem ID e IDs sem Discord (logsJogo)
-  assert.deepEqual(ids, ['carteirinha', 'departamentos', 'elenco', 'hierarquia', 'logsJogo', 'recrutamento']);
+  assert.deepEqual(ids, ['advertenciaRecrutadorAuto', 'carteirinha', 'departamentos', 'elenco', 'hierarquia', 'logsJogo', 'recrutamento']);
 });
 
 test('reação: só o módulo de eventos trata reação (adicionada e removida)', () => {

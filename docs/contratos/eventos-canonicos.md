@@ -46,15 +46,15 @@ adapter pode usar `desconhecido` e reprocessar depois.
 | ação | categoria | consumida por |
 |---|---|---|
 | adv_finalizou | disciplina | analises |
-| adv_removida | disciplina | analises, painelDisciplina |
-| advertido | disciplina | analises, painelDisciplina |
+| adv_removida | disciplina | analises, painelDisciplina, advertência automática |
+| advertido | disciplina | analises, painelDisciplina, advertência automática, painelRecrutadores (recrutado com problema) |
 | arena_bloqueou | patrimonio | painelFechaduras, painelHistorico |
 | arena_desbloqueou | patrimonio | painelFechaduras, painelHistorico |
 | banco_depositou | economia | painelCaixa, painelHistorico, repositório |
 | banco_sacou | economia | alertas (saque grande), painelCaixa, painelHistorico |
-| bau_guardou | bau | alertas, painelBau, painelFarm |
+| bau_guardou | bau | alertas, painelBau, painelFarm, advertência automática (pagamento) |
 | bau_removeu | bau | alertas (retirada grande/suspeita), painelBau |
-| blacklist_adicionou | restricao | analises (painelRestricoes) |
+| blacklist_adicionou | restricao | analises (painelRestricoes), painelRecrutadores (recrutado com problema) |
 | blacklist_removeu | restricao | analises |
 | cargo_editado | config | só registro/consulta |
 | coins_conquista | territorio | painelTerritorio, painelHistorico |
@@ -70,10 +70,10 @@ adapter pode usar `desconhecido` e reprocessar depois.
 | fechadura_trancou | patrimonio | analises (painelFechaduras) |
 | honra_adicionada | economia | painelCaixa |
 | honra_gastou | economia | painelCaixa |
-| impedimento_adicionou | restricao | analises |
-| impedimento_removeu | restricao | analises |
-| jogador_entrou | conexao | presença, registros diários |
-| jogador_recrutou | recrutamento | painelRecrutadores, sócios setados, presença implícita |
+| impedimento_adicionou | restricao | analises, advertência automática, painelRecrutadores (recrutado com problema) |
+| impedimento_removeu | restricao | analises, advertência automática |
+| jogador_entrou | conexao | presença, registros diários, painelRecrutadores (última vez online, horários, fantasmas) |
+| jogador_recrutou | recrutamento | painelRecrutadores (último recrutamento, tendência, meta, horários, qualidade), sócios setados, presença implícita |
 | jogador_saiu | conexao | presença, registros diários |
 | multou | disciplina | painelDisciplina |
 | novato_entrou | lideranca | funil de recrutamento, alerta de novato |
@@ -88,7 +88,7 @@ adapter pode usar `desconhecido` e reprocessar depois.
 | saiu_torcida | saida | analises, relatórios |
 | sede_destrancou | patrimonio | segurança, painelFechaduras |
 | sede_trancou | patrimonio | segurança, painelFechaduras |
-| suspensao_adicionou | restricao | analises |
+| suspensao_adicionou | restricao | analises, painelRecrutadores (recrutado com problema) |
 | suspensao_removeu | restricao | analises |
 | tag_adicionou | tag | analises (painelTags) |
 | tag_alterou | config | só registro/consulta |

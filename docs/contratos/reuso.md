@@ -21,6 +21,7 @@ use; se descobrir algo reutilizável que não está, acrescente na mesma entrega
 | botão fixo que precisa ficar sempre por último no canal | `utils/sugestoes/painel.js#garantirPainelNoFim` (apaga o antigo e reposta no fim) |
 | votação com um voto por pessoa (retira/troca) | `utils/sugestoes/repositorio.js#votar` |
 | recrutador+ (sem o sócio comum) | `utils/permissoes.js#ehRecrutadorOuAcima` |
+| botão de "desfazer" com prazo numa decisão (some sozinho) | `utils/recrutamento/desfazer.js` (`abrirJanelaDesfazer` + tarefa de expirar + `fichas.desfazerDecisao` em transação) |
 | tarefa com data (vencimento, remoção de cargo) | `utils/agendador.js` (tabela `tarefas_agendadas`) |
 | gravar várias tabelas juntas | `utils/transacao.js` |
 | ler/gravar configuração do painel | `utils/botConfig.js` |
@@ -37,3 +38,13 @@ use; se descobrir algo reutilizável que não está, acrescente na mesma entrega
 | provar que um require não quebrou | `test/requires.test.js` |
 | testar em outra versão de Node | `npm run testar:node -- <versões>` |
 | retrato do que sobe por tenant | `npm run modulos` |
+
+## Inteligência de recrutadores
+| Preciso de… | Use |
+|---|---|
+| tabela com colunas apertadas (1 espaço) para caber em uma linha | `painelFormato.js#tabela(colunas, linhas, { separador: ' ' })` |
+| cruzar dados de OUTRO módulo no painel sem acoplar | `inteligenciaRecrutadores.js#registrarEnriquecedor` (o módulo dono dos dados se pluga em `carregar()`) |
+| "há quanto tempo", tendência ▲▼, meta %, fração | `inteligenciaRecrutadores.js` (`tempoDesde`, `celulaTendencia`, `celulaMeta`, `celulaFracao`) |
+| pares recrutador→recrutado com ocorrência depois / sem atividade depois | `logsJogo/repositorio.js#recrutadosComOcorrenciaDepois`, `#recrutadosSemAtividadeDepois` |
+| risco de advertência (aviso preventivo) | `advertenciaRecrutadorAuto/regras.js#riscos` |
+| membro/DM/interação em teste | `tools/discord-falso.js` (`membro.dms`, `criarInteracao({ tipo: 'select'\|'usuario' })`) |

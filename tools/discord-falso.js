@@ -83,6 +83,8 @@ function criarMembro(id, { cargos = [], nome = 'Fulano', apelido = null, permiss
     nickname: apelido,
     displayName: apelido ?? nome,
     registros: [],
+    dms: [],
+    async send(payload) { membro.dms.push(payload); return payload; },
     user: { id, username: nome, displayName: nome, bot: false, displayAvatarURL: () => null, toString: () => `<@${id}>` },
     permissions: { has: f => permissoes.includes(f) },
     roles: {
@@ -132,7 +134,7 @@ function criarServidor({ id = 'GUILD', canais = [], membros = [] } = {}) {
 }
 
 // Interação (botão, select ou modal) que registra tudo que o bot respondeu.
-function criarInteracao({ customId, user, membro, guild, canal, mensagem, campos = {}, valores = [] }) {
+function criarInteracao({ customId, user, membro, guild, canal, mensagem, campos = {}, valores = [], tipo = 'botao' }) {
   const registros = [];
   const i = {
     customId,
@@ -147,7 +149,14 @@ function criarInteracao({ customId, user, membro, guild, canal, mensagem, campos
     deferred: false,
     replied: false,
     registros,
-    fields: { getTextInputValue: k => (k in campos ? campos[k] : '') },
+    fields: {
+      getTextInputValue: k => (k in campos ? campos[k] : ''),
+      getStringSelectValues: k => [].concat(campos[k] ?? []),
+    },
+    isButton: () => tipo === 'botao',
+    isStringSelectMenu: () => tipo === 'select',
+    isUserSelectMenu: () => tipo === 'usuario',
+    isModalSubmit: () => tipo === 'modal',
     isRepliable: () => true,
     async reply(p) { i.replied = true; registros.push(['reply', p]); return {}; },
     async deferReply(p) { i.deferred = true; registros.push(['deferReply', p]); },

@@ -8,7 +8,9 @@ const { agendar } = require('../agendador');
 const { buscarBloqueio } = require('../naoRecrutar');
 const { decisaoEmAndamento, travarFicha, liberarFicha } = require('./trava');
 const { abrirRecrutamento, abrirLaudoReprovacao } = require('./fluxo');
-const { registrarFicha, decidirFicha } = require('./fichas');
+const { registrarFicha, decidirFicha, guardarMensagemTelefone } = require('./fichas');
+const regras = require('./regras');
+const { abrirJanelaDesfazer } = require('./desfazer');
 const { registrarSinal } = require('../confianca/servico');
 const { textoRegrasManto } = require('./regrasManto');
 const tema = require('../../tema');
@@ -120,7 +122,7 @@ registrarModulo('aprovar_recrutamento', async interaction => {
   const { client } = interaction;
   // Trava contra clique duplo: dois recrutadores decidindo a mesma ficha ao mesmo tempo
   const fichaId = interaction.message.id;
-  if (decisaoEmAndamento(fichaId) || interaction.message.components.length === 0) {
+  if (decisaoEmAndamento(fichaId) || !regras.mensagemAguardaDecisao(interaction.message.components)) {
     return interaction.reply({ content: '⚠️ ESTA SOLICITAÇÃO JÁ ESTÁ SENDO (OU JÁ FOI) ANALISADA POR OUTRO RECRUTADOR.', flags: 64 });
   }
   travarFicha(fichaId);
@@ -169,7 +171,7 @@ registrarModulo('aprovar_recrutamento', async interaction => {
       const novoNick = utils.formatarNick(nome, id_fivem);
       await guildMember.setNickname(novoNick).catch(() => {});
       // Registrar aprovação no banco
-      await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id) VALUES ($1)', [interaction.user.id]);
+      await db.query('INSERT INTO aprovacoes_recrutamento (aprovador_id, ficha_message_id) VALUES ($1, $2)', [interaction.user.id, fichaId]);
       atualizarTopRecrutadores(client).catch(err => console.error('[aprovar] Erro ao atualizar top recrutadores:', err));
       await decidirFicha(fichaId, { status: 'APROVADO', decididoPorId: interaction.user.id }, embed)
         .catch(err => console.error('[aprovar] Erro ao registrar decisão da ficha:', err));
@@ -178,9 +180,11 @@ registrarModulo('aprovar_recrutamento', async interaction => {
       // Divulgar telefone do novo sócio no canal telefone-narnia
       const canalTelefoneSocio = interaction.guild.channels.cache.get(config.canais.telefoneSocio);
       if (canalTelefoneSocio) {
-        await canalTelefoneSocio.send({
+        const msgTelefone = await canalTelefoneSocio.send({
           content: `📞 NOVO SÓCIO APROVADO: **${nome}** (ID FIVEM ${id_fivem}) — <@${candidatoId}>\nTELEFONE: **${telefone}**`
-        }).catch(err => console.error('[aprovar] Erro ao enviar telefone para o canal de telefone dos sócios:', err));
+        }).catch(err => { console.error('[aprovar] Erro ao enviar telefone para o canal de telefone dos sócios:', err); return null; });
+        // Guardado para apagar se a aprovação for desfeita
+        if (msgTelefone) await guardarMensagemTelefone(fichaId, msgTelefone.id).catch(() => {});
       } else {
         console.error('Canal de telefone dos sócios não encontrado!');
       }
@@ -210,10 +214,11 @@ registrarModulo('aprovar_recrutamento', async interaction => {
       color: tema.cor.primaria
     };
     // Atualizar a mensagem manualmente, pois interaction.update já foi deferido
+    const janela = await abrirJanelaDesfazer(fichaId);
     await interaction.message.edit({
-      content: null,
+      content: janela.content,
       embeds: [embedAprovado],
-      components: []
+      components: janela.components
     });
     // Coletar próxima mensagem com imagem
     const filter = m => m.attachments.size > 0 && m.attachments.first().contentType && m.attachments.first().contentType.startsWith('image/');

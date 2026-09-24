@@ -127,7 +127,7 @@ const DIR_PARA_MODULO = {
   departamentos: 'departamentos', logsJogo: 'logsJogo', recrutamento: 'recrutamento', eventos: 'eventos',
   caravana: 'caravana', escala: 'escala', financeiro: 'financeiro', loja: 'loja', patrimonio: 'patrimonio',
   rifas: 'rifas', confianca: 'confianca', memoria: 'memoria', carteirinha: 'carteirinha', advertencia: 'advertencia',
-  advertenciaRecrutador: 'advertenciaRecrutador', antiSpam: 'antiSpam', sugestoes: 'sugestoes',
+  advertenciaRecrutador: 'advertenciaRecrutador', advertenciaRecrutadorAuto: 'advertenciaRecrutadorAuto', antiSpam: 'antiSpam', sugestoes: 'sugestoes',
 };
 const ARQUIVO_PARA_MODULO = {
   'utils/carteirinhaSocio.js': 'carteirinha', 'utils/carteirinhaInteracoes.js': 'carteirinha', 'utils/muralAssociados.js': 'carteirinha',

@@ -172,7 +172,7 @@ test('recrutamento: APROVAR → sócio, cargos trocados, apelido no padrão, apr
   // telefone divulgado
   assert.match(canal(config.canais.telefoneSocio).enviadas[0].content, /NOVO SÓCIO APROVADO: \*\*Fulano de Tal\*\* \(ID FIVEM 1234\)[\s\S]*TELEFONE: \*\*11912345678\*\*/);
   // mensagem de análise fechada com o status
-  assert.deepEqual(analise.components, []);
+  assert.deepEqual(analise.components[0].components.map(b => b.data.custom_id), [`recrut:desfazer:${analise.id}`]);
   assert.match(analise.embeds[0].fields.at(-1).value, new RegExp(`APROVADO POR <@${recrutador.id}>`));
   // ranking de recrutadores
   const top = canal(config.canais.topRecrutadores).enviadas[0];

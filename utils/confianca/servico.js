@@ -47,6 +47,16 @@ async function registrarSinal(client, { discordId, sinal, origemTipo, origemId, 
   return evento;
 }
 
+// Desfaz um sinal já registrado (decisão revertida) e reajusta o cargo de nível.
+// `executor` = conexão da transação (ou db); o cargo só é sincronizado depois, por sincronizarDepois().
+async function desfazerSinal(executor, { discordId, sinal, origemTipo, origemId }) {
+  await repo.removerEvento(executor, { discordId, sinal, origemTipo, origemId: String(origemId) });
+}
+
+async function sincronizarDepois(client, discordId) {
+  if (client) await sincronizarCargoNivel(client, discordId).catch(err => console.error('[confianca] Erro ao sincronizar cargo de nível:', err));
+}
+
 // Presença marcada (manual ou embarque da ida) é o sinal mais caro de forjar
 aoMarcarPresenca(async ({ evento, discordIds, client }) => {
   for (const discordId of discordIds) {
@@ -54,4 +64,4 @@ aoMarcarPresenca(async ({ evento, discordIds, client }) => {
   }
 });
 
-module.exports = { registrarSinal, situacaoDe };
+module.exports = { registrarSinal, situacaoDe, desfazerSinal, sincronizarDepois };

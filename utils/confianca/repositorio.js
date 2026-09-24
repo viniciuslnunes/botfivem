@@ -19,4 +19,12 @@ async function listarEventos(discordId) {
   return rows;
 }
 
-module.exports = { registrarEvento, listarEventos };
+// Decisão desfeita: o sinal daquela origem sai do ledger (e pode pontuar de novo na próxima decisão)
+async function removerEvento(executor, { discordId, sinal, origemTipo, origemId }) {
+  await executor.query(
+    'DELETE FROM confianca_eventos WHERE discord_id = $1 AND sinal = $2 AND origem_tipo = $3 AND origem_id = $4',
+    [discordId, sinal, origemTipo, origemId]
+  );
+}
+
+module.exports = { registrarEvento, listarEventos, removerEvento };

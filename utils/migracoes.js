@@ -118,6 +118,20 @@ const MIGRACOES = [
       ADD COLUMN IF NOT EXISTS reenvio_liberado_motivo TEXT`,
   },
   {
+    // Desfazer aprovação/reprovação (janela de 30 min): a ficha guarda a mensagem do telefone
+    // divulgado e quem desfez; a aprovação contada no ranking aponta para a ficha.
+    modulo: 'recrutamento', nome: 'fichas_recrutamento.desfazer',
+    sql: `ALTER TABLE fichas_recrutamento
+      ADD COLUMN IF NOT EXISTS telefone_message_id TEXT,
+      ADD COLUMN IF NOT EXISTS desfeita_por_id TEXT,
+      ADD COLUMN IF NOT EXISTS desfeita_em TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS desfeitas INT NOT NULL DEFAULT 0`,
+  },
+  {
+    modulo: 'recrutamento', nome: 'aprovacoes_recrutamento.ficha_message_id',
+    sql: 'ALTER TABLE aprovacoes_recrutamento ADD COLUMN IF NOT EXISTS ficha_message_id TEXT',
+  },
+  {
     // Foto de manto enviada no provar-manto avaliada pela liderança (correto/errado).
     // O recrutador não é gravado aqui: resolve-se na consulta pela ficha do candidato.
     modulo: 'recrutamento', nome: 'mantos_avaliados',
@@ -141,6 +155,48 @@ const MIGRACOES = [
     )`,
   },
   { modulo: 'recrutamento', nome: 'idx_divulgacoes_postado', sql: 'CREATE INDEX IF NOT EXISTS idx_divulgacoes_postado ON divulgacoes_recrutamento (postado_em DESC)' },
+  {
+    // Advertência automática de recrutador (inatividade, retenção, manto errado, ficha incompleta).
+    // status: ATIVA, PERDOADA, EXPIRADA, VENCIDA, CARGO_REMOVIDO.
+    modulo: 'advertenciaRecrutadorAuto', nome: 'advertencias_recrutador',
+    sql: `CREATE TABLE IF NOT EXISTS advertencias_recrutador (
+      id SERIAL PRIMARY KEY,
+      discord_id TEXT NOT NULL,
+      nivel SMALLINT NOT NULL,
+      regra TEXT NOT NULL,
+      motivo TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ATIVA',
+      prazo_em TIMESTAMPTZ,
+      resolucao TEXT,
+      criada_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      resolvida_em TIMESTAMPTZ
+    )`,
+  },
+  { modulo: 'advertenciaRecrutadorAuto', nome: 'idx_advertencias_recrutador', sql: 'CREATE INDEX IF NOT EXISTS idx_advertencias_recrutador ON advertencias_recrutador (discord_id, status)' },
+  {
+    // Advertência de sócio gerada pelo painel do jogo (impedimento/advertência): 1ª aviso,
+    // 2ª pagamento em 2 dias, 3ª perde o cargo. status: ATIVA, PAGA, REMOVIDA, VENCIDA, CARGO_REMOVIDO.
+    modulo: 'advertencia', nome: 'advertencias_socio',
+    sql: `CREATE TABLE IF NOT EXISTS advertencias_socio (
+      id SERIAL PRIMARY KEY,
+      discord_id TEXT NOT NULL,
+      id_fivem TEXT NOT NULL,
+      nivel SMALLINT NOT NULL,
+      origem TEXT NOT NULL,
+      motivo TEXT,
+      registrado_por TEXT,
+      log_message_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ATIVA',
+      prazo_em TIMESTAMPTZ,
+      pago JSONB NOT NULL DEFAULT '{}'::jsonb,
+      resolucao TEXT,
+      criada_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      resolvida_em TIMESTAMPTZ,
+      UNIQUE (log_message_id, origem)
+    )`,
+  },
+  { modulo: 'advertencia', nome: 'idx_advertencias_socio_membro', sql: 'CREATE INDEX IF NOT EXISTS idx_advertencias_socio_membro ON advertencias_socio (discord_id, criada_em DESC)' },
+  { modulo: 'advertencia', nome: 'idx_advertencias_socio_fivem', sql: 'CREATE INDEX IF NOT EXISTS idx_advertencias_socio_fivem ON advertencias_socio (id_fivem, status)' },
   {
     modulo: 'eventos', nome: 'eventos',
     sql: `CREATE TABLE IF NOT EXISTS eventos (

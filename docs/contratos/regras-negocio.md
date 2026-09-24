@@ -81,6 +81,20 @@
   ficha antiga nunca volta a `PENDENTE`.
 - Aprovar exige ID FiveM fora de "não recrutar"; falhou a ação → ficha continua `PENDENTE`.
 - Coberto por `test/fluxos.gavioes.test.js`.
+- **Desfazer decisão** (pedido do recrutamento, 2026-09-24): aprovada ou reprovada por
+  engano, a ficha ganha o botão `recrut:desfazer:<fichaId>` (+ aviso com o horário-limite) e
+  pode ser reaberta **até 30 min depois** da decisão (`regras.JANELA_DESFAZER_MIN`, conferida
+  no SQL). Quem pode: recrutador ou acima. Efeito: ficha volta a **PENDENTE** (mesma mensagem,
+  APROVAR/REPROVAR de volta; `desfeitas` conta quantas vezes) e o candidato volta a ser quem
+  acabou de pedir: sai o SÓCIO (ou o cargo de reprovado), volta visitante + PROVAR MANTO por
+  10 min (nova remoção agendada) e o apelido é limpo. Desfaz também a aprovação contada no
+  ranking, o sinal de confiança da decisão e o telefone divulgado em `telefoneSocio`; o
+  candidato recebe DM. Banco e cargo decisivo na mesma transação (cargo recusado = nada muda);
+  o resto é melhor esforço e vira aviso. Não reabre se o candidato já mandou ficha mais nova.
+  Depois de 30 min a tarefa `recrut_expirar_desfazer` tira o botão; rever passa a ser da
+  liderança. "Ficha já decidida" = a mensagem **sem o botão APROVAR** (não mais "sem
+  componentes", porque a decidida carrega o botão de desfazer). Coberto por
+  `test/desfazerRecrutamento.test.js`.
 
 ## Avaliação do manto (provar-manto)
 
@@ -112,3 +126,78 @@
   alertas, contagem por recrutador e os últimos 15 posts com o intervalo entre eles.
   Post apagado no Discord continua na sequência (não há hook de mensagem apagada).
   Coberto por `test/divulgacao.test.js`.
+
+## Advertência automática de sócio (painel do jogo → Discord)
+
+- Impedimento ou advertência lançados no painel do jogo (`impedimento_adicionou`,
+  `advertido`) viram advertência no Discord para o **sócio ativo** dono do ID (correlação
+  pelo nick). 1 lançamento = 1 advertência; nível = cargo ADV¹/²/³ atual + 1. Tabela
+  `advertencias_socio` (status ATIVA, PAGA, REMOVIDA, VENCIDA, CARGO_REMOVIDO).
+- **1ª**: aviso formal em `historicoAdv`, com a justificativa (texto do log). **2ª**: 50
+  maconha + 50 cocaína no baú em 2 dias, cobrança em `advPendentes`; o depósito é
+  reconhecido pelo log `bau_guardou` do próprio jogador (soma parcial, só vale depois da
+  advertência e dentro do prazo); pago = advertência removida e cargo volta um nível.
+  Sem pagar, `adv_vencimento` remove o cargo de sócio e marca VENCIDA. **3ª**: remove o
+  cargo de sócio na hora.
+- Retirar o impedimento/advertência no painel (`impedimento_removeu`, `adv_removida`)
+  encerra a advertência ATIVA da mesma origem (REMOVIDA) e baixa o cargo, só se o membro
+  ainda está naquele nível. Advertência já paga, vencida ou de 3ª não é reaberta.
+- Impedimento e advertência do jogo costumam vir juntos: uma só advertência por janela de
+  10 min. Log com mais de 6 h não abre advertência (reprocessamento não pune de novo);
+  o mesmo log nunca gera duas (`UNIQUE (log_message_id, origem)`). Cargo primeiro, registro
+  depois: se o Discord recusar, nada é gravado. Coberto por `test/advertenciaAutomatica.test.js`.
+
+## Advertência automática de recrutador (inteligência de recrutadores → advertência)
+
+- Varredura a cada 3 h (módulo `advertenciaRecrutadorAuto`), cruzando o painel de
+  recrutadores (recrutamentos, tempo jogado, retenção), o placar do manto e as fichas.
+  Recusa rodar com a fonte de logs parada (`fonteParadaDias`): sem log recente não dá para
+  separar "não recrutou" de "o jogo parou de mandar log". Só mede recrutador com ID no apelido.
+- Regras (cada advertência grava a justificativa em `advertencias_recrutador` e no canal
+  `historicoAdvRec`):
+  1. **Jogou e não recrutou**: ≥ 30 min jogados e 0 recrutamentos em 5 dias → advertência.
+  2. **Inatividade**: 0 jogado, 0 recrutamentos e fora do jogo em 7 dias → perde o cargo de
+     recrutador, sem advertência (`regra = inatividade`, nível 0).
+  3. **Manto errado**: 3 mantos avaliados ERRADO em 7 dias na ficha que ele decidiu.
+  4. **Retenção baixa**: < 50% com pelo menos 3 recrutados em 14 dias.
+  5. **Ficha incompleta**: 3 fichas APROVADAS por ele em 7 dias sem nome, idade, ID ou telefone.
+- Carência de 5/7 dias para quem recebeu o cargo há pouco (`recrutadores_cargo`). Mesma
+  regra não advertem de novo dentro do próprio intervalo (5, 14, 7 e 7 dias).
+- Escada igual à do sócio, pelo número de advertências **ativas**: 1ª aviso; 2ª aviso (na
+  regra 1 ganha prazo de 2 dias para voltar a recrutar); 3ª remove o cargo de recrutador.
+- Perdão: advertência da regra 1 sai sozinha após 3 recrutamentos desde que foi aplicada
+  (status PERDOADA). Qualquer advertência ativa expira em 30 dias (EXPIRADA). 2ª da regra 1
+  sem regularizar em 2 dias: perde o cargo (VENCIDA).
+- Os cargos ADV de recrutador (`cargos.advRec`) só são ajustados se o tenant os configurou;
+  sem eles, a fonte da verdade é a tabela. Remoção manual pelo botão da liderança mexe no
+  cargo, não na tabela (a advertência da tabela expira sozinha). Coberto por
+  `test/advertenciaRecrutadorAuto.test.js`.
+
+## Painel de recrutadores: inteligência cruzada (`🦅・painel-recrutadores`)
+
+Três tabelas de **uma linha por recrutador**, títulos completos, ≤ 56 colunas (limite do bloco de
+código no desktop): DESEMPENHO (recrutamentos, retenção, tempo, rec/h), CONTROLE (último
+recrutamento, última vez online, tendência, meta, ADV) e QUALIDADE (problemas, fantasmas, manto,
+fichas). Alerta ATENÇÃO no topo, pódio e ficha por recrutador com horários. Só liderança.
+
+Decisões tomadas sem resposta do usuário (padrões — mudar aqui e em `inteligenciaRecrutadores.js`):
+
+- **Recrutado com problema**: `advertido`, `blacklist_adicionou`, `impedimento_adicionou` ou
+  `suspensao_adicionou` do recrutado **depois** do recrutamento e em até 30 dias. Expulsão/saída
+  ficam na retenção. **Só informa** (coluna PROBLEMAS e ATENÇÃO a partir de 3 casos): **não gera
+  advertência automática** — punir por isso é decisão pendente do usuário.
+- **Fantasma**: recrutado há 7+ dias sem nenhum log como ator depois do recrutamento (+10 min).
+  É número **separado** da retenção; ATENÇÃO com 3+ casos e metade ou mais dos recrutados maduros.
+- **Meta semanal**: **única para todos** (padrão 5 recrutamentos/semana, `bot_config`
+  `recrutadores_meta_semanal`), editada pelo botão `🎯 META SEMANAL` (campo único: botão → modal,
+  sem select). `0` desliga. Só informa (% = recrutamentos dos últimos 7 dias ÷ meta).
+- **Tendência**: recrutamentos do período contra o período anterior de mesma duração (`▲ ▼ =`).
+- **Aviso preventivo** (módulo `advertenciaRecrutadorAuto`, na varredura de 3 h): a até **2 dias**
+  de a regra disparar (sem recrutar jogando, inatividade), retenção entre 50% e 60%, ou 2 de 3
+  mantos/fichas — vai **para o canal do histórico e por DM ao recrutador** (DM fechada não falha
+  nada). Cada (recrutador, regra) avisa 1×/2 dias (`bot_config` `adv_rec_avisos_preventivos`).
+  Aviso **não é advertência** e não entra na escada. ATENÇÃO do painel mostra os riscos da última
+  varredura (até 3 h de atraso).
+- Colunas ADV/MANTO/FICHAS só existem com `advertenciaRecrutadorAuto` ligado (ele se registra em
+  `inteligenciaRecrutadores.registrarEnriquecedor`); desligado, o painel omite as colunas.
+- Coberto por `test/inteligenciaRecrutadores.test.js` e `test/advertenciaRecrutadorAuto.test.js`.

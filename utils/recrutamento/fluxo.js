@@ -8,6 +8,7 @@ const regras = require('./regras');
 const { decisaoEmAndamento, travarFicha, liberarFicha } = require('./trava');
 const { registrarSinal } = require('../confianca/servico');
 const { agendarAtualizacaoReativa: agendarAtualizacaoReprovados } = require('./painelReenvio');
+const { abrirJanelaDesfazer, processarDesfazer } = require('./desfazer');
 const tema = require('../../tema');
 
 const MSG_JA_ANALISADA = '⚠️ ESTA SOLICITAÇÃO JÁ ESTÁ SENDO (OU JÁ FOI) ANALISADA POR OUTRO RECRUTADOR.';
@@ -88,7 +89,7 @@ async function abrirRecrutamento(interaction) {
 // Botão REPROVAR: abre o laudo (categoria, reenvio e justificativa numa tela só)
 async function abrirLaudoReprovacao(interaction) {
   const fichaId = interaction.message.id;
-  if (decisaoEmAndamento(fichaId) || interaction.message.components.length === 0) {
+  if (decisaoEmAndamento(fichaId) || !regras.mensagemAguardaDecisao(interaction.message.components)) {
     return interaction.reply({ content: MSG_JA_ANALISADA, flags: 64 });
   }
   const modal = new ModalBuilder()
@@ -171,7 +172,7 @@ async function processarReprovacao(interaction, fichaId) {
     const canal = await interaction.client.channels.fetch(config.canais.validarSetagem).catch(() => null);
     const mensagem = canal ? await canal.messages.fetch(fichaId).catch(() => null) : null;
     if (!mensagem) return interaction.editReply({ content: '❌ FICHA DE RECRUTAMENTO NÃO ENCONTRADA.' });
-    if (mensagem.components.length === 0) return interaction.editReply({ content: MSG_JA_ANALISADA });
+    if (!regras.mensagemAguardaDecisao(mensagem.components)) return interaction.editReply({ content: MSG_JA_ANALISADA });
 
     const embedOriginal = mensagem.embeds[0];
     const dados = regras.lerFichaDoEmbed(embedOriginal.fields);
@@ -186,8 +187,9 @@ async function processarReprovacao(interaction, fichaId) {
       }
     }
 
+    const janela = await abrirJanelaDesfazer(fichaId);
     await mensagem.edit({
-      content: null,
+      content: janela.content,
       embeds: [{
         title: embedOriginal.title || 'Recrutamento',
         description: embedOriginal.description || '',
@@ -200,7 +202,7 @@ async function processarReprovacao(interaction, fichaId) {
         ],
         color: tema.cor.perigo,
       }],
-      components: [],
+      components: janela.components,
     });
 
     await fichas.decidirFicha(fichaId, {
@@ -231,6 +233,9 @@ registrarModulo('recrut', async interaction => {
   const [, acao, alvo] = interaction.customId.split(':');
   if (acao === 'reprovar' && interaction.isModalSubmit()) {
     return processarReprovacao(interaction, alvo);
+  }
+  if (acao === 'desfazer' && interaction.isButton()) {
+    return processarDesfazer(interaction, alvo);
   }
 });
 

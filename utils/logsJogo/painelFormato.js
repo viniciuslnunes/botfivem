@@ -164,7 +164,9 @@ function celulaTabela(texto) {
   return String(texto ?? '').replace(/`/g, "'");
 }
 
-function tabela(colunas, linhas) {
+// `separador` (padrão 2 espaços) permite apertar as colunas quando a linha
+// precisa caber inteira na largura do embed (~56 caracteres no desktop).
+function tabela(colunas, linhas, { separador = '  ' } = {}) {
   if (!linhas.length) return null;
   const grade = linhas.map((linha, i) => colunas.map(c => {
     const bruta = celulaTabela(c.valor(linha, i));
@@ -173,7 +175,7 @@ function tabela(colunas, linhas) {
   const larguras = colunas.map((c, i) => Math.max(c.titulo.length, ...grade.map(l => l[i].length)));
   const linhaTexto = celulas => celulas
     .map((v, i) => (colunas[i].alinhar === 'dir' ? v.padStart(larguras[i]) : v.padEnd(larguras[i])))
-    .join('  ')
+    .join(separador)
     .trimEnd();
   return ['```', linhaTexto(colunas.map(c => c.titulo)), ...grade.map(linhaTexto), '```'].join('\n');
 }

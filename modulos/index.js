@@ -43,6 +43,7 @@ module.exports = [
   require('./ticket'),
   require('./advertencia'),
   require('./advertenciaRecrutador'),
+  require('./advertenciaRecrutadorAuto'),
   require('./recrutamento'),
   require('./sugestoes'),
   require('./testes'),

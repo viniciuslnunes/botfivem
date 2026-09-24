@@ -65,11 +65,12 @@ async function comRetry(fn, tentativasRestantes = 2) {
 // debounceMs      → janela pra juntar uma rajada de logs numa atualização só
 // montarBlocos    → async () => [payload, ...] (uma mensagem por payload)
 // montarAcao      → () => payload | null: o bloco de select/botão, sempre último
+// cargosLeitura  → cargos que também LEEM o canal (sem escrever), além da liderança
 // canalVizinhoId  → cria o canal logo abaixo deste (mesma categoria). Padrão:
 //                   categoria do painel de jogadores, no fim.
 function criarPainelCanal({
   slug, nomeCanal, razao, publico = false, intervaloMin, debounceMs = 30 * 1000, montarBlocos, montarAcao = null,
-  canalVizinhoId = null,
+  canalVizinhoId = null, cargosLeitura = [],
 }) {
   const CHAVE_CANAL = `canal_${slug}`;
   const CHAVE_MSGS = `${slug}_message_ids`;
@@ -92,7 +93,10 @@ function criarPainelCanal({
       type: ChannelType.GuildText,
       parent: referencia?.parentId ?? null,
       ...(canalVizinhoId && referencia ? { position: referencia.rawPosition + 1 } : {}),
-      permissionOverwrites: (publico ? permissoesPublicas : permissoesLideranca)(guild, guild.members.me.id),
+      permissionOverwrites: [
+        ...(publico ? permissoesPublicas : permissoesLideranca)(guild, guild.members.me.id),
+        ...cargosLeitura.map(id => ({ id, allow: LER, deny: [P.SendMessages] })),
+      ],
       reason: razao,
     });
     await gravarConfig(CHAVE_CANAL, canal.id);

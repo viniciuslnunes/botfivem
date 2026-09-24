@@ -5,8 +5,9 @@ const repo = require('./repositorio');
 const relatorios = require('./relatorios');
 const { criarPainelCanal } = require('./painelCanal');
 const {
-  recrutadoresDoPeriodo, linhaComponentesRecrutadores, tabelaRecrutadores, ACOES_RECRUTAMENTO, PERIODO_PADRAO,
+  recrutadoresDoPeriodo, linhaComponentesRecrutadores, embedsRecrutadores, ACOES_RECRUTAMENTO, PERIODO_PADRAO,
 } = require('./painelRecrutadoresInteracoes');
+const I = require('./inteligenciaRecrutadores');
 const tema = require('../../tema');
 
 // Canal 🦅・painel-recrutadores: mensagem fixa curta (padrão interativo, ver
@@ -35,22 +36,20 @@ async function montarBlocos() {
   // e vira ruído, não sinal.
   const baixaRetencao = linhas.filter(l => l.recrutamentos >= 3 && (l.recrutamentos - l.saiuCedo) / l.recrutamentos < 0.5).length;
 
-  const embed = {
-    color: F.COR,
-    title: tema.titulo('🦅 INTELIGÊNCIA DE RECRUTADORES'),
-    description: [
+  await I.enriquecerRecrutadores(linhas, periodo);
+
+  const embeds = embedsRecrutadores({
+    titulo: tema.titulo('🦅 INTELIGÊNCIA DE RECRUTADORES'),
+    resumo: [
       ...(aviso ? [aviso, ''] : []),
       `**RECRUTADORES:** ${E.formatarNumero(linhas.length)} · **ONLINE AGORA:** ${E.formatarNumero(online)}`,
       `**RECRUTAMENTOS:** +${E.formatarNumero(recrutamentos.hoje)} hoje · +${E.formatarNumero(recrutamentos.semana)} na semana`,
       zerados ? `⚠️ **${E.formatarNumero(zerados)}** recrutador(es) com ZERO recrutamento em ${periodo.rotulo.toLowerCase()}.` : null,
       baixaRetencao ? `⚠️ **${E.formatarNumero(baixaRetencao)}** recrutador(es) com retenção abaixo de 50% (mín. 3 recrutamentos em ${periodo.rotulo.toLowerCase()}).` : null,
-      '',
-      linhas.length ? tabelaRecrutadores(linhas) : '*Nenhum membro com o cargo RECRUTADOR.*',
-    ].filter(Boolean).join('\n'),
-    footer: { text: F.rodape('canal logs-registros + logs-painel') },
-    timestamp: new Date().toISOString(),
-  };
-  return [{ embeds: [embed], components: linhaComponentesRecrutadores(), allowedMentions: { parse: [] } }];
+    ].filter(x => x !== null),
+    linhas,
+  });
+  return [{ embeds, components: linhaComponentesRecrutadores(), allowedMentions: { parse: [] } }];
 }
 
 const painel = criarPainelCanal({

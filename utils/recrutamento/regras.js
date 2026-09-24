@@ -91,6 +91,44 @@ function lerFichaDoEmbed(campos = []) {
   };
 }
 
+// Desfazer aprovação/reprovação: só nos primeiros 30 min depois da decisão
+const JANELA_DESFAZER_MIN = 30;
+const JANELA_DESFAZER_MS = JANELA_DESFAZER_MIN * 60 * 1000;
+const ID_BOTAO_APROVAR = 'aprovar_recrutamento';
+
+// Campos que a decisão acrescenta ao embed da ficha (aprovar e reprovar)
+const CAMPOS_DE_DECISAO = ['status', 'categoria', 'pode tentar de novo', 'justificativa'];
+
+function camposSemDecisao(campos = []) {
+  return campos.filter(c => !CAMPOS_DE_DECISAO.includes(String(c.name).trim().toLowerCase()));
+}
+
+function dentroDaJanelaDesfazer(decididoEm, agora = Date.now()) {
+  if (!decididoEm) return false;
+  return agora - new Date(decididoEm).getTime() < JANELA_DESFAZER_MS;
+}
+
+// A ficha ainda espera decisão enquanto o botão APROVAR está na mensagem. "Sem componentes"
+// não serve mais: depois de decidida, a mensagem carrega o botão de desfazer.
+function mensagemAguardaDecisao(components = []) {
+  return components.some(linha => (linha.components ?? []).some(c => (c.customId ?? c.data?.custom_id) === ID_BOTAO_APROVAR));
+}
+
+// ficha: linha de fichas_recrutamento | null. candidatoTemFichaMaisNova: já mandou outra depois desta.
+function avaliarDesfazer(ficha, { agora = Date.now(), candidatoTemFichaMaisNova = false } = {}) {
+  if (!ficha) return { ok: false, mensagem: '❌ FICHA NÃO ENCONTRADA NO BANCO.' };
+  if (!['APROVADO', 'REPROVADO'].includes(ficha.status)) {
+    return { ok: false, mensagem: '⚠️ ESTA SOLICITAÇÃO NÃO TEM DECISÃO PARA DESFAZER (JÁ FOI DESFEITA OU ESTÁ EM ANÁLISE).' };
+  }
+  if (!dentroDaJanelaDesfazer(ficha.decidido_em, agora)) {
+    return { ok: false, expirada: true, mensagem: `⏳ O PRAZO DE ${JANELA_DESFAZER_MIN} MINUTOS PARA DESFAZER ESTA DECISÃO JÁ PASSOU. PARA REVER, PEÇA À LIDERANÇA.` };
+  }
+  if (candidatoTemFichaMaisNova) {
+    return { ok: false, mensagem: '⚠️ O CANDIDATO JÁ ENVIOU UMA SOLICITAÇÃO NOVA. NÃO DÁ PARA REABRIR ESTA.' };
+  }
+  return { ok: true };
+}
+
 function slugDaAreaNoEmbed(campos, areas) {
   const nome = lerFichaDoEmbed(campos).areaNome;
   if (!nome) return null;
@@ -111,4 +149,10 @@ module.exports = {
   opcaoReprovado,
   lerFichaDoEmbed,
   slugDaAreaNoEmbed,
+  JANELA_DESFAZER_MIN,
+  JANELA_DESFAZER_MS,
+  camposSemDecisao,
+  dentroDaJanelaDesfazer,
+  mensagemAguardaDecisao,
+  avaliarDesfazer,
 };

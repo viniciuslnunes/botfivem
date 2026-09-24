@@ -8,4 +8,11 @@ module.exports = {
   carregar() {
     require('../utils/advertencia/interacoes');
   },
+  // Impedimento/advertência do painel do jogo e depósito no baú viram advertência (pipeline de logs)
+  painelLog: {
+    iniciar() {},
+    aoRegistros(novos, client) {
+      return require('../utils/advertencia/automatica').aoRegistros(novos, client);
+    },
+  },
 };

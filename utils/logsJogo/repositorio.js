@@ -255,6 +255,64 @@ async function primeiraSaidaPorAlvo(idsAlvo, acoes) {
   return res.rows;
 }
 
+// Última vez que cada ID de uma lista fechada AGIU numa das ações (sem período:
+// "quando foi a última vez que recrutou", mesmo que faça meses).
+async function ultimaPorAtorNaLista(acoes, idsFivem) {
+  if (!idsFivem.length) return [];
+  const res = await db.query(
+    `SELECT ator_id_fivem AS id, MAX(ocorrido_em) AS ultima
+       FROM logs_jogo WHERE acao = ANY($1) AND ator_id_fivem = ANY($2)
+      GROUP BY ator_id_fivem`,
+    [acoes, idsFivem]
+  );
+  return res.rows;
+}
+
+// Pares { recrutador, alvo, em } → quais alvos sofreram alguma das `acoes` (ex.:
+// advertência, blacklist, impedimento) DEPOIS de recrutados e dentro de `dias`.
+// Devolve os pares que tiveram ocorrência (um por alvo/recrutador).
+async function recrutadosComOcorrenciaDepois(pares, acoes, dias) {
+  if (!pares.length) return [];
+  const res = await db.query(
+    `SELECT DISTINCT r.recrutador, r.alvo
+       FROM unnest($1::text[], $2::text[], $3::timestamptz[]) AS r(recrutador, alvo, em)
+       JOIN logs_jogo l ON l.alvo_id_fivem = r.alvo AND l.acao = ANY($4)
+        AND l.ocorrido_em > r.em AND l.ocorrido_em <= r.em + make_interval(days => $5::int)`,
+    [pares.map(p => p.recrutador), pares.map(p => p.alvo), pares.map(p => p.em), acoes, dias]
+  );
+  return res.rows;
+}
+
+// Pares { recrutador, alvo, em } → quais alvos NUNCA mais apareceram no jogo
+// (nenhum log como ator) depois de recrutados. Os 10 minutos pulam o que o
+// próprio recrutamento gera (entrada implícita, mensagens da mesma hora).
+async function recrutadosSemAtividadeDepois(pares) {
+  if (!pares.length) return [];
+  const res = await db.query(
+    `SELECT DISTINCT r.recrutador, r.alvo
+       FROM unnest($1::text[], $2::text[], $3::timestamptz[]) AS r(recrutador, alvo, em)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM logs_jogo l
+         WHERE l.ator_id_fivem = r.alvo AND l.ocorrido_em > r.em + interval '10 minutes'
+      )`,
+    [pares.map(p => p.recrutador), pares.map(p => p.alvo), pares.map(p => p.em)]
+  );
+  return res.rows;
+}
+
+// Distribuição por hora do dia (fuso de SP) das ações de UM ator nos últimos
+// `dias` — base do "quando recruta × quando joga" da ficha do recrutador.
+async function horasDoAtor(idFivem, acoes, dias) {
+  const res = await db.query(
+    `SELECT date_part('hour', ocorrido_em AT TIME ZONE 'America/Sao_Paulo')::int AS hora, COUNT(*)::int AS total
+       FROM logs_jogo
+      WHERE ator_id_fivem = $1 AND acao = ANY($2) AND ocorrido_em >= now() - make_interval(days => $3::int)
+      GROUP BY 1`,
+    [idFivem, acoes, dias]
+  );
+  return res.rows;
+}
+
 // Quantidade por ação dentro de um conjunto — "quantas de cada tipo" (ex.:
 // sede trancou vs destrancou, saiu vs foi expulso).
 async function contarPorAcoes(acoes, periodo) {
@@ -827,6 +885,10 @@ module.exports = {
   contarPorAtorNaLista,
   recrutamentosDetalhados,
   primeiraSaidaPorAlvo,
+  ultimaPorAtorNaLista,
+  recrutadosComOcorrenciaDepois,
+  recrutadosSemAtividadeDepois,
+  horasDoAtor,
   contarPorAcoes,
   listarPorAcoes,
   contarPorDiaPorAcoes,

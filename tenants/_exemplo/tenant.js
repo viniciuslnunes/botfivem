@@ -21,6 +21,7 @@ module.exports = {
     rifas: false, loja: false, caravana: false, escala: false, patrimonio: false, memoria: false,
     financeiro: false, antiSpam: false, painelFarm: false, painelRecrutadores: false,
     advertenciaRecrutador: false,
+    advertenciaRecrutadorAuto: false,
   },
   // Servidor de jogo que publica os logs: qual adapter (fontes/<id>/) traduz o webhook
   jogo: { fonte: 'hoolibras' },
