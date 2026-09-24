@@ -1,6 +1,8 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const config = require('../../config/index.js');
 const tema = require('../../tema');
+const { garantirMensagemFixa } = require('../mensagemFixa');
+const { textoRegrasManto } = require('./regrasManto');
 
 // Mensagem fixa de recrutamento no canal de análise (só se ainda não existir).
 async function garantirMensagemRecrutamento(client) {
@@ -31,6 +33,24 @@ async function garantirMensagemRecrutamento(client) {
   } catch (err) {
     console.error('Erro ao enviar mensagem fixa de recrutamento:', err);
   }
+  await garantirMensagemProvarManto(client);
 }
 
-module.exports = { garantirMensagemRecrutamento };
+// Regras da provagem de manto fixas no canal provar-manto (o candidato lê antes
+// de mandar a foto). Uma mensagem só, editada se o texto mudar.
+async function garantirMensagemProvarManto(client) {
+  try {
+    const canal = await client.channels.fetch(config.canais.provarManto);
+    if (!canal) return;
+    await garantirMensagemFixa(canal, 'intro_provar_manto', () => ({
+      embeds: [new EmbedBuilder()
+        .setColor(tema.cor.primaria)
+        .setTitle(tema.tituloSegmentado('PROVAR MANTO'))
+        .setDescription(textoRegrasManto())],
+    }));
+  } catch (err) {
+    console.error('Erro ao enviar mensagem fixa de provar-manto:', err);
+  }
+}
+
+module.exports = { garantirMensagemRecrutamento, garantirMensagemProvarManto };

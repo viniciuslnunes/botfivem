@@ -37,4 +37,16 @@ function ehSocioOuAcima(member) {
   ]);
 }
 
-module.exports = { temAlgumCargo, ehLideranca, ehPresidencia, ehSocioOuAcima, MSG_SO_LIDERANCA };
+// Recrutador ou qualquer cargo de hierarquia acima dele (NÃO inclui o sócio comum).
+function ehRecrutadorOuAcima(member) {
+  if (!member) return false;
+  return temAlgumCargo(member, [
+    config.cargos.recrutador,
+    config.cargos.diretoria,
+    config.cargos.velhaGuarda,
+    config.cargos.vicePresidente,
+    config.cargos.presidente,
+  ]);
+}
+
+module.exports = { temAlgumCargo, ehLideranca, ehPresidencia, ehSocioOuAcima, ehRecrutadorOuAcima, MSG_SO_LIDERANCA };

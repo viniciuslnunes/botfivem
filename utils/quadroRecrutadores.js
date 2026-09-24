@@ -18,12 +18,40 @@ async function setQuadroMessageId(id) {
   );
 }
 
-function construirEmbed(guild) {
+async function registrarEntradaNoCargo(discordId) {
+  await db.query(
+    'INSERT INTO recrutadores_cargo (discord_id) VALUES ($1) ON CONFLICT (discord_id) DO NOTHING',
+    [discordId]
+  );
+}
+
+async function removerEntradaNoCargo(discordId) {
+  await db.query('DELETE FROM recrutadores_cargo WHERE discord_id = $1', [discordId]);
+}
+
+async function carregarDesde() {
+  try {
+    const res = await db.query('SELECT discord_id, desde FROM recrutadores_cargo');
+    return new Map(res.rows.map(r => [r.discord_id, new Date(r.desde)]));
+  } catch (err) {
+    console.error('[quadroRecrutadores] Erro ao ler datas do cargo:', err.message);
+    return new Map();
+  }
+}
+
+// Só há data para quem ganhou o cargo depois que o registro existe.
+function linhaDoRecrutador(id, desde) {
+  if (!desde) return `<@${id}>`;
+  const ts = Math.floor(desde.getTime() / 1000);
+  return `<@${id}> · no DP desde <t:${ts}:d> (<t:${ts}:R>)`;
+}
+
+function construirEmbed(guild, desdePorId = new Map()) {
   const membros = guild.members.cache.filter(m => m.roles.cache.has(CARGO_RECRUTADOR));
 
   let descricao = '';
   membros.forEach(m => {
-    descricao += `<@${m.id}>\n`;
+    descricao += `${linhaDoRecrutador(m.id, desdePorId.get(m.id))}\n`;
   });
 
   if (!descricao) descricao = '*NENHUM RECRUTADOR REGISTRADO.*';
@@ -47,7 +75,7 @@ async function atualizarQuadroRecrutadores(client) {
 
     await guild.members.fetch({ withPresences: false, force: true }).catch(() => {});
 
-    const embed = construirEmbed(guild);
+    const embed = construirEmbed(guild, await carregarDesde());
     const canal = await client.channels.fetch(CANAL_QUADRO);
     if (!canal) return;
 
@@ -78,4 +106,6 @@ async function atualizarQuadroRecrutadores(client) {
   }
 }
 
-module.exports = { atualizarQuadroRecrutadores, CARGO_RECRUTADOR };
+module.exports = {
+  atualizarQuadroRecrutadores, registrarEntradaNoCargo, removerEntradaNoCargo, CARGO_RECRUTADOR,
+};

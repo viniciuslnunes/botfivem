@@ -43,6 +43,9 @@ stub('utils/departamentos/quadro.js', { atualizarQuadroDepartamentos: rotina('at
 stub('utils/mensagemNaoRecrutar.js', { garantirMensagemNaoRecrutar: rotina('garantirMensagemNaoRecrutar', undefined) });
 stub('utils/recrutamento/painelReenvio.js', { iniciarPainelReenvio: rotinaSync('iniciarPainelReenvio') });
 stub('utils/recrutamento/painelConviteWhatsapp.js', { iniciarPainelConviteWhatsapp: rotinaSync('iniciarPainelConviteWhatsapp') });
+// Rotinas novas (fora do ready.js original): stub neutro, sem timer nem Discord
+stub('utils/recrutamento/painelManto.js', { iniciarPainelManto: () => {}, aoMensagem: async () => false });
+stub('utils/sugestoes/painel.js', { garantirPainelNoFim: async () => {} });
 stub('utils/recrutamento/mensagemFixa.js', { garantirMensagemRecrutamento: rotina('garantirMensagemRecrutamento', undefined) });
 const ticketReal = require('../utils/ticket');
 stub('utils/ticket.js', { ...ticketReal, garantirMensagemTicket: rotina('garantirMensagemTicket', undefined) });
@@ -124,7 +127,7 @@ test('arranque: torcida sem farm, recrutadores e recrutamento não chama as roti
 // ── Ordem dos hooks de mensagem e de membro (ordem do antigo messageCreate) ──
 test('mensagem: a ordem dos módulos com aoMensagem é a do antigo messageCreate (log → anti-spam → texto → validar ID)', () => {
   const ids = manifestos.filter(m => m.aoMensagem).map(m => m.id);
-  assert.deepEqual(ids, ['logsJogo', 'antiSpam', 'sociais', 'bloqueioId']);
+  assert.deepEqual(ids, ['logsJogo', 'antiSpam', 'sociais', 'bloqueioId', 'recrutamento']);
 });
 
 test('membro: os módulos com aoMembroAtualizado cobrem tudo que o antigo guildMemberUpdate tratava', () => {

@@ -59,6 +59,7 @@ module.exports = {
     alertaNovatos: '1490536504748150925',
     antiSpam: '1548665394380673108', // 🛡️・anti-spam: alerta de conta hackeada com botões BANIR/LIBERAR. null = alerta só no console
     associadoEmAtencao: '1547740103097589811', // 🚨・associado-em-atencao: hoje sem fluxo automático do bot (canal manual da liderança)
+    sugestoes: null, // 💡・sugestões: preencher com o ID do canal (recrutador+ envia, sócio+ vota). null = painel não é postado
     telefoneSocio: '1330996902887555133', // 📞・telefone-narnia (nome no Discord): recebe o telefone do novo sócio aprovado no recrutamento
   },
 

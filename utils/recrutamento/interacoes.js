@@ -10,6 +10,7 @@ const { decisaoEmAndamento, travarFicha, liberarFicha } = require('./trava');
 const { abrirRecrutamento, abrirLaudoReprovacao } = require('./fluxo');
 const { registrarFicha, decidirFicha } = require('./fichas');
 const { registrarSinal } = require('../confianca/servico');
+const { textoRegrasManto } = require('./regrasManto');
 const tema = require('../../tema');
 const { registrarModulo } = require('../modulos');
 const utils = require('../formatarNick');
@@ -86,7 +87,7 @@ registrarModulo('modal_recrutamento', async interaction => {
     const canalProvarManto = interaction.guild.channels.cache.get(config.canais.provarManto);
     if (canalProvarManto) {
       const avisoMsg = await canalProvarManto.send({
-        content: `<@${user.id}>, você tem 10 minutos para enviar o manto (imagem) aqui neste canal! Após esse prazo, o cargo será removido automaticamente.`
+        content: `<@${user.id}>, você tem 10 minutos para enviar o manto (imagem) aqui neste canal! Após esse prazo, o cargo será removido automaticamente.\n\n${textoRegrasManto()}`
       });
       // Deletar a mensagem de aviso após 5 minutos
       setTimeout(() => {

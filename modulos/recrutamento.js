@@ -12,12 +12,19 @@ module.exports = {
     require('../utils/recrutamento/interacoes'); // formulário, aprovar, reprovar (traz o prefixo "recrut")
     require('../utils/recrutamento/painelReenvio'); // prefixo "reenvio"
     require('../utils/recrutamento/painelConviteWhatsapp'); // prefixo "convitewa"
+    require('../utils/recrutamento/painelManto'); // prefixo "mantoaval" (avaliar foto do manto)
+  },
+
+  // Foto no provar-manto ganha botões de correto/errado (não consome a mensagem)
+  aoMensagem(message) {
+    return require('../utils/recrutamento/painelManto').aoMensagem(message);
   },
 
   aoIniciar(client) {
     const { iniciarAlertaNovatos } = require('../utils/recrutamento/alertaNovatos');
     const { iniciarPainelReenvio } = require('../utils/recrutamento/painelReenvio');
     const { iniciarPainelConviteWhatsapp } = require('../utils/recrutamento/painelConviteWhatsapp');
+    const { iniciarPainelManto } = require('../utils/recrutamento/painelManto');
     const { garantirMensagemRecrutamento } = require('../utils/recrutamento/mensagemFixa');
 
     // Novatos do jogo que não pediram recrutamento no Discord (a cada 6h).
@@ -29,16 +36,26 @@ module.exports = {
     iniciarPainelReenvio(client);
     // Convite do grupo de sócios no WhatsApp: enviar pra um ou todos, e trocar o link
     iniciarPainelConviteWhatsapp(client);
+    // Placar de acertos/erros de manto por recrutador (canal só da liderança)
+    iniciarPainelManto(client);
     // Mensagem fixa de recrutamento no canal de análise (somente se não existir)
     return garantirMensagemRecrutamento(client);
   },
 
   // Quadro de recrutadores em dia quando alguém ganha ou perde o cargo RECRUTADOR
   async aoMembroAtualizado(antes, depois, client) {
-    const { atualizarQuadroRecrutadores, CARGO_RECRUTADOR } = require('../utils/quadroRecrutadores');
-    const mudou =
-      (depois.roles.cache.has(CARGO_RECRUTADOR) && !antes.roles.cache.has(CARGO_RECRUTADOR)) ||
-      (!depois.roles.cache.has(CARGO_RECRUTADOR) && antes.roles.cache.has(CARGO_RECRUTADOR));
-    if (mudou) await atualizarQuadroRecrutadores(client);
+    const {
+      atualizarQuadroRecrutadores, registrarEntradaNoCargo, removerEntradaNoCargo, CARGO_RECRUTADOR,
+    } = require('../utils/quadroRecrutadores');
+    const tinha = antes.roles.cache.has(CARGO_RECRUTADOR);
+    const tem = depois.roles.cache.has(CARGO_RECRUTADOR);
+    if (tinha === tem) return;
+    try {
+      if (tem) await registrarEntradaNoCargo(depois.id);
+      else await removerEntradaNoCargo(depois.id);
+    } catch (err) {
+      console.error('[recrutamento] Erro ao registrar data do cargo RECRUTADOR:', err.message);
+    }
+    await atualizarQuadroRecrutadores(client);
   },
 };

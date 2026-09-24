@@ -89,6 +89,7 @@ painel novo.
 | advertencia | advertência de sócio | sim | logsJogo |
 | advertenciaRecrutador | advertência de recrutador | sim | — |
 | recrutamento | recrutamento e quadros de recrutadores | sim | departamentos, confianca, logsJogo, bloqueioId |
+| sugestoes | 💡 sugestões de melhoria: recrutador+ envia, sócio+ vota (`canais.sugestoes`, null = sem painel) | sim | — |
 | testes | comandos de teste da liderança | **não** | — |
 
 ## Como criar um módulo

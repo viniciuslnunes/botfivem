@@ -118,6 +118,20 @@ const MIGRACOES = [
       ADD COLUMN IF NOT EXISTS reenvio_liberado_motivo TEXT`,
   },
   {
+    // Foto de manto enviada no provar-manto avaliada pela liderança (correto/errado).
+    // O recrutador não é gravado aqui: resolve-se na consulta pela ficha do candidato.
+    modulo: 'recrutamento', nome: 'mantos_avaliados',
+    sql: `CREATE TABLE IF NOT EXISTS mantos_avaliados (
+      message_id TEXT PRIMARY KEY,
+      candidato_id TEXT NOT NULL,
+      enviado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      resultado TEXT,
+      avaliado_por_id TEXT,
+      avaliado_em TIMESTAMPTZ
+    )`,
+  },
+  { modulo: 'recrutamento', nome: 'idx_mantos_candidato', sql: 'CREATE INDEX IF NOT EXISTS idx_mantos_candidato ON mantos_avaliados (candidato_id, enviado_em DESC)' },
+  {
     modulo: 'eventos', nome: 'eventos',
     sql: `CREATE TABLE IF NOT EXISTS eventos (
       id BIGSERIAL PRIMARY KEY,
@@ -422,6 +436,28 @@ const MIGRACOES = [
     sql: 'CREATE TABLE IF NOT EXISTS memoria_dias (dia DATE PRIMARY KEY, thread_id TEXT NOT NULL)',
   },
   {
+    modulo: 'sugestoes', nome: 'sugestoes',
+    sql: `CREATE TABLE IF NOT EXISTS sugestoes (
+      id BIGSERIAL PRIMARY KEY,
+      autor_id TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      message_id TEXT,
+      thread_id TEXT,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    // Um voto por pessoa por sugestão: 'A' (aprovo) ou 'C' (contra)
+    modulo: 'sugestoes', nome: 'sugestoes_votos',
+    sql: `CREATE TABLE IF NOT EXISTS sugestoes_votos (
+      sugestao_id BIGINT NOT NULL REFERENCES sugestoes(id) ON DELETE CASCADE,
+      discord_id TEXT NOT NULL,
+      voto TEXT NOT NULL CHECK (voto IN ('A', 'C')),
+      votado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (sugestao_id, discord_id)
+    )`,
+  },
+  {
     // Alerta periódico que não deve se repetir para a mesma chave (ex.: novato sem recrutamento)
     modulo: 'nucleo', nome: 'alertas_enviados',
     sql: `CREATE TABLE IF NOT EXISTS alertas_enviados (
@@ -429,6 +465,14 @@ const MIGRACOES = [
       chave TEXT NOT NULL,
       enviado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (tipo, chave)
+    )`,
+  },
+  {
+    // Quando cada membro recebeu o cargo RECRUTADOR (o Discord não guarda essa data)
+    modulo: 'recrutamento', nome: 'recrutadores_cargo',
+    sql: `CREATE TABLE IF NOT EXISTS recrutadores_cargo (
+      discord_id TEXT PRIMARY KEY,
+      desde TIMESTAMPTZ NOT NULL DEFAULT now()
     )`,
   },
 ];

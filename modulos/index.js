@@ -44,5 +44,6 @@ module.exports = [
   require('./advertencia'),
   require('./advertenciaRecrutador'),
   require('./recrutamento'),
+  require('./sugestoes'),
   require('./testes'),
 ];

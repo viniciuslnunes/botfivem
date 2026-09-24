@@ -18,6 +18,9 @@ use; se descobrir algo reutilizável que não está, acrescente na mesma entrega
 |---|---|
 | editar número/dado manual | botão → select → modal de 1 campo (`docs/contratos/padroes-ui.md`) |
 | roteamento de botão/select/modal | `registrarModulo('<prefixo>')` em `utils/modulos.js` |
+| botão fixo que precisa ficar sempre por último no canal | `utils/sugestoes/painel.js#garantirPainelNoFim` (apaga o antigo e reposta no fim) |
+| votação com um voto por pessoa (retira/troca) | `utils/sugestoes/repositorio.js#votar` |
+| recrutador+ (sem o sócio comum) | `utils/permissoes.js#ehRecrutadorOuAcima` |
 | tarefa com data (vencimento, remoção de cargo) | `utils/agendador.js` (tabela `tarefas_agendadas`) |
 | gravar várias tabelas juntas | `utils/transacao.js` |
 | ler/gravar configuração do painel | `utils/botConfig.js` |

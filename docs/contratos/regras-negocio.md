@@ -42,6 +42,12 @@
 - **Alerta avisa quem decide; não pune nem concede sozinho.** Automatizar a
   punição é decisão explícita de produto, com botão de atalho no alerta.
 - **Liderança de área só publica no canal** (não é permissão nova).
+- **Sugestões de melhoria** (decisão do usuário, 2026-09-24): **recrutador e acima
+  enviam** (`ehRecrutadorOuAcima`; sócio comum não) e **sócio e acima votam**
+  (`ehSocioOuAcima`). Um voto por pessoa (repetir retira, o outro troca); o autor
+  não vota na própria sugestão. Votos são botões, nunca reação (senão não há como
+  barrar quem não pode votar). O botão de enviar fica sempre como última mensagem
+  do canal. Botão de voto nunca é `Success` (verde).
 
 ## Discord
 
@@ -75,3 +81,17 @@
   ficha antiga nunca volta a `PENDENTE`.
 - Aprovar exige ID FiveM fora de "não recrutar"; falhou a ação → ficha continua `PENDENTE`.
 - Coberto por `test/fluxos.gavioes.test.js`.
+
+## Avaliação do manto (provar-manto)
+
+- Toda imagem postada por não-bot no canal `provarManto` ganha resposta do bot com
+  **MANTO CORRETO / MANTO ERRADO** (botões neutros/vermelho, nunca verde) e é
+  registrada em `mantos_avaliados`.
+- Quem avalia: liderança (`ehLideranca`: presidência, vices, velha guarda, diretoria)
+  ou gestor da área `recrutamento`. Permissão conferida no handler `mantoaval`.
+- Última avaliação vale (dá para corrigir clique errado).
+- O acerto/erro conta para o recrutador que **decidiu a ficha** do candidato (a ficha
+  mais recente criada até o envio da foto). Ficha sem decisão = "sem recrutador" no
+  placar até ser decidida. O recrutador não é gravado na avaliação, é resolvido na consulta.
+- Placar em canal-painel só da liderança (`🧥・placar-manto`), lista todos com cargo
+  de recrutador, mesmo zerados. Coberto por `test/manto.test.js`.
