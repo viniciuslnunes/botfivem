@@ -21,11 +21,12 @@ const num = n => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',
 const seg = data => Math.floor(new Date(data).getTime() / 1000);
 const pct = (parte, total) => (total ? Math.round((parte / total) * 100) : null);
 
-// Menção quando o ID do jogo bate com o apelido de alguém no Discord; senão nome + ID.
+// Nome + ID do jogo; quando o ID bate com o apelido de alguém no Discord, a menção vem
+// junto (quem não enxerga aquele Discord ainda sabe quem é o jogador).
 function rotuloDePessoa(nome, idFivem, membroPorIdFivem) {
   const membro = idFivem ? membroPorIdFivem.get(idFivem) : null;
-  if (membro) return `<@${membro.id}>`;
-  return nome ? `**${nome}**${idFivem ? ` \`${idFivem}\`` : ''}` : `\`${idFivem ?? '?'}\``;
+  const jogador = nome ? `**${nome}**${idFivem ? ` \`${idFivem}\`` : ''}` : `\`${idFivem ?? '?'}\``;
+  return membro ? `<@${membro.id}> ${jogador}` : jogador;
 }
 
 // ── Regras puras ─────────────────────────────────────────────────────────────

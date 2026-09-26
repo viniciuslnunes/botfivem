@@ -239,7 +239,7 @@ test('carência conta a partir da promoção a recrutador nos logs; gestor agrup
   assert.match(equipes[1].title, /ATENÇÃO/, 'média 2,75/sem contra meta 5: atenção');
   assert.match(equipes[1].description, /Gestor:\*\* <@GESTOR1>/);
   assert.match(t, /"Recrutaram em 7d","value":"1\/2"/);
-  assert.match(t, /<@BENT> · [\s\S]*ADV¹/);
+  assert.match(t, /<@BENT> \*\*Bentley\*\* `20673` · [\s\S]*ADV¹/);
   assert.match(t, /no cargo desde/);
   const rebaixados = JSON.stringify(G.embedsDeRebaixados({ movimentos, membroPorIdFivem: membros, agora }));
   assert.match(rebaixados, /REBAIXADOS DE RECRUTADOR PARA SÓCIO[\s\S]*Gestor:\*\* \*\*Outro GDF\*\* `99`[\s\S]*\*\*Foi\*\* `88`/);
