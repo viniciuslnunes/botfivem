@@ -4,6 +4,7 @@
 const config = require('../../config/index.js');
 const { agendar } = require('../agendador');
 const tema = require('../../tema');
+const { mencoesDoRecrutador } = require('../advertencia/mencoes');
 const { registrarModulo } = require('../modulos');
 
 // Advertência de recrutador tem cargos próprios; reusar os de sócio escalaria as duas juntas.
@@ -155,7 +156,7 @@ registrarModulo('modal_registrar_adv_rec', async interaction => {
       };
 
       const canalHistRec = interaction.guild.channels.cache.get(CANAL_HISTORICO_REC);
-      if (canalHistRec) await canalHistRec.send({ embeds: [embedRec] });
+      if (canalHistRec) await canalHistRec.send({ content: mencoesDoRecrutador(membro.id), embeds: [embedRec] });
 
       await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA DE RECRUTAMENTO** REGISTRADA PARA ${membro}. PRAZO: **${prazoLabel}** (<t:${expiraEm}:F>).
 > ⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DO CARGO DE RECRUTADOR.`, flags: 64 });
@@ -217,7 +218,7 @@ registrarModulo('modal_remover_adv_rec', async interaction => {
   };
 
   const canalHistRec = interaction.guild.channels.cache.get(CANAL_HISTORICO_REC);
-  if (canalHistRec) await canalHistRec.send({ embeds: [embedRemRec] });
+  if (canalHistRec) await canalHistRec.send({ content: mencoesDoRecrutador(membro.id), embeds: [embedRemRec] });
 
   await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA DE RECRUTAMENTO** REMOVIDA DE ${membro}.`, flags: 64 });
   return;

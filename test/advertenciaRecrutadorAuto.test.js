@@ -143,7 +143,7 @@ test('quadros: regras seguem os limites do bot e a tabela mostra advertidos, lim
   const blocos = await paineis.montarAdvertidos(g.client);
   const t = JSON.stringify(blocos);
   assert.match(t, /Advertidos:\*\* 1 · \*\*Sem advertência:\*\* 1/);
-  assert.match(t, /<@REC3>[\s\S]*1ª advertência ativa[\s\S]*MANTO APROVADO ERRADO[\s\S]*3 mantos aprovados errado/);
+  assert.match(t, /<@REC3>[\s\S]*1ª ADV[\s\S]*MANTO APROVADO ERRADO[\s\S]*3 mantos aprovados errado/);
   assert.match(t, /SEM ADVERTÊNCIA[\s\S]*<@REC2>/);
   assert.match(t, /PERDOADA · JOGANDO SEM RECRUTAR/);
 });

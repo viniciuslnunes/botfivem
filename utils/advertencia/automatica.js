@@ -8,6 +8,7 @@ const { garantirMembrosCarregados } = require('../membrosGuild');
 const { idFivemDoNick } = require('../logsJogo/estatisticas');
 const R = require('./automaticaRegras');
 const repo = require('./repositorio');
+const { mencoesDoSocio } = require('./mencoes');
 
 const ROTULO_ORIGEM = { impedimento: 'IMPEDIMENTO', advertido: 'ADVERTÊNCIA' };
 const agoraSeg = () => Math.floor(Date.now() / 1000);
@@ -66,6 +67,7 @@ async function abrir(client, registro, g) {
 
   const base = campoMembro(membro, registro, g.origem);
   const quando = { name: 'DATA', value: `<t:${agoraSeg()}:F>`, inline: false };
+  const mencoes = await mencoesDoSocio(membro.id);
 
   if (nivel === 1) {
     await enviar(guild, config.canais.historicoAdv, {
@@ -73,7 +75,7 @@ async function abrir(client, registro, g) {
       title: '❌ 1ª ADVERTÊNCIA — AVISO FORMAL',
       fields: [...base, { name: 'JUSTIFICATIVA', value: motivo }, quando],
       footer: { text: 'Aviso formal. A próxima advertência exige pagamento; a terceira remove o cargo de sócio.' },
-    });
+    }, mencoes);
   } else if (nivel === 2) {
     const exigido = Object.entries(R.PAGAMENTO_2A).map(([item, qtd]) => `${qtd} ${item}`).join(' + ');
     const expiraEm = Math.floor(prazoEm.getTime() / 1000);
@@ -88,7 +90,7 @@ async function abrir(client, registro, g) {
         quando,
       ],
       footer: { text: 'O depósito no baú é reconhecido pelo log do jogo. Sem pagamento no prazo, o cargo de sócio é removido.' },
-    });
+    }, mencoes);
     try {
       await agendar('adv_vencimento', prazoEm, {
         variante: 'socio', advId: linha.id, membroId: membro.id, cargoAdv: cargosAdv[1], numAdv: 2,
@@ -96,14 +98,14 @@ async function abrir(client, registro, g) {
       });
     } catch (err) {
       console.error('[adv-auto] Erro ao agendar vencimento:', err);
-      await enviar(guild, config.canais.advPendentes, { color: tema.cor.perigo, title: '⚠️ VENCIMENTO NÃO AGENDADO', description: `Acompanhe manualmente o prazo de <@${membro.id}>.` });
+      await enviar(guild, config.canais.advPendentes, { color: tema.cor.perigo, title: '⚠️ VENCIMENTO NÃO AGENDADO', description: `Acompanhe manualmente o prazo de <@${membro.id}>.` }, mencoes);
     }
   } else {
     await enviar(guild, config.canais.historicoAdv, {
       color: tema.cor.perigo,
       title: '❌ 3ª ADVERTÊNCIA — CARGO DE SÓCIO REMOVIDO',
       fields: [...base, { name: 'JUSTIFICATIVA', value: motivo }, { name: 'AÇÃO', value: 'CARGO DE SÓCIO REMOVIDO', inline: false }, quando],
-    });
+    }, mencoes);
   }
   return linha;
 }
@@ -134,7 +136,7 @@ async function fechar(client, registro, g) {
       { name: 'MOTIVO', value: `${ROTULO_ORIGEM[g.origem]} retirado no painel do jogo${registro.atorNome ? ` por ${registro.atorNome}` : ''}.` },
       { name: 'DATA', value: `<t:${agoraSeg()}:F>`, inline: false },
     ],
-  });
+  }, await mencoesDoSocio(linha.discord_id));
   return fechada;
 }
 
@@ -160,7 +162,7 @@ async function pagar(client, registro, item) {
         { name: 'PAGO', value: Object.entries(pago).map(([i, q]) => `${q} ${i}`).join(' + '), inline: true },
         { name: 'DATA', value: `<t:${agoraSeg()}:F>`, inline: false },
       ],
-    });
+    }, await mencoesDoSocio(linha.discord_id));
     return { linha: fechada, falta };
   }
   return null;

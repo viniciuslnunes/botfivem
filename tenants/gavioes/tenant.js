@@ -17,9 +17,9 @@ const cargos = {
   elenco: '1489461786511020285', // [R.S.J] RUA SÃO JORGE
   // Advertência de sócio: [ADV¹, ADV², ADV³]
   adv: ['1341153479602864188', '1341149153992114229', '1340321522547429458'],
-  // Advertência de recrutador: cargos PRÓPRIOS, nunca os ADV¹/²/³ de sócio.
-  // Ordem: [ADV¹ REC, ADV² REC, ADV³ REC]. Vazio = fluxo bloqueado com aviso.
-  advRec: [],
+  // Advertência de recrutador: o Gaviões usa os mesmos ADV¹/²/³ do sócio (decisão do usuário,
+  // 2026-09-26). Ordem: [ADV¹, ADV², ADV³]. Vazio = fluxo bloqueado com aviso.
+  advRec: ['1341153479602864188', '1341149153992114229', '1340321522547429458'],
 };
 
 module.exports = {
@@ -42,6 +42,7 @@ module.exports = {
     validarId: '1487943479710580756',
     naoRecrutar: '1487943419203551313',
     historicoNaoRecrutar: '1487943943680163890',
+    reprovadosDefinitivos: '1548670880429768765',
     advertencia: '1488653988168601710',
     historicoAdv: '1488654031709671574',
     advPendentes: '1489558741996146771',

@@ -5,6 +5,7 @@ const config = require('../../config/index.js');
 const { agendar } = require('../agendador');
 const { verificarRestricaoAoAdvertir } = require('../logsJogo/alertas');
 const tema = require('../../tema');
+const { mencoesDoSocio } = require('./mencoes');
 const { registrarModulo } = require('../modulos');
 
 // abrir_registrar_advertencia
@@ -157,7 +158,7 @@ registrarModulo('modal_registrar_advertencia', async interaction => {
       };
 
       const canalHistoricoAdv = interaction.guild.channels.cache.get(CANAL_HISTORICO);
-      if (canalHistoricoAdv) await canalHistoricoAdv.send({ embeds: [embed] });
+      if (canalHistoricoAdv) await canalHistoricoAdv.send({ content: await mencoesDoSocio(membro.id), embeds: [embed] });
 
       await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA** REGISTRADA PARA ${membro}. PRAZO: **${prazoLabel}** (<t:${expiraEm}:F>).
 > ⚠️ O NÃO PAGAMENTO DENTRO DO PRAZO RESULTARÁ NA PERDA DOS CARGOS NO SERVIDOR.`, flags: 64 });
@@ -221,7 +222,7 @@ registrarModulo('modal_remover_advertencia', async interaction => {
   };
 
   const canalHistoricoAdv = interaction.guild.channels.cache.get(CANAL_HISTORICO);
-  if (canalHistoricoAdv) await canalHistoricoAdv.send({ embeds: [embed] });
+  if (canalHistoricoAdv) await canalHistoricoAdv.send({ content: await mencoesDoSocio(membro.id), embeds: [embed] });
 
   await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA** REMOVIDA DE ${membro}.`, flags: 64 });
   return;

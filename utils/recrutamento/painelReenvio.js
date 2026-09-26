@@ -28,19 +28,23 @@ const LIMITE_SELECT = 25;
 
 let clientAtual = null;
 
-// Linha em branco entre reprovados (o \n extra no fim, somado ao \n do join do
-// embedsDeLista, vira linha em branco) — cada um tem duas linhas de dado e fica
-// ilegível colado no próximo sem esse respiro.
+// Cada reprovado é um bloco de 3 níveis: quem (negrito + ID), quando/por que/por
+// quem (subtexto pequeno) e o motivo numa citação (barra lateral). Quem já saiu
+// do servidor não ganha menção (vira <@id> cru, sem avatar): só a marca 🚪.
+// O \n extra no fim, somado ao \n do join do embedsDeLista, é a linha em branco
+// que separa um bloco do outro.
 function linhaReprovado(r, membros) {
-  const fora = membros && !membros.has(r.discord_id) ? ' · 🚪 *fora do servidor*' : '';
+  const saiu = membros && !membros.has(r.discord_id);
+  const quem = saiu ? '🚪 *saiu do servidor*' : `<@${r.discord_id}>`;
+  const meta = [
+    `📅 ${E.formatarDataHora(r.decidido_em ?? r.criado_em)}`,
+    `**${regras.rotuloCategoria(r.reprovado_categoria)}**`,
+    r.decidido_por_id ? `por <@${r.decidido_por_id}>` : null,
+  ].filter(Boolean).join(' · ');
   const motivo = r.reprovado_motivo
-    ? `\n  ↳ *${F.nomeSeguro(E.truncar(r.reprovado_motivo.replace(/\s+/g, ' '), 140))}*`
+    ? `\n> ${F.nomeSeguro(E.truncar(r.reprovado_motivo.replace(/\s+/g, ' '), 140))}`
     : '';
-  return `• ${F.pessoa({ nome: r.nome, id: r.id_fivem })} · <@${r.discord_id}>${fora}\n`
-    + `  ↳ ${regras.rotuloCategoria(r.reprovado_categoria)} — ${E.formatarDataHora(r.decidido_em ?? r.criado_em)}`
-    + (r.decidido_por_id ? ` por <@${r.decidido_por_id}>` : '')
-    + motivo
-    + '\n';
+  return `${F.pessoa({ nome: r.nome, id: r.id_fivem })} · ${quem}\n-# ${meta}${motivo}\n`;
 }
 
 // Falha ao carregar membros não derruba a lista: só some a marca "fora do servidor"

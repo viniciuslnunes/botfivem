@@ -192,12 +192,14 @@ test('recrutamento: ID na lista "não recrutar" NÃO é aprovado (sem cargo, sem
   historico.historico.unshift(criarMensagem(historico, { embeds: [{ title: 'ID Bloqueado', fields: [{ name: 'ID', value: '1234' }, { name: 'MOTIVO', value: 'Traição' }] }] }));
   invalidarCacheBloqueios();
   const antes = (await tabela('SELECT count(*)::int AS n FROM aprovacoes_recrutamento'))[0].n;
+  const enviadasAntes = canal(config.canais.validarSetagem).enviadas.length;
 
   const i = criarInteracao({ customId: 'aprovar_recrutamento', membro: recrutador, guild, canal: canal(config.canais.validarSetagem), mensagem: analise });
   await comConsole(async () => { await despachar(i); return {}; });
   invalidarCacheBloqueios();
 
-  assert.match(canal(config.canais.validarSetagem).enviadas.at(-1).content, /O ID FiveM \*\*1234\*\* está bloqueado para recrutamento!/);
+  assert.equal(canal(config.canais.validarSetagem).enviadas.length, enviadasAntes); // nada público no canal de validação
+  assert.match(i.acao('followUp').at(-1).content, /O ID FiveM \*\*1234\*\* está bloqueado para recrutamento!/);
   assert.deepEqual(candidato.registros, []); // nada de cargo nem apelido
   assert.equal((await tabela('SELECT count(*)::int AS n FROM aprovacoes_recrutamento'))[0].n, antes);
   const [ficha] = await tabela('SELECT status FROM fichas_recrutamento WHERE message_id = $1', [analise.id]);

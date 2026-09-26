@@ -111,10 +111,25 @@ async function idsRecrutadores(client) {
   }
 }
 
+const POR_LINHA_SEM_AVALIACAO = 6;
+
+// Dois níveis: menção + taxa em destaque; contagens no subtexto pequeno. A ordem
+// é por volume de avaliações (não por taxa), então sem medalha/posição.
 function linhaRecrutador(r) {
   const total = r.acertos + r.erros;
-  const taxa = r.taxa === null ? '—' : `${r.taxa}%`;
-  return `• <@${r.id}> — ${tema.emoji.ok} **${r.acertos}** acertos · ${tema.emoji.recusado} **${r.erros}** erros · ${total} avaliados · ${taxa}`;
+  return `<@${r.id}> — **${r.taxa}%**\n`
+    + `-# ${tema.emoji.ok} ${r.acertos} acertos · ${tema.emoji.recusado} ${r.erros} erros · ${total} avaliados\n`;
+}
+
+// Quem ainda não teve foto avaliada não precisa de duas linhas cada: vira uma
+// lista compacta de menções.
+function linhasSemAvaliacao(recrutadores) {
+  if (!recrutadores.length) return [];
+  const linhas = [`**Sem avaliações ainda (${recrutadores.length})**`];
+  for (let i = 0; i < recrutadores.length; i += POR_LINHA_SEM_AVALIACAO) {
+    linhas.push(recrutadores.slice(i, i + POR_LINHA_SEM_AVALIACAO).map(r => `<@${r.id}>`).join(' · '));
+  }
+  return linhas;
 }
 
 async function montarBlocos() {
@@ -122,7 +137,9 @@ async function montarBlocos() {
     repo.placarPorRecrutador(), idsRecrutadores(clientAtual), repo.contarPendentes(),
   ]);
   const { recrutadores, semRecrutador } = montarPlacar(linhas, ids);
-  const linhasTexto = recrutadores.map(linhaRecrutador);
+  const avaliados = recrutadores.filter(r => r.acertos + r.erros > 0 && r.taxa !== null);
+  const semAvaliacao = recrutadores.filter(r => !avaliados.includes(r));
+  const linhasTexto = [...avaliados.map(linhaRecrutador), ...linhasSemAvaliacao(semAvaliacao)];
   if (semRecrutador.acertos + semRecrutador.erros > 0) {
     linhasTexto.push(`\n*Sem recrutador (ficha ainda não decidida):* ${tema.emoji.ok} ${semRecrutador.acertos} · ${tema.emoji.recusado} ${semRecrutador.erros}`);
   }

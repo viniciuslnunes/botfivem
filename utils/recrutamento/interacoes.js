@@ -73,7 +73,14 @@ registrarModulo('modal_recrutamento', async interaction => {
   // Enviar embed com botões para aprovar/recusar no canal validar-setagem
   const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
   if (canalValidarSetagem) {
-    const mensagemFicha = await canalValidarSetagem.send({ embeds: [embed], components: botoesRecrutamento() });
+    // Chama quem decide: liderança + recrutadores. Some da mensagem quando a decisão troca o texto.
+    const cargosAvisados = [config.cargos.presidente, config.cargos.vicePresidente, config.cargos.velhaGuarda, config.cargos.diretoria, config.cargos.recrutador].filter(Boolean);
+    const mensagemFicha = await canalValidarSetagem.send({
+      content: cargosAvisados.map(id => `<@&${id}>`).join(' '),
+      embeds: [embed],
+      components: botoesRecrutamento(),
+      allowedMentions: { roles: cargosAvisados },
+    });
     await registrarFicha({
       messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador,
     }).catch(err => console.error('[recrutamento] Erro ao registrar ficha:', err));
@@ -149,9 +156,11 @@ registrarModulo('aprovar_recrutamento', async interaction => {
       return;
     }
     if (bloqueado) {
-      await interaction.channel.send({
-        content: `❌ O ID FiveM **${id_fivem}** está bloqueado para recrutamento!`,
-        embeds: [bloqueado]
+      // Só para quem clicou: o registro do bloqueio mora no histórico, não no canal de validação
+      await interaction.followUp({
+        content: `❌ O ID FiveM **${id_fivem}** está bloqueado para recrutamento! Detalhes em <#${config.canais.historicoNaoRecrutar}>.`,
+        embeds: [bloqueado],
+        flags: 64
       });
       return;
     }

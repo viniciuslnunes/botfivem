@@ -23,18 +23,50 @@ function blocosRegras() {
     color: F.COR,
     title: tema.titulo(`${tema.emoji.marca} COMO FUNCIONA O RECRUTAMENTO`),
     description: [
-      `**1. Entrada.** O candidato abre o formulário no canal ${ref(c.recrutamento, 'de recrutamento')} (nome, idade, ID FiveM, telefone e área). A ficha cai para análise dos recrutadores. Quem já tem ficha em análise (até 7 dias) ou reprovação definitiva não abre outra.`,
+      'O recrutamento começa **dentro do jogo** e termina aqui no Discord. Sua responsabilidade é conduzir o candidato por todas as etapas e **decidir a ficha**.',
       '',
-      '**2. Análise.** Um recrutador decide a ficha; o clique duplo é barrado. Antes de aprovar confira: dados completos e coerentes, ID FiveM que confere e **fora da lista de NÃO RECRUTAR** (ID bloqueado não é aprovado), idade mínima e conduta.',
+      '**1. Abordagem (no jogo, em frente à sede).** Aborde o candidato e pergunte: nome, de onde vem, idade e se é corintiano. Segurando **Alt** aparece a opção de **convidar para o Discord** da torcida.',
       '',
-      `**3. Aprovar.** O candidato vira sócio, recebe o nick padrão (Nome - ID) e o telefone dele é divulgado à torcida. Ele envia a foto do manto no canal ${ref(c.provarManto, 'provar-manto')}; a liderança marca **CORRETO** ou **ERRADO**, e o resultado conta para **você**, que decidiu a ficha.`,
+      `**2. Ficha (Discord).** Já no servidor, o candidato abre o formulário no canal ${ref(c.recrutamento, 'de recrutamento')} (nome, idade, ID FiveM, telefone e recrutador). Quem já tem ficha em análise (até 7 dias) ou reprovação definitiva não abre outra.`,
       '',
-      '**4. Reprovar.** Escolha a categoria e escreva a justificativa (15 a 1000 caracteres): ela vai para o candidato. Reprovação definitiva só a liderança desfaz.',
+      `**3. Aprovação do manto.** Ao enviar a ficha o candidato ganha 10 minutos para postar a foto do manto em ${ref(c.provarManto, 'provar-manto')}. A liderança marca **CORRETO** ou **ERRADO**, e o resultado conta para **você**, o recrutador que decide a ficha. Manto errado repetido gera advertência.`,
       '',
-      '**5. Depois da aprovação.** Validação de setagem pela liderança e convite do WhatsApp pelo painel próprio, sempre manual.',
+      '**4. Perguntas (no jogo).** Com o manto aprovado, faça ao candidato as perguntas do recrutamento dentro do jogo.',
       '',
-      `**6. Divulgação.** Poste o flyer no canal ${ref(c.divulgacaoRecrutamento, 'de divulgação')} em rodízio: quem está há mais tempo sem postar é o próximo. Duas vezes seguidas ou mais de 7 dias sem postar gera alerta para a liderança.`,
+      `**5. Análise e validação da setagem.** A ficha fica no canal ${ref(c.validarSetagem, 'validar-setagem')} (categoria de setagem), com os botões **APROVAR** e **REPROVAR**. É **aqui** que você decide: só decida depois do manto aprovado e das perguntas feitas, e **antes de aprovar consulte o ID em ${ref(c.validarId, 'validar-id')}** (veja abaixo). Um recrutador decide por ficha; o clique duplo é barrado.`,
+      '',
+      '**6. Aprovar.** O bot dá o cargo de sócio e o nick padrão (**Nome - ID**) sozinho, e o telefone do novo sócio é divulgado à torcida. Se o ID estiver em NÃO RECRUTAR, a aprovação é recusada. Errou o clique? Dá para **desfazer em até 30 minutos**.',
+      '',
+      '**7. Reprovar.** Escolha a categoria, escreva a justificativa (15 a 1000 caracteres, ela vai por DM ao candidato) e diga se ele **pode tentar de novo**. Reprovação definitiva só a liderança desfaz.',
+      '',
+      '**8. Depois.** O convite do WhatsApp sai pelo painel próprio, sempre manual.',
     ].join('\n'),
+    footer: { text: 'Quadro fixo mantido pelo bot' },
+  };
+
+  const consulta = {
+    color: F.COR,
+    title: tema.titulo(`${tema.emoji.pendente} CANAIS DE CONSULTA: ANTES DE APROVAR`),
+    description: [
+      'Estes canais respondem à pergunta que decide a ficha: **esta pessoa pode ser recrutada?** Eles cruzam o histórico da torcida, então **consulte antes de aprovar**.',
+      '',
+      `**${ref(c.validarId, 'validar-id')}: a consulta principal.** Clique em **VALIDAR ID**, digite o ID FiveM da ficha e o bot diz se há impedimento registrado. É a verificação de que a pessoa **não tem vestígio na torcida** que a impeça de ser recrutada. Faça sempre, com o ID exato da ficha.`,
+      '',
+      `**${ref(c.naoRecrutar, 'nao-recrutar')}: a lista de bloqueados.** IDs impedidos de entrar, cada um com o motivo. Quem está aqui **não é aprovado**. Se souber de alguém que deveria estar na lista, avise a liderança.`,
+      '',
+      `**${ref(c.historicoNaoRecrutar, 'historico-nao-recrutar')}: o registro completo.** Cada bloqueio fica registrado ali, inclusive os que já foram removidos. É o que o validar-id consulta: use para ver o **motivo** e a **história** de um ID.`,
+      '',
+      `**${ref(c.reprovadosDefinitivos, 'reprovados-definitivos')}: quem não pode tentar de novo.** Lista os candidatos reprovados com "não pode tentar de novo". Enquanto estiverem ali, o botão de solicitar recrutamento recusa a pessoa, mesmo que ela saia e volte ao servidor. A liderança libera uma nova tentativa quando achar justo.`,
+      '',
+      '**Regra de bolso:** ficha vinda de alguém que você acabou de abordar → confira o **validar-id**, depois aprove. ID bloqueado ou reprovado definitivo: **não aprove**; se discordar, chame a liderança.',
+    ].join('\n'),
+    footer: { text: 'Quadro fixo mantido pelo bot' },
+  };
+
+  const divulgacao = {
+    color: F.COR,
+    title: tema.titulo(`${tema.emoji.marca} DIVULGAÇÃO`),
+    description: `Poste o flyer no canal ${ref(c.divulgacaoRecrutamento, 'de divulgação')} em rodízio: quem está há mais tempo sem postar é o próximo. Duas vezes seguidas ou mais de 7 dias sem postar gera alerta para a liderança.`,
     footer: { text: 'Quadro fixo mantido pelo bot' },
   };
 
@@ -58,7 +90,7 @@ function blocosRegras() {
     ].join('\n'),
     footer: { text: 'Valores lidos das regras do bot: este quadro acompanha qualquer ajuste' },
   };
-  return [{ embeds: [fluxo] }, { embeds: [adv] }];
+  return [{ embeds: [fluxo] }, { embeds: [consulta] }, { embeds: [divulgacao] }, { embeds: [adv] }];
 }
 
 const regras = criarPainelCanal({
@@ -97,19 +129,20 @@ async function montarAdvertidos(client = clientAtual) {
 
   const linhasAdv = [];
   for (const [id, lista] of porMembro) {
-    linhasAdv.push(`• <@${id}> — **${lista.length}ª advertência ativa**`);
-    for (const a of lista) {
+    // Um bloco por pessoa (uma linha por infração, detalhe em texto miúdo): não se mistura com o vizinho
+    const detalhes = lista.map(a => {
       const prazo = a.prazo_em ? ` · prazo <t:${ts(a.prazo_em)}:R>` : '';
-      linhasAdv.push(`  ↳ ${R.REGRAS[a.regra]?.rotulo ?? a.regra} · <t:${ts(a.criada_em)}:R>${prazo}\n  ↳ ${a.motivo}`);
-    }
+      return `> ${R.REGRAS[a.regra]?.rotulo ?? a.regra} · <t:${ts(a.criada_em)}:R>${prazo}\n> -# ${a.motivo}`;
+    });
+    linhasAdv.push(`<@${id}> — **${lista.length}ª ADV**\n${detalhes.join('\n')}`);
   }
-  for (const m of manuais) linhasAdv.push(`• <@${m.id}> — **${nivelDoCargo(m)}ª advertência** (registrada manualmente pela liderança)`);
+  for (const m of manuais) linhasAdv.push(`<@${m.id}> — **${nivelDoCargo(m)}ª ADV** · manual (liderança)`);
 
   const limpos = recrutadores.filter(m => !porMembro.has(m.id) && nivelDoCargo(m) === 0);
   const linhasLimpos = limpos.map(m => `${tema.emoji.ok} <@${m.id}>`);
   const linhasEncerradas = encerradas.map(a => {
     const quando = ts(a.resolvida_em ?? a.criada_em);
-    return `• <@${a.discord_id}> — ${a.status.replace('_', ' ')} · ${R.REGRAS[a.regra]?.rotulo ?? 'INATIVIDADE'} · <t:${quando}:R>`;
+    return `<@${a.discord_id}> · ${a.status.replace('_', ' ')} · ${R.REGRAS[a.regra]?.rotulo ?? 'INATIVIDADE'} · <t:${quando}:R>`;
   });
 
   const cabecalho = `**Recrutadores:** ${recrutadores.length} · **Advertidos:** ${porMembro.size + manuais.length} · **Sem advertência:** ${limpos.length}`;

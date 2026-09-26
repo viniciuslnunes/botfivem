@@ -42,7 +42,9 @@ registrarTipo('adv_vencimento', async (client, p) => {
 
   const canal = await guild.channels.fetch(variante.canal()).catch(() => null);
   if (!canal) return;
+  const { mencoesDoSocio, mencoesDoRecrutador } = require('./advertencia/mencoes');
   await canal.send({
+    content: p.variante === 'recrutador' ? mencoesDoRecrutador(p.membroId) : await mencoesDoSocio(p.membroId),
     embeds: [{
       color: tema.cor.perigo,
       title: variante.titulo,

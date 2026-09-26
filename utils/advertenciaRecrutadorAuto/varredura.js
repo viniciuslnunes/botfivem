@@ -7,6 +7,7 @@ const { agendar, registrarTipo } = require('../agendador');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const R = require('./regras');
 const repo = require('./repositorio');
+const { mencoesDoRecrutador } = require('../advertencia/mencoes');
 
 const INTERVALO_MS = 3 * 60 * 60 * 1000;
 const ATRASO_INICIAL_MS = 2 * 60 * 1000;
@@ -62,9 +63,10 @@ async function membroDe(guild, id) {
   return guild.members.fetch(id).catch(() => null);
 }
 
-async function avisar(guild, embed) {
+// `discordId`: o recrutador do caso; a liderança é sempre mencionada junto.
+async function avisar(guild, embed, discordId) {
   const canal = await guild.channels.fetch(config.canais.historicoAdvRec).catch(() => null);
-  if (canal) await canal.send({ embeds: [embed] }).catch(err => console.error('[adv-rec-auto] Erro ao postar:', err));
+  if (canal) await canal.send({ content: mencoesDoRecrutador(discordId), embeds: [embed] }).catch(err => console.error('[adv-rec-auto] Erro ao postar:', err));
 }
 
 // Cargo ADV¹/²/³ do recrutador (só se o tenant configurou cargos.advRec): tira o
@@ -93,7 +95,7 @@ async function removerCargoRecrutador(guild, membro, discordId, regra, motivo, n
       { name: 'JUSTIFICATIVA', value: motivo },
       { name: 'DATA', value: `<t:${agoraSeg()}:F>` },
     ]),
-  });
+  }, discordId);
   return linha;
 }
 
@@ -119,7 +121,7 @@ async function advertir(guild, discordId, infracao, agora) {
       { name: 'DATA', value: `<t:${agoraSeg()}:F>` },
     ]),
     footer: { text: plano.nivel === 2 ? 'A próxima advertência remove o cargo de recrutador.' : 'Advertência automática, gerada pelo cruzamento com os logs do jogo.' },
-  });
+  }, discordId);
   if (prazoEm) {
     await agendar('adv_rec_auto_vencimento', prazoEm, { advId: linha.id, membroId: discordId })
       .catch(err => console.error('[adv-rec-auto] Erro ao agendar vencimento:', err));
@@ -146,10 +148,27 @@ async function resolverAtivas(guild, dadosPorId, agora) {
         color: tema.cor.primaria,
         title: `🦅 ADV. RECRUTAMENTO ${adv.nivel}ª ${status === 'PERDOADA' ? 'REMOVIDA' : 'EXPIRADA'}`,
         fields: camposBase(adv.discord_id, [{ name: 'MOTIVO', value: resolucao }, { name: 'DATA', value: `<t:${agoraSeg()}:F>` }]),
-      });
+      }, adv.discord_id);
     } catch (err) {
       console.error('[adv-rec-auto] Erro ao resolver advertência:', err);
     }
+  }
+}
+
+// Quem tem advertência ativa na tabela precisa ter o cargo ADV do nível. Corrige
+// advertências anteriores à configuração dos cargos e cargos removidos na mão.
+async function sincronizarCargos(guild) {
+  const cargos = cargosAdvRec();
+  if (!cargos) return;
+  const ativas = new Map();
+  for (const adv of await repo.ativas()) ativas.set(adv.discord_id, (ativas.get(adv.discord_id) ?? 0) + 1);
+  for (const [discordId, total] of ativas) {
+    const membro = await membroDe(guild, discordId);
+    if (!membro?.roles.cache.has(config.cargos.recrutador)) continue;
+    const nivel = Math.min(total, 3);
+    const tem = cargos.filter(id => membro.roles.cache.has(id));
+    if (tem.length === 1 && tem[0] === cargos[nivel - 1]) continue;
+    await marcarNivel(membro, nivel);
   }
 }
 
@@ -195,7 +214,7 @@ async function avisarRiscos(guild, dados, agora) {
       ]),
       footer: { text: 'Aviso preventivo: ainda não é advertência.' },
     };
-    await avisar(guild, embed);
+    await avisar(guild, embed, discordId);
     const membro = await membroDe(guild, discordId);
     try {
       await membro?.send({ embeds: [{ ...embed, title: '⚠️ ATENÇÃO, RECRUTADOR', fields: [{ name: 'REGRA', value: rotulo, inline: true }, { name: 'SITUAÇÃO', value: risco.texto }] }] });
@@ -230,6 +249,7 @@ async function executarVarredura(client, { agora = new Date(), coletar = coletar
       console.error('[adv-rec-auto] Erro ao avaliar recrutador:', err);
     }
   }
+  await sincronizarCargos(guild).catch(err => console.error('[adv-rec-auto] Erro ao sincronizar cargos ADV:', err));
   // Riscos só de quem segue com o cargo e não foi advertido agora pela mesma regra.
   const advertidosAgora = new Set(resultado.advertidos.map(([id, regra]) => `${id}:${regra}`));
   riscosPorRecrutador = new Map(dados
@@ -257,7 +277,7 @@ registrarTipo('adv_rec_auto_vencimento', async (client, p) => {
     color: tema.cor.perigo,
     title: '❌ ADV. RECRUTAMENTO NÃO REGULARIZADA — CARGO DE RECRUTADOR REMOVIDO',
     fields: camposBase(p.membroId, [{ name: 'MOTIVO', value: linha.motivo }, { name: 'DATA', value: `<t:${agoraSeg()}:F>` }]),
-  });
+  }, p.membroId);
   require('./paineis').atualizarAdvertidos(client);
 });
 

@@ -25,6 +25,17 @@ async function situacaoDoCandidato(discordId) {
   };
 }
 
+// Recrutador que aprovou a última ficha aprovada do sócio (null se não houver)
+async function recrutadorQueAprovou(discordId) {
+  const { rows } = await db.query(
+    `SELECT decidido_por_id FROM fichas_recrutamento
+      WHERE discord_id = $1 AND status = 'APROVADO' AND decidido_por_id IS NOT NULL
+      ORDER BY decidido_em DESC NULLS LAST LIMIT 1`,
+    [discordId]
+  );
+  return rows[0]?.decidido_por_id ?? null;
+}
+
 async function buscarFicha(messageId) {
   const { rows } = await db.query('SELECT * FROM fichas_recrutamento WHERE message_id = $1', [messageId]);
   return rows[0] ?? null;
@@ -130,6 +141,6 @@ async function removerAprovacaoContada(conexao, messageId, aprovadorId) {
 }
 
 module.exports = {
-  registrarFicha, situacaoDoCandidato, buscarFicha, decidirFicha, listarReprovacoesDefinitivas, liberarReenvio,
+  registrarFicha, situacaoDoCandidato, recrutadorQueAprovou, buscarFicha, decidirFicha, listarReprovacoesDefinitivas, liberarReenvio,
   guardarMensagemTelefone, existeFichaMaisNova, desfazerDecisao, removerAprovacaoContada,
 };
