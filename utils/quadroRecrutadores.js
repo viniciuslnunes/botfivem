@@ -84,81 +84,12 @@ function construirEmbed(guild, desdePorId = new Map()) {
   };
 }
 
-// ── Gestores: quem promoveu/rebaixou e as pessoas de cada um ──────────────────
+// ── Gestores: times, avaliação e rebaixados (utils/recrutamento/quadroGestores.js) ──
 const CHAVE_EXTRAS = 'quadro_recrutadores_extras_message_ids';
-const LIMITE_EMBED = 3800;
-
-// `quem` vira menção quando o ID do jogo bate com o apelido de alguém no Discord;
-// sem vínculo, fica nome e ID do jogo.
-function rotuloDePessoa(nome, idFivem, membroPorIdFivem) {
-  const membro = idFivem ? membroPorIdFivem.get(idFivem) : null;
-  if (membro) return `<@${membro.id}>`;
-  return nome ? `**${nome}**${idFivem ? ` \`${idFivem}\`` : ''}` : `\`${idFivem ?? '?'}\``;
-}
-
-// Agrupa por gestor (quem fez o movimento): mais pessoas primeiro, e dentro do
-// grupo o movimento mais recente primeiro. Devolve blocos de texto prontos.
-function blocosPorGestor(movimentos, membroPorIdFivem) {
-  const grupos = new Map();
-  for (const m of movimentos) {
-    const chave = m.ator_id_fivem ?? m.ator_nome ?? '?';
-    if (!grupos.has(chave)) grupos.set(chave, { gestor: rotuloDePessoa(m.ator_nome, m.ator_id_fivem, membroPorIdFivem), itens: [] });
-    grupos.get(chave).itens.push(m);
-  }
-  return [...grupos.values()]
-    .sort((a, b) => b.itens.length - a.itens.length)
-    .map(({ gestor, itens }) => {
-      const linhas = itens
-        .sort((a, b) => new Date(b.ocorrido_em) - new Date(a.ocorrido_em))
-        .map(m => {
-          const ts = Math.floor(new Date(m.ocorrido_em).getTime() / 1000);
-          return `↳ ${rotuloDePessoa(m.alvo_nome, m.alvo_id_fivem, membroPorIdFivem)} · <t:${ts}:d> (<t:${ts}:R>)`;
-        });
-      return `**Gestor:** ${gestor} · ${itens.length}\n${linhas.join('\n')}`;
-    });
-}
-
-// Junta blocos em descrições que cabem num embed (os grupos não se partem no meio).
-function paginar(blocos) {
-  const paginas = [];
-  let atual = '';
-  for (const b of blocos) {
-    if (atual && atual.length + b.length + 2 > LIMITE_EMBED) { paginas.push(atual); atual = ''; }
-    atual += (atual ? '\n\n' : '') + b;
-  }
-  if (atual) paginas.push(atual);
-  return paginas;
-}
-
-function embedsDeGestores(movimentos, membroPorIdFivem) {
-  const secoes = [
-    { acao: 'promoveu_cargo', titulo: '🧭 PROMOVIDOS A RECRUTADOR, POR GESTOR', vazio: 'Nenhuma promoção a recrutador nos logs.', rodape: 'promovidos' },
-    { acao: 'rebaixou_cargo', titulo: '⬇️ REBAIXADOS DE RECRUTADOR PARA SÓCIO, POR GESTOR', vazio: 'Nenhum rebaixamento de recrutador nos logs.', rodape: 'rebaixados' },
-  ];
-  return secoes.flatMap(s => {
-    const itens = movimentos.filter(m => m.acao === s.acao);
-    const paginas = paginar(blocosPorGestor(itens, membroPorIdFivem));
-    const rodape = `TOTAL: ${itens.length} ${s.rodape.toUpperCase()} · logs do jogo`;
-    if (!paginas.length) return [{ color: tema.cor.primaria, title: tema.titulo(s.titulo), description: `*${s.vazio}*`, footer: { text: rodape }, timestamp: new Date().toISOString() }];
-    return paginas.map((descricao, i) => ({
-      color: tema.cor.primaria,
-      title: i === 0 ? tema.titulo(s.titulo) : null,
-      description: descricao,
-      footer: { text: rodape + (paginas.length > 1 ? ` · Página ${i + 1}/${paginas.length}` : '') },
-      timestamp: new Date().toISOString(),
-    }));
-  });
-}
 
 // Mensagens extras do canal: reedita no lugar, cria as que faltam e apaga as que sobram.
 async function atualizarGestores(canal, guild, recriar = false) {
-  const movimentos = await repoLogs.movimentosDeRecrutador();
-  const membroPorIdFivem = new Map();
-  for (const m of guild.members.cache.values()) {
-    const id = E.idFivemDoNick(m.nickname ?? m.displayName);
-    if (id) membroPorIdFivem.set(id, m);
-  }
-  const embeds = embedsDeGestores(movimentos, membroPorIdFivem);
+  const embeds = await require('./recrutamento/quadroGestores').montarEmbedsGestores(guild);
 
   let antigos;
   try {
@@ -231,5 +162,5 @@ async function atualizarQuadroRecrutadores(client) {
 }
 
 module.exports = {
-  atualizarQuadroRecrutadores, blocosPorGestor, embedsDeGestores, registrarEntradaNoCargo, removerEntradaNoCargo, CARGO_RECRUTADOR,
+  atualizarQuadroRecrutadores, registrarEntradaNoCargo, removerEntradaNoCargo, CARGO_RECRUTADOR,
 };
