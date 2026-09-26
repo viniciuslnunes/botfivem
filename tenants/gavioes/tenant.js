@@ -55,6 +55,8 @@ module.exports = {
     hierarquia: '1198743170972926110',
     elenco: '1489462740149080125',
     quadroRecrutadores: '1326966898134482955',
+    equipes: '1553487506106880060', // 📃・equipes: um card por gestor com os recrutadores e a avaliação do time. null = não posta
+    rebaixados: '1553488129967521982', // ⛔・rebaixados: rebaixados de recrutador para sócio nos últimos 30 dias. null = não posta
     topRecrutadores: '1444861031598784673',
     logsLideranca: '1461544673825783929',
     alertaNovatos: '1490536504748150925',

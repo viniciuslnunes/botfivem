@@ -84,34 +84,63 @@ function construirEmbed(guild, desdePorId = new Map()) {
   };
 }
 
-// ── Gestores: times, avaliação e rebaixados (utils/recrutamento/quadroGestores.js) ──
-const CHAVE_EXTRAS = 'quadro_recrutadores_extras_message_ids';
+// ── Equipes e rebaixados (utils/recrutamento/quadroGestores.js) ──
+// Cada um mora no seu canal; as mensagens são reeditadas no lugar.
+const CHAVE_LEGADO = 'quadro_recrutadores_extras_message_ids'; // antes ficavam abaixo do quadro
 
-// Mensagens extras do canal: reedita no lugar, cria as que faltam e apaga as que sobram.
-async function atualizarGestores(canal, guild, recriar = false) {
-  const embeds = await require('./recrutamento/quadroGestores').montarEmbedsGestores(guild);
-
-  let antigos;
+async function lerIds(chave) {
   try {
-    const bruto = await db.query('SELECT value FROM bot_config WHERE key = $1', [CHAVE_EXTRAS]);
-    antigos = bruto.rows.length ? JSON.parse(bruto.rows[0].value) : [];
-  } catch { antigos = []; }
-  if (recriar) {
-    for (const id of antigos) await canal.messages.delete(id).catch(() => {});
-    antigos = [];
-  }
+    const bruto = await db.query('SELECT value FROM bot_config WHERE key = $1', [chave]);
+    return bruto.rows.length ? JSON.parse(bruto.rows[0].value) : [];
+  } catch { return []; }
+}
 
+async function gravarIds(chave, ids) {
+  await db.query(
+    'INSERT INTO bot_config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+    [chave, JSON.stringify(ids)]
+  );
+}
+
+// Reedita as mensagens existentes, cria as que faltam e apaga as que sobram.
+async function publicarEmbeds(canal, chave, embeds) {
+  const { agruparEmMensagens } = require('./recrutamento/quadroGestores');
+  const antigos = await lerIds(chave);
   const novos = [];
-  for (let i = 0; i < embeds.length; i++) {
-    const payload = { embeds: [embeds[i]], allowedMentions: { users: [] } };
+  const grupos = agruparEmMensagens(embeds);
+  for (let i = 0; i < grupos.length; i++) {
+    const payload = { embeds: grupos[i], allowedMentions: { users: [] } };
     const existente = antigos[i] ? await canal.messages.fetch(antigos[i]).catch(() => null) : null;
     novos.push(existente ? (await existente.edit(payload)).id : (await canal.send(payload)).id);
   }
-  for (const id of antigos.slice(embeds.length)) await canal.messages.delete(id).catch(() => {});
-  await db.query(
-    'INSERT INTO bot_config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
-    [CHAVE_EXTRAS, JSON.stringify(novos)]
-  );
+  for (const id of antigos.slice(grupos.length)) await canal.messages.delete(id).catch(() => {});
+  await gravarIds(chave, novos);
+}
+
+// Tira do quadro as mensagens de gestores/rebaixados que ficavam abaixo dele.
+async function limparLegado(canalQuadro) {
+  const antigos = await lerIds(CHAVE_LEGADO);
+  if (!antigos.length) return;
+  for (const id of antigos) await canalQuadro.messages.delete(id).catch(() => {});
+  await db.query('DELETE FROM bot_config WHERE key = $1', [CHAVE_LEGADO]);
+}
+
+async function atualizarGestores(client, canalQuadro, guild) {
+  await limparLegado(canalQuadro);
+  const Q = require('./recrutamento/quadroGestores');
+  const destinos = [
+    { canalId: config.canais.equipes, chave: 'equipes_message_ids', montar: Q.montarEmbedsEquipes },
+    { canalId: config.canais.rebaixados, chave: 'rebaixados_message_ids', montar: Q.montarEmbedsRebaixados },
+  ];
+  for (const { canalId, chave, montar } of destinos) {
+    if (!canalId) continue;
+    try {
+      const canal = await client.channels.fetch(canalId);
+      if (canal) await publicarEmbeds(canal, chave, await montar(guild));
+    } catch (err) {
+      console.error(`[quadroRecrutadores] Erro ao atualizar ${chave}:`, err);
+    }
+  }
 }
 
 async function atualizarQuadroRecrutadores(client) {
@@ -153,8 +182,7 @@ async function atualizarQuadroRecrutadores(client) {
       await setQuadroMessageId(sent.id);
     }
 
-    // Os gestores ficam sempre abaixo do quadro: se o quadro nasceu de novo, eles também.
-    await atualizarGestores(canal, guild, recriou)
+    await atualizarGestores(client, canal, guild)
       .catch(err => console.error('[quadroRecrutadores] Erro ao atualizar gestores:', err));
   } catch (err) {
     console.error('[quadroRecrutadores] Erro ao atualizar:', err);

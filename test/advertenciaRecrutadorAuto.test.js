@@ -230,15 +230,22 @@ test('carência conta a partir da promoção a recrutador nos logs; gestor agrup
     discordId: 'X', idFivem: '1', nome: 'Fulano', promovidoEm: new Date(agora - 20 * DIA), gestorChave: '1716',
     gestor: { nome: 'Akemi GDF', idFivem: '1716' }, rec7: 2, rec30: 10, saiuCedo30: 1, porSemana: 3.5, aprovadas30: 4, advNivel: 0, ...extra,
   });
-  const t = JSON.stringify(G.embedsDeGestores({
+  const equipes = G.embedsDeEquipes({
     recrutadores: [rec({ discordId: 'A', idFivem: '20673', nome: 'Bentley', advNivel: 1 }), rec({ discordId: 'B', rec7: 0, rec30: 0, porSemana: 2 })],
-    movimentos, meta: 5, membroPorIdFivem: membros, agora,
-  }));
-  assert.match(t, /Gestor:\*\* <@GESTOR1>[^"]*ATENÇÃO/, 'média 2,75/sem contra meta 5: atenção');
-  assert.match(t, /equipe 2 · 1\/2 recrutaram em 7d · 10 rec\. em 30d/);
-  assert.match(t, /<@BENT> · no cargo desde[\s\S]*ADV¹/);
-  assert.match(t, /REBAIXADOS DE RECRUTADOR PARA SÓCIO[\s\S]*Gestor:\*\* \*\*Outro GDF\*\* `99` · 1[\s\S]*\*\*Foi\*\* `88`/);
-  assert.doesNotMatch(t.split('REBAIXADOS')[0], /Foi/, 'só recrutadores atuais entram nos times');
+    meta: 5, membroPorIdFivem: membros, agora,
+  });
+  const t = JSON.stringify(equipes);
+  assert.equal(equipes.length, 2, 'cabeçalho + um card por gestor');
+  assert.match(equipes[1].title, /ATENÇÃO/, 'média 2,75/sem contra meta 5: atenção');
+  assert.match(equipes[1].description, /Gestor:\*\* <@GESTOR1>/);
+  assert.match(t, /"Recrutaram em 7d","value":"1\/2"/);
+  assert.match(t, /<@BENT> · [\s\S]*ADV¹/);
+  assert.match(t, /no cargo desde/);
+  const rebaixados = JSON.stringify(G.embedsDeRebaixados({ movimentos, membroPorIdFivem: membros, agora }));
+  assert.match(rebaixados, /REBAIXADOS DE RECRUTADOR PARA SÓCIO[\s\S]*Gestor:\*\* \*\*Outro GDF\*\* `99`[\s\S]*\*\*Foi\*\* `88`/);
+  assert.doesNotMatch(t, /Foi/, 'só recrutadores atuais entram nos times');
+  const mensagens = G.agruparEmMensagens(Array.from({ length: 23 }, () => ({ title: 'x', description: 'y' })));
+  assert.deepEqual(mensagens.map(m => m.length), [10, 10, 3], 'até 10 embeds por mensagem');
 
   const av = G.avaliarTime([rec({ promovidoEm: new Date(agora - 2 * DIA) })], 5, agora);
   assert.equal(av.veredito, 'EM CARÊNCIA', 'primeira semana de cargo não é medida');
@@ -246,8 +253,9 @@ test('carência conta a partir da promoção a recrutador nos logs; gestor agrup
   assert.equal(G.avaliarTime([rec({ porSemana: 1 })], 5, agora).veredito, 'FLUXO FRACO');
 
   // Caminho real: coleta do Discord + logs + fichas
-  const reais = await G.montarEmbedsGestores(guild);
+  const reais = await G.montarEmbedsEquipes(guild);
   assert.match(JSON.stringify(reais), /GESTORES E SEUS RECRUTADORES[\s\S]*Gestor:/);
+  assert.match(JSON.stringify(await G.montarEmbedsRebaixados(guild)), /REBAIXADOS DE RECRUTADOR/);
 });
 
 test('coletarDados (caminho real da varredura) roda e usa a promoção dos logs como início da carência', async () => {
