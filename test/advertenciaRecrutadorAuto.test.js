@@ -230,3 +230,14 @@ test('carência conta a partir da promoção a recrutador nos logs; gestor agrup
   assert.match(t, /REBAIXADOS DE RECRUTADOR[\s\S]*Gestor:\*\* \*\*Outro GDF\*\* `99` · 1[\s\S]*\*\*Foi\*\* `88`/);
   assert.doesNotMatch(t.split('REBAIXADOS')[0], /Foi/, 'promovido e depois rebaixado aparece só como rebaixado');
 });
+
+test('coletarDados (caminho real da varredura) roda e usa a promoção dos logs como início da carência', async () => {
+  await banco.q(
+    `INSERT INTO logs_jogo (message_id, canal_id, acao, ator_nome, ator_id_fivem, alvo_nome, descricao, ocorrido_em, bruto)
+     VALUES ('R1', 'C', 'jogador_recrutou', 'Rec', '55', 'Novo', 'x', now() - interval '1 hour', '{}')`);
+  const dados = await varredura.coletarDados(guild.client, new Date());
+  const rec1 = dados.find(d => d.discordId === 'REC1');
+  assert.ok(rec1, 'recrutador com ID no apelido entra na coleta');
+  const dias = (Date.now() - new Date(rec1.cargoDesde)) / DIA;
+  assert.ok(dias > 1.9 && dias < 2.1, `cargoDesde vem da promoção (2 dias), veio ${dias}`);
+});

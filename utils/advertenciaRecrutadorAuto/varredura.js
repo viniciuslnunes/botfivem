@@ -30,8 +30,9 @@ async function coletarDados(client, agora = new Date()) {
   const L = R.LIMITES;
   const [p5, p7, p14] = [L.diasSemRecrutarJogando, L.diasInativo, L.diasRetencao].map(d => periodoDe(d, agora));
   const desdeOcorrencias = new Date(agora - L.diasOcorrencias * R.DIA_MS);
-  const [l5, l7, l14, erros, incompletas, cargoDesde, ultimas] = await Promise.all([
-    recrutadoresDoPeriodo(guild, p5, agora), recrutadoresDoPeriodo(guild, p7, agora), recrutadoresDoPeriodo(guild, p14, agora),
+  const l5 = await recrutadoresDoPeriodo(guild, p5, agora);
+  const [l7, l14, erros, incompletas, cargoDesde, ultimas] = await Promise.all([
+    recrutadoresDoPeriodo(guild, p7, agora), recrutadoresDoPeriodo(guild, p14, agora),
     repo.errosDeMantoPorRecrutador(desdeOcorrencias), repo.fichasIncompletasPorRecrutador(desdeOcorrencias),
     repo.cargoDesdeComPromocao(l5), repo.ultimasPorRegra(),
   ]);
