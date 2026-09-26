@@ -45,6 +45,9 @@ module.exports = {
     iniciarPainelManto(client);
     // Quem pode divulgar recrutamento + sequência dos posts (canais.divulgacaoRecrutamento null = desligado)
     iniciarPainelDivulgacao(client);
+    // Quadro, equipes e rebaixados em dia assim que o bot sobe (sem travar a subida)
+    require('../utils/quadroRecrutadores').atualizarQuadroRecrutadores(client)
+      .catch(err => console.error('[recrutamento] Erro ao atualizar o quadro ao iniciar:', err.message));
     // Mensagem fixa de recrutamento no canal de análise (somente se não existir)
     return garantirMensagemRecrutamento(client);
   },
