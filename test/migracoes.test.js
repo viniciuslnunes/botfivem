@@ -102,7 +102,7 @@ function arquivosJs(dir) {
 }
 
 // Nomes que aparecem depois de FROM/JOIN mas não são tabelas
-const NAO_TABELA = new Set(['novatos', 'unnest']); // CTE e função do Postgres
+const NAO_TABELA = new Set(['novatos', 'etapas', 'unnest']); // CTEs e função do Postgres
 
 test('toda tabela usada em SQL no código existe depois das migrações', async () => {
   const usadas = new Map(); // tabela -> arquivos
@@ -127,7 +127,7 @@ const DIR_PARA_MODULO = {
   departamentos: 'departamentos', logsJogo: 'logsJogo', recrutamento: 'recrutamento', eventos: 'eventos',
   caravana: 'caravana', escala: 'escala', financeiro: 'financeiro', loja: 'loja', patrimonio: 'patrimonio',
   rifas: 'rifas', confianca: 'confianca', memoria: 'memoria', carteirinha: 'carteirinha', advertencia: 'advertencia',
-  advertenciaRecrutador: 'advertenciaRecrutador', advertenciaRecrutadorAuto: 'advertenciaRecrutadorAuto', antiSpam: 'antiSpam', sugestoes: 'sugestoes',
+  advertenciaRecrutador: 'advertenciaRecrutador', advertenciaRecrutadorAuto: 'advertenciaRecrutadorAuto', merito: 'meritoRecrutadores', antiSpam: 'antiSpam', sugestoes: 'sugestoes', inteligencia: 'inteligencia', sorteios: 'sorteios',
 };
 const ARQUIVO_PARA_MODULO = {
   'utils/carteirinhaSocio.js': 'carteirinha', 'utils/carteirinhaInteracoes.js': 'carteirinha', 'utils/muralAssociados.js': 'carteirinha',

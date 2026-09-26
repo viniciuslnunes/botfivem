@@ -58,6 +58,7 @@ async function camposDeContexto(client, membro, idFivem) {
     if (outros.length) {
       campos.push({ name: `⏳ OUTROS PAGAMENTOS PENDENTES (${outros.length})`, value: outros.slice(0, 5).map(linhaPendente).join('\n'), inline: false });
     }
+    campos.push(...await require('../enriquecedores').coletar('adv.contexto', { client, membro, idFivem }));
   } catch (err) {
     console.error('[adv] Erro ao montar contexto da advertência pendente:', err.message);
   }
@@ -78,7 +79,7 @@ async function alertarRestricaoComPendencia(client, registro, guild, membro) {
   if (!pendentes.length) return false;
   const prazo = Math.floor(new Date(pendentes[0].prazo_em).getTime() / 1000);
   const tema = require('../../tema');
-  return enviarNoCanal(guild, config.canais.advPendentes, {
+  const embed = {
     color: tema.cor.perigo,
     title: `🚨 ${rotulo} NO JOGO DURANTE PAGAMENTO PENDENTE`,
     description: (registro.descricao || 'Registro do jogo sem descrição.').slice(0, 900),
@@ -89,7 +90,18 @@ async function alertarRestricaoComPendencia(client, registro, guild, membro) {
       ...(await camposDeContexto(client, membro, registro.alvoIdFivem)),
     ],
     footer: { text: 'Cruzamento automático: advertência pendente + restrição do jogo. A liderança decide.' },
-  }, await mencoesDoSocio(membro.id));
+  };
+  const content = await mencoesDoSocio(membro.id);
+  // Com a inteligência ligada o alerta vira caso com botões (bloquear ID, remover sócio, resolvido, ignorar);
+  // sem ela, mensagem simples no mesmo canal.
+  const barramento = require('../barramento');
+  if (barramento.temAssinante('adv.restricao_pendente')) {
+    await barramento.emitir('adv.restricao_pendente', {
+      client, guild, embed, content, membro, idFivem: registro.alvoIdFivem, restricao: registro.acao.split('_')[0], advId: pendentes[0].id,
+    });
+    return true;
+  }
+  return enviarNoCanal(guild, config.canais.advPendentes, embed, content);
 }
 
 module.exports = { camposDeContexto, alertarRestricaoComPendencia };

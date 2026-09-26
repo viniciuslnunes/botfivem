@@ -22,6 +22,7 @@ module.exports = {
     inativo: '⚪', // fora do estado ativo
     perigo: '🔴', // erro/recusa grave
     aviso: '⚠️',
+    alerta: '🟡', // atenção suave: vencendo, encerrada, gravidade média
     pendente: '⏳',
     recusado: '❌',
     marca: '🦅', // assinatura da torcida em textos e títulos

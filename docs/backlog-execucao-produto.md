@@ -171,6 +171,10 @@ e já entrega o guardião que protege as etapas seguintes.
 - **F5** — "wizard" virou `/setup diagnostico | mapear | criar` + modo instalação + `npm run novo-tenant`; o tenant continua **arquivo** (não é editável em runtime), decisão marcada [R] no plano.
 - **Tabelas que nenhuma migração criava** (`socios`, `bot_config`, `aprovacoes_recrutamento`): descobertas na auditoria e agora criadas (`IF NOT EXISTS`) — sem isso um banco vazio (torcida nova) quebrava.
 
+**Feito depois (2026-09-26)**
+- ☑ Cor por torcida: `proibido.tons` (preto/branco/cinza), erro de token herdado da base, contraste mínimo, guardião `emojiCor`, `--proibir` no `novo-tenant`, temas de teste Mancha/Máfia Azul/Galocura (`test/tema.torcidas.test.js`).
+- ☑ Loja: `npm run catalogo`, batida de vida (`plataforma/heartbeat.js`), esquema do banco de controle testado (`docs/loja/`).
+
 **Pendências**
 - ☐ Construir e testar a imagem Docker (o `Dockerfile` existe, não verificado).
 - ☐ Unificar timers no `agendador` (F7.2, ver acima).

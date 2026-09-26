@@ -15,6 +15,12 @@ const L = R.LIMITES;
 const canal = id => (id ? `<#${id}>` : null);
 let clientAtual = null;
 
+// Seções que outros módulos acrescentam ao quadro de regras (ex.: mérito). Cada uma devolve um embed.
+const secoesExtras = [];
+function registrarSecaoRegras(fn) {
+  if (!secoesExtras.includes(fn)) secoesExtras.push(fn);
+}
+
 // ── 📘 Regras ────────────────────────────────────────────────────────────
 function blocosRegras() {
   const c = config.canais;
@@ -90,7 +96,7 @@ function blocosRegras() {
     ].join('\n'),
     footer: { text: 'Valores lidos das regras do bot: este quadro acompanha qualquer ajuste' },
   };
-  return [{ embeds: [fluxo] }, { embeds: [consulta] }, { embeds: [divulgacao] }, { embeds: [adv] }];
+  return [{ embeds: [fluxo] }, { embeds: [consulta] }, { embeds: [divulgacao] }, { embeds: [adv] }, ...secoesExtras.map(fn => ({ embeds: [fn()] }))];
 }
 
 const regras = criarPainelCanal({
@@ -186,4 +192,4 @@ function atualizarAdvertidos(client) {
   if (clientAtual) advertidos.agendarAtualizacaoReativa(clientAtual);
 }
 
-module.exports = { iniciarPaineis, atualizarAdvertidos, blocosRegras, montarAdvertidos };
+module.exports = { iniciarPaineis, atualizarAdvertidos, blocosRegras, montarAdvertidos, registrarSecaoRegras };

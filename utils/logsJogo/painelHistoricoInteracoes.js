@@ -98,6 +98,9 @@ async function embedResumo(idFivem, nomeConhecido, membro) {
     ? `${E.formatarNumero(fechaduras.total)} movimento(s) · último em ${E.formatarDataHora(fechaduras.ultimo.ocorrido_em)}`
     : 'nenhum movimento de fechadura/arena registrado';
 
+  // Campos de outros módulos (ex.: risco da inteligência cruzada), se estiverem ligados
+  const extras = await require('../enriquecedores').coletar('historico.resumo', { idFivem, membro });
+
   return {
     color: F.COR,
     title: `📜 ${F.nomeSeguro(nome)} — HISTÓRICO DO ASSOCIADO`,
@@ -113,6 +116,7 @@ async function embedResumo(idFivem, nomeConhecido, membro) {
       { name: '💰 DINHEIRO E BAÚ', value: [linhaDeposito, linhaSaque, linhaBau].join('\n') },
       { name: '⚖️ CONDUTA', value: [linhaAdvertenciaDiscord(membro) ?? '**Advertência (Discord):** não conferida', linhaDisciplina, linhaRestricoes, linhaTags].join('\n') },
       { name: '🗺️ ATIVIDADE NA TORCIDA', value: [linhaTerritorio, linhaFechaduras].join('\n') },
+      ...extras,
     ],
     footer: { text: `${F.rodape(ORIGEM)} · escolha um item abaixo pra ver o histórico completo` },
     timestamp: new Date().toISOString(),

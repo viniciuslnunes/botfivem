@@ -50,9 +50,9 @@ function textoSituacao(s) {
   const plural = n => (n !== 1 ? 'S' : '');
   switch (s.situacao) {
     case 'VIGENTE': return `${tema.emoji.ativo} VIGENTE ATÉ ${formatarDataBR(s.validade)}`;
-    case 'VENCENDO': return s.dias === 0 ? '🟡 VENCE HOJE' : `🟡 VENCE EM ${s.dias} DIA${plural(s.dias)}`;
-    case 'VENCIDA': return `🔴 VENCIDA HÁ ${-s.dias} DIA${plural(-s.dias)}`;
-    default: return '⚪ SEM VALIDADE REGISTRADA';
+    case 'VENCENDO': return s.dias === 0 ? `${tema.emoji.alerta} VENCE HOJE` : `${tema.emoji.alerta} VENCE EM ${s.dias} DIA${plural(s.dias)}`;
+    case 'VENCIDA': return `${tema.emoji.perigo} VENCIDA HÁ ${-s.dias} DIA${plural(-s.dias)}`;
+    default: return `${tema.emoji.inativo} SEM VALIDADE REGISTRADA`;
   }
 }
 

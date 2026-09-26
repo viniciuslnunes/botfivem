@@ -80,6 +80,7 @@ painel novo.
 | caravana | caravanas | sim | departamentos, eventos, escala, financeiro |
 | loja | loja | sim | departamentos, financeiro |
 | rifas | rifas | sim | departamentos, eventos, financeiro |
+| sorteios | 🎁 sorteio de brindes entre quem colou no dia (registro diário) ou números 1..N; canais criados por `/sorteio estrutura` | sim | departamentos, logsJogo |
 | patrimonio | patrimônio | sim | departamentos, eventos |
 | memoria | memória da torcida | sim | departamentos, eventos |
 | carteirinha | carteirinha e mural | sim | — |
@@ -91,6 +92,9 @@ painel novo.
 | advertenciaRecrutadorAuto | advertência automática de recrutador (inatividade, retenção, manto, ficha) | sim | advertenciaRecrutador, recrutamento, logsJogo |
 | recrutamento | recrutamento e quadros de recrutadores | sim | departamentos, confianca, logsJogo, bloqueioId |
 | sugestoes | 💡 sugestões de melhoria: recrutador+ envia, sócio+ vota (`canais.sugestoes`, null = sem painel) | sim | — |
+| meritoRecrutadores | 🏆 mérito de recrutadores: ciclos de 8 semanas, ranking por constância e qualidade, indicação ao departamento e votação da liderança | sim | recrutamento, logsJogo, advertenciaRecrutadorAuto |
+| inteligencia | inteligência cruzada: risco do associado, reincidência, barreira de entrada, boletim semanal, `/inteligencia` | sim | logsJogo, advertencia, recrutamento, bloqueioId, eventos, confianca, departamentos, ticket |
+| atualizacoes | 🤖 canal de atualizações: novidades e mudanças de regra postadas sozinhas, só as dos módulos ligados (`canais.atualizacoes`, null = sem canal; catálogo em `atualizacoes/`) | sim | — |
 | testes | comandos de teste da liderança | **não** | — |
 
 ## Como criar um módulo

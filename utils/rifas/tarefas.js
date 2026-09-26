@@ -1,3 +1,4 @@
+const tema = require('../../tema');
 const { registrarTipo } = require('../agendador');
 const { registrarLogGestao } = require('../logGestao');
 const { formatarDinheiro } = require('../logsJogo/estatisticas');
@@ -19,7 +20,7 @@ registrarTipo('rifa_encerrar', async (client, p) => {
   await atualizarMensagemRifa(client, rifa.id);
   const pendentes = await repo.comprasPendentes(rifa.id);
   await registrarLogGestao(client, {
-    titulo: `🟡 RIFA #${rifa.id} ENCERRADA NO PRAZO — ${rifa.titulo.toUpperCase()}`,
+    titulo: `${tema.emoji.alerta} RIFA #${rifa.id} ENCERRADA NO PRAZO — ${rifa.titulo.toUpperCase()}`,
     campos: [
       { name: 'VENDIDOS', value: `${rifa.vendidos}/${rifa.total_numeros}`, inline: true },
       { name: 'ARRECADADO', value: formatarDinheiro(rifa.arrecadado), inline: true },

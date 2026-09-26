@@ -157,9 +157,10 @@ function criarPainelCanal({
       timerPendente = null;
       atualizar(client).catch(err => log('Erro ao atualizar (reativo):', err));
     }, debounceMs);
+    timerPendente.unref?.(); // debounce pendente não segura o processo (teste e desligamento)
   }
 
   return { iniciar, atualizar, agendarAtualizacaoReativa };
 }
 
-module.exports = { criarPainelCanal, comRetry };
+module.exports = { criarPainelCanal, comRetry, permissoesLideranca };

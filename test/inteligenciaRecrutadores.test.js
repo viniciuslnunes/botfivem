@@ -42,13 +42,14 @@ test.after(async () => { await banco.pglite.close(); });
 
 test('formatação: tempo desde, tendência, meta, fração e horários', () => {
   const agora = new Date();
+  const atras = ms => new Date(agora.getTime() - ms); // relativo a `agora`: com Date.now() os ms de folga faziam '19min' sob carga
   assert.equal(I.tempoDesde(null, agora), '—');
   assert.equal(I.tempoDesde(atras(20 * 60000), agora), '20min');
   assert.equal(I.tempoDesde(atras(3 * HORA), agora), '3h');
   assert.equal(I.tempoDesde(atras(4 * DIA + HORA), agora), '4d');
   assert.equal(I.tempoDesde(atras(400 * DIA), agora), '99d+');
   assert.equal(I.celulaOnline({ idFivem: '1', online: true }, agora), 'agora');
-  assert.equal(I.celulaOnline({ idFivem: '1', online: false, ultimaConexao: { em: atras(2 * DIA) } }, agora), '2d');
+  assert.equal(I.celulaOnline({ idFivem: '1', online: false, ultimaConexao: { em: new Date(agora.getTime() - 2 * DIA) } }, agora), '2d'); // relativo a `agora`: com atras() os ms de folga faziam '1d' sob carga
   assert.equal(I.celulaOnline({ idFivem: null }, agora), '—');
   assert.equal(I.celulaTendencia(7, 4), '▲3');
   assert.equal(I.celulaTendencia(2, 6), '▼4');

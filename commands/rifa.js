@@ -125,7 +125,7 @@ async function encerrar(interaction) {
   await atualizarMensagemRifa(interaction.client, rifa.id).catch(err => console.error('[rifas] Erro ao atualizar mensagem:', err));
   const pendentes = await repo.comprasPendentes(rifa.id);
   await registrarLogGestao(interaction.client, {
-    titulo: `🟡 RIFA #${rifa.id} ENCERRADA — ${rifa.titulo.toUpperCase()}`,
+    titulo: `${tema.emoji.alerta} RIFA #${rifa.id} ENCERRADA — ${rifa.titulo.toUpperCase()}`,
     ator: interaction.user.id,
     campos: [
       { name: 'VENDIDOS', value: `${rifa.vendidos}/${rifa.total_numeros}`, inline: true },
@@ -133,7 +133,7 @@ async function encerrar(interaction) {
     ],
   });
   return interaction.editReply({
-    content: `🟡 VENDAS DA RIFA #${rifa.id} ENCERRADAS. ${pendentes.length
+    content: `${tema.emoji.alerta} VENDAS DA RIFA #${rifa.id} ENCERRADAS. ${pendentes.length
       ? `Há ${pendentes.length} compra${pendentes.length !== 1 ? 's' : ''} aguardando pagamento ou conferência: resolva antes de sortear.`
       : 'Já dá para sortear com `/rifa sortear`.'}`,
   });

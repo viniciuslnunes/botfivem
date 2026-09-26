@@ -62,6 +62,7 @@ module.exports = {
     associadoEmAtencao: '1547740103097589811', // 🚨・associado-em-atencao: hoje sem fluxo automático do bot (canal manual da liderança)
     sugestoes: null, // 💡・sugestões: preencher com o ID do canal (recrutador+ envia, sócio+ vota). null = painel não é postado
     divulgacaoRecrutamento: null, // canal onde os recrutadores postam a divulgação (flyer). null = sem sequência/rodízio; preencher com o ID do canal
+    atualizacoes: '1442278983847641250', // 🤖・atualizações: novidades do bot e mudanças de regra, postadas sozinhas (null = sem canal)
     telefoneSocio: '1330996902887555133', // 📞・telefone-narnia (nome no Discord): recebe o telefone do novo sócio aprovado no recrutamento
   },
 

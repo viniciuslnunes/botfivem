@@ -34,6 +34,7 @@ module.exports = [
   require('./caravana'),
   require('./loja'),
   require('./rifas'),
+  require('./sorteios'), // depende do registro diário (logsJogo), não da rifa paga
   require('./patrimonio'),
   require('./memoria'),
   // Pessoas e hierarquia
@@ -46,5 +47,8 @@ module.exports = [
   require('./advertenciaRecrutadorAuto'),
   require('./recrutamento'),
   require('./sugestoes'),
+  require('./meritoRecrutadores'),
+  require('./inteligencia'), // por último entre os que cruzam dados: lê tabelas de todos
+  require('./atualizacoes'), // depois de todos: o catálogo filtra pelos módulos ligados
   require('./testes'),
 ];

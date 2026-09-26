@@ -13,6 +13,7 @@
     "conformidade:atualizar": "node tools/atualizar-conformidade.js",
     "novo-tenant": "node tools/novo-tenant.js",
     "modulos": "node tools/instantaneo.js",
+    "catalogo": "node tools/catalogo.js",
     "testar:node": "node tools/testar-em-node.js",
     "auditar": "npm audit --omit=dev"
   },

@@ -30,8 +30,10 @@ async function carregarBloqueios(client) {
   const canal = await client.channels.fetch(config.canais.historicoNaoRecrutar).catch(() => null);
   if (!canal?.isTextBased()) throw new Error('Canal de histórico de não recrutar não encontrado.');
 
+  const historico = await lerHistoricoCompleto(canal);
+  require('./naoRecrutarEspelho').espelhar(historico); // tabela para cruzar dados; não espera
   const porId = new Map();
-  for (const msg of await lerHistoricoCompleto(canal)) {
+  for (const msg of historico) {
     const id = idDoBloqueio(msg);
     if (!id) continue;
     if (!porId.has(id)) porId.set(id, []);

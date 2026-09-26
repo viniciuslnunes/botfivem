@@ -213,6 +213,10 @@ async function processarReprovacao(interaction, fichaId) {
       permiteReenvio,
     }, embedOriginal).catch(err => console.error('[recrutamento] Erro ao registrar reprovação:', err));
     if (!permiteReenvio) agendarAtualizacaoReprovados(interaction.client);
+    require('../barramento').emitir('ficha.decidida', {
+      client: interaction.client, fichaId, status: 'REPROVADO', decididaPorId: interaction.user.id, discordId: dados.discordId ?? null,
+      idFivem: dados.idFivem ?? null, permiteReenvio,
+    });
     if (dados.discordId) {
       await registrarSinal(interaction.client, { discordId: dados.discordId, sinal: 'REPROVACAO', origemTipo: 'ficha', origemId: fichaId })
         .catch(err => console.error('[recrutamento] Erro ao registrar sinal de confiança:', err));

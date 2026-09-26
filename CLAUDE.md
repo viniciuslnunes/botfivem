@@ -16,6 +16,7 @@ torcida** (um tenant): mesmo código, cores, marca, módulos e IDs próprios.
 | `utils/` | regra de negócio por domínio (`regras.js` puro, `repositorio.js` SQL, `interacoes.js` Discord) |
 | `commands/` | slash commands (cada arquivo pertence a um módulo) |
 | `tools/` | conformidade, retrato de módulos, novo tenant |
+| `atualizacoes/` | catálogo de atualizações: uma entrada por entrega, postada sozinha no canal 🤖・atualizações (`docs/contratos/atualizacoes.md`) |
 | `docs/contratos/` | contratos compartilhados (leia antes de mexer) |
 | `.claude/agents/` | agentes por área |
 
@@ -61,7 +62,8 @@ npm run conformidade        # relatório do guardião (baseline em test/conformi
 npm run conformidade:atualizar   # SÓ depois de migrar código (o número caiu)
 npm run test:integracao     # repositórios contra Postgres em memória
 npm run modulos             # retrato do que sobe: TENANT=<slug> npm run modulos
-npm run novo-tenant -- --slug x --guild <ID> --nome "Nome"
+npm run novo-tenant -- --slug x --guild <ID> --nome "Nome" [--proibir preto,azul]
+npm run catalogo            # JSON para a loja: módulos e torcidas (docs/loja/)
 npm run deploy              # registra os comandos dos módulos ligados (chama o Discord!)
 npm start
 ```
@@ -81,4 +83,6 @@ antes de dar como pronto) · `midias-sociais` (departamento de mídias).
 ## Terminado significa
 
 `npm run lint` e `npm test` verdes, guardião sem violação nova, e — se mexeu em
-SQL — `npm run test:integracao`. Diga o que rodou.
+SQL — `npm run test:integracao`. Diga o que rodou. Mudou o que o usuário do servidor
+vê ou uma regra de negócio? Acrescente a entrada em `atualizacoes/` (é o que sai no
+canal de atualizações).

@@ -146,6 +146,17 @@ const MIGRACOES = [
   },
   { modulo: 'recrutamento', nome: 'idx_mantos_candidato', sql: 'CREATE INDEX IF NOT EXISTS idx_mantos_candidato ON mantos_avaliados (candidato_id, enviado_em DESC)' },
   {
+    // Manto ERRADO vira um "caso": motivo (categoria de reprovação) + card no canal do motivo.
+    // Resolvido = liderança deu o caso por tratado (o card fica no canal, só muda de estado).
+    modulo: 'recrutamento', nome: 'mantos_avaliados.caso',
+    sql: `ALTER TABLE mantos_avaliados
+      ADD COLUMN IF NOT EXISTS motivo TEXT,
+      ADD COLUMN IF NOT EXISTS caso_canal_id TEXT,
+      ADD COLUMN IF NOT EXISTS caso_message_id TEXT,
+      ADD COLUMN IF NOT EXISTS caso_resolvido_por_id TEXT,
+      ADD COLUMN IF NOT EXISTS caso_resolvido_em TIMESTAMPTZ`,
+  },
+  {
     // Posts de divulgação no canal de recrutamento: quem postou e quando (sequência/rodízio).
     modulo: 'recrutamento', nome: 'divulgacoes_recrutamento',
     sql: `CREATE TABLE IF NOT EXISTS divulgacoes_recrutamento (
@@ -539,6 +550,255 @@ const MIGRACOES = [
     sql: `CREATE TABLE IF NOT EXISTS recrutadores_cargo (
       discord_id TEXT PRIMARY KEY,
       desde TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    // Espelho consultável da lista "não recrutar" (a fonte segue sendo o canal de histórico)
+    modulo: 'bloqueioId', nome: 'nao_recrutar',
+    sql: `CREATE TABLE IF NOT EXISTS nao_recrutar (
+      id_fivem TEXT PRIMARY KEY,
+      ativo BOOLEAN NOT NULL DEFAULT true,
+      motivo TEXT,
+      autor_id TEXT,
+      message_id TEXT,
+      bloqueado_em TIMESTAMPTZ,
+      vezes INT NOT NULL DEFAULT 1,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    // Ticket: quando abriu, quando a equipe respondeu e quando fechou (tempo de atendimento)
+    modulo: 'ticket', nome: 'tickets_registro',
+    sql: `CREATE TABLE IF NOT EXISTS tickets_registro (
+      canal_id TEXT PRIMARY KEY,
+      categoria TEXT NOT NULL,
+      aberto_por_id TEXT NOT NULL,
+      aberto_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      primeira_resposta_em TIMESTAMPTZ,
+      fechado_em TIMESTAMPTZ,
+      fechado_por_id TEXT
+    )`,
+  },
+  {
+    // Cada alerta da inteligência é um caso: aberto, resolvido (por alguém ou sozinho), ignorado ou expirado
+    modulo: 'inteligencia', nome: 'inteligencia_casos',
+    sql: `CREATE TABLE IF NOT EXISTS inteligencia_casos (
+      id BIGSERIAL PRIMARY KEY,
+      tipo TEXT NOT NULL,
+      chave TEXT NOT NULL,
+      alvo_discord_id TEXT,
+      dados JSONB NOT NULL DEFAULT '{}'::jsonb,
+      canal_id TEXT,
+      message_id TEXT,
+      status TEXT NOT NULL DEFAULT 'ABERTO',
+      resolvido_por_id TEXT,
+      resolucao TEXT,
+      aberto_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      fechado_em TIMESTAMPTZ
+    )`,
+  },
+  { modulo: 'inteligencia', nome: 'idx_inteligencia_casos', sql: 'CREATE INDEX IF NOT EXISTS idx_inteligencia_casos ON inteligencia_casos (status, tipo, aberto_em)' },
+  {
+    // Resumo por associado, recalculado por varredura: ADV, restrições, tempo jogado, contribuição, risco
+    modulo: 'inteligencia', nome: 'associado_resumo',
+    sql: `CREATE TABLE IF NOT EXISTS associado_resumo (
+      discord_id TEXT PRIMARY KEY,
+      id_fivem TEXT,
+      risco INT NOT NULL DEFAULT 0,
+      dados JSONB NOT NULL DEFAULT '{}'::jsonb,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    // Sorteio de brindes entre quem colou no dia (lista do registro diário) ou só entre números 1..N
+    modulo: 'sorteios', nome: 'sorteios',
+    sql: `CREATE TABLE IF NOT EXISTS sorteios (
+      id BIGSERIAL PRIMARY KEY,
+      titulo TEXT NOT NULL,
+      origem TEXT NOT NULL CHECK (origem IN ('REGISTRO', 'NUMEROS')),
+      dia DATE,
+      total_numeros INT NOT NULL CHECK (total_numeros >= 1),
+      status TEXT NOT NULL DEFAULT 'ABERTO' CHECK (status IN ('ABERTO', 'CONCLUIDO', 'CANCELADO')),
+      criado_por TEXT NOT NULL,
+      canal_id TEXT,
+      message_id TEXT,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      concluido_em TIMESTAMPTZ
+    )`,
+  },
+  {
+    // Foto da lista no momento da criação: o número de cada jogador não muda depois (verificável)
+    modulo: 'sorteios', nome: 'sorteio_participantes',
+    sql: `CREATE TABLE IF NOT EXISTS sorteio_participantes (
+      sorteio_id BIGINT NOT NULL REFERENCES sorteios(id) ON DELETE CASCADE,
+      numero INT NOT NULL,
+      id_jogo TEXT NOT NULL,
+      nome TEXT NOT NULL,
+      discord_id TEXT,
+      PRIMARY KEY (sorteio_id, numero)
+    )`,
+  },
+  {
+    // Prêmios em ordem; numero preenchido = já sorteado (o índice único garante que um número não sai duas vezes)
+    modulo: 'sorteios', nome: 'sorteio_premios',
+    sql: `CREATE TABLE IF NOT EXISTS sorteio_premios (
+      id BIGSERIAL PRIMARY KEY,
+      sorteio_id BIGINT NOT NULL REFERENCES sorteios(id) ON DELETE CASCADE,
+      ordem INT NOT NULL,
+      descricao TEXT NOT NULL,
+      numero INT,
+      sorteado_em TIMESTAMPTZ,
+      notificado BOOLEAN NOT NULL DEFAULT false
+    )`,
+  },
+  {
+    modulo: 'sorteios', nome: 'idx_sorteio_premios_numero',
+    sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_sorteio_premios_numero ON sorteio_premios (sorteio_id, numero) WHERE numero IS NOT NULL',
+  },
+  {
+    // Regras de elegibilidade, selo da lista (SHA-256) e onde ficou o registro no histórico
+    modulo: 'sorteios', nome: 'sorteios_regras',
+    sql: `ALTER TABLE sorteios
+      ADD COLUMN IF NOT EXISTS lista_hash TEXT,
+      ADD COLUMN IF NOT EXISTS min_minutos INT,
+      ADD COLUMN IF NOT EXISTS excluir_dias INT,
+      ADD COLUMN IF NOT EXISTS excluidos_minimo INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS excluidos_recentes INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS historico_canal_id TEXT,
+      ADD COLUMN IF NOT EXISTS historico_message_id TEXT,
+      ADD COLUMN IF NOT EXISTS lembretes_entrega INT NOT NULL DEFAULT 0`,
+  },
+  {
+    // Entrega do prêmio (fecha o ciclo depois do sorteio)
+    modulo: 'sorteios', nome: 'sorteio_premios_entrega',
+    sql: `ALTER TABLE sorteio_premios
+      ADD COLUMN IF NOT EXISTS entregue_em TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS entregue_por TEXT`,
+  },
+  {
+    // Trilha de auditoria: cada número que saiu (inclusive os substituídos por ressorteio).
+    // O índice único é a garantia final de que um número nunca sai duas vezes no sorteio.
+    modulo: 'sorteios', nome: 'sorteio_sorteadas',
+    sql: `CREATE TABLE IF NOT EXISTS sorteio_sorteadas (
+      id BIGSERIAL PRIMARY KEY,
+      sorteio_id BIGINT NOT NULL REFERENCES sorteios(id) ON DELETE CASCADE,
+      premio_id BIGINT NOT NULL,
+      numero INT NOT NULL,
+      tipo TEXT NOT NULL CHECK (tipo IN ('SORTEIO', 'RESSORTEIO')),
+      por TEXT NOT NULL,
+      restantes INT NOT NULL,
+      em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    modulo: 'sorteios', nome: 'idx_sorteio_sorteadas_numero',
+    sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_sorteio_sorteadas_numero ON sorteio_sorteadas (sorteio_id, numero)',
+  },
+  {
+    // Mérito de recrutadores: ciclos de 8 semanas com ranking, indicação e votação da liderança.
+    // status do ciclo: ABERTO → FECHADO (sombra) | EM_VOTACAO → CONCLUIDO. `config` congela meta/piso/versão.
+    modulo: 'meritoRecrutadores', nome: 'merito_ciclos',
+    sql: `CREATE TABLE IF NOT EXISTS merito_ciclos (
+      id SERIAL PRIMARY KEY,
+      numero INT NOT NULL UNIQUE,
+      inicio TIMESTAMPTZ NOT NULL,
+      fim TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ABERTO',
+      sombra BOOLEAN NOT NULL DEFAULT false,
+      versao_regras INT NOT NULL DEFAULT 1,
+      config JSONB NOT NULL DEFAULT '{}'::jsonb,
+      votacao_ate TIMESTAMPTZ,
+      prorrogada BOOLEAN NOT NULL DEFAULT false,
+      fechado_em TIMESTAMPTZ,
+      concluido_em TIMESTAMPTZ,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    modulo: 'meritoRecrutadores', nome: 'merito_semanas',
+    sql: `CREATE TABLE IF NOT EXISTS merito_semanas (
+      ciclo_id INT NOT NULL REFERENCES merito_ciclos(id) ON DELETE CASCADE,
+      discord_id TEXT NOT NULL,
+      semana SMALLINT NOT NULL,
+      brutos INT NOT NULL DEFAULT 0,
+      validos INT NOT NULL DEFAULT 0,
+      pendentes INT NOT NULL DEFAULT 0,
+      suspeitos INT NOT NULL DEFAULT 0,
+      retidos INT NOT NULL DEFAULT 0,
+      meta INT NOT NULL DEFAULT 0,
+      dispensada BOOLEAN NOT NULL DEFAULT false,
+      bateu BOOLEAN NOT NULL DEFAULT false,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (ciclo_id, discord_id, semana)
+    )`,
+  },
+  {
+    modulo: 'meritoRecrutadores', nome: 'merito_resultado',
+    sql: `CREATE TABLE IF NOT EXISTS merito_resultado (
+      ciclo_id INT NOT NULL REFERENCES merito_ciclos(id) ON DELETE CASCADE,
+      discord_id TEXT NOT NULL,
+      pontos NUMERIC(6, 1) NOT NULL DEFAULT 0,
+      bonus NUMERIC(4, 1) NOT NULL DEFAULT 0,
+      posicao INT,
+      elegivel BOOLEAN NOT NULL DEFAULT false,
+      motivos JSONB NOT NULL DEFAULT '[]'::jsonb,
+      indicado BOOLEAN NOT NULL DEFAULT false,
+      decisao TEXT,
+      decisao_por TEXT,
+      decisao_em TIMESTAMPTZ,
+      detalhe JSONB NOT NULL DEFAULT '{}'::jsonb,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (ciclo_id, discord_id)
+    )`,
+  },
+  {
+    // indicado_id NULL = abstenção. Um voto por pessoa da liderança (troca até o prazo).
+    modulo: 'meritoRecrutadores', nome: 'merito_votos',
+    sql: `CREATE TABLE IF NOT EXISTS merito_votos (
+      ciclo_id INT NOT NULL REFERENCES merito_ciclos(id) ON DELETE CASCADE,
+      votante_id TEXT NOT NULL,
+      indicado_id TEXT,
+      votado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (ciclo_id, votante_id)
+    )`,
+  },
+  {
+    modulo: 'meritoRecrutadores', nome: 'merito_vetos',
+    sql: `CREATE TABLE IF NOT EXISTS merito_vetos (
+      ciclo_id INT NOT NULL REFERENCES merito_ciclos(id) ON DELETE CASCADE,
+      indicado_id TEXT NOT NULL,
+      vetado_por TEXT NOT NULL,
+      motivo TEXT NOT NULL,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (ciclo_id, indicado_id)
+    )`,
+  },
+  {
+    // tipo: rajada · circulo · alvo_bloqueado · pico (fraude) | dispensa (pedido de semana dispensada).
+    // status: PENDENTE, APROVADA, NEGADA, INFORMATIVA (só aviso, sem decisão).
+    modulo: 'meritoRecrutadores', nome: 'merito_revisoes',
+    sql: `CREATE TABLE IF NOT EXISTS merito_revisoes (
+      id SERIAL PRIMARY KEY,
+      ciclo_id INT NOT NULL REFERENCES merito_ciclos(id) ON DELETE CASCADE,
+      discord_id TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      chave TEXT NOT NULL,
+      semana SMALLINT,
+      detalhe JSONB NOT NULL DEFAULT '{}'::jsonb,
+      status TEXT NOT NULL DEFAULT 'PENDENTE',
+      decidido_por TEXT,
+      decidido_em TIMESTAMPTZ,
+      criada_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (ciclo_id, discord_id, tipo, chave)
+    )`,
+  },
+  {
+    modulo: 'meritoRecrutadores', nome: 'merito_selos',
+    sql: `CREATE TABLE IF NOT EXISTS merito_selos (
+      ciclo_id INT NOT NULL REFERENCES merito_ciclos(id) ON DELETE CASCADE,
+      discord_id TEXT NOT NULL,
+      selo TEXT NOT NULL,
+      PRIMARY KEY (ciclo_id, discord_id, selo)
     )`,
   },
 ];

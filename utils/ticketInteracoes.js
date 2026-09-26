@@ -41,6 +41,7 @@ registrarModulo('select_categoria_ticket', async interaction => {
   await interaction.deferUpdate();
 
   const canal = await criarCanalTicket(interaction.guild, interaction.user, categoria);
+  require('./ticketRegistro').abrir(canal.id, categoria, interaction.user.id);
 
   const avisoPrivado = categoria === 'denuncia_diretor'
     ? '\n> 🔒 ESTE TICKET É **PRIVADO** — MEMBROS COM CARGO DIRETOR NÃO TÊM ACESSO.'
@@ -68,6 +69,7 @@ registrarModulo('select_categoria_ticket', async interaction => {
   });
 
   await interaction.editReply({ content: `🦅 TICKET CRIADO: ${canal}`, components: [] });
+  require('./barramento').emitir('ticket.aberto', { client: interaction.client, canal, categoria, usuario: interaction.user, guild: interaction.guild });
   return;
 });
 
@@ -78,6 +80,10 @@ registrarModulo('fechar_ticket', async interaction => {
 
   await interaction.deferReply({ flags: 64 });
   await interaction.editReply({ content: '⏳ GERANDO TRANSCRIPT E FECHANDO TICKET...' });
+
+  // Dono = quem tem permissão própria no canal (não é o bot nem um cargo)
+  const dono = canal.permissionOverwrites?.cache?.find(o => o.type === 1 && o.id !== interaction.client.user.id);
+  await require('./ticketRegistro').fechar(canal, interaction.user.id, dono?.id ?? null);
 
   try {
     const html = await gerarTranscript(canal);

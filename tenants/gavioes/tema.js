@@ -18,6 +18,7 @@ module.exports = {
     inativo: '⚪',
     perigo: '🔴',
     aviso: '⚠️',
+    alerta: '🟡',
     pendente: '⏳',
     recusado: '❌',
     marca: '🦅',

@@ -17,6 +17,7 @@
 | `DATABASE_POOL_MAX` | não | conexões do pool (1–100) |
 | `LOG_FORMATO` | não | `texto` (default) ou `json` |
 | `HEALTH_PORT` / `HEALTH_HOST` | não | liga `GET /health` |
+| `CONTROLE_URL` / `CONTROLE_TOKEN` / `CONTROLE_INTERVALO_SEG` | não | batida de vida para a loja (`docs/loja/README.md`); só liga com `CONTROLE_URL`; intervalo padrão 60 s, mínimo 10 |
 
 Segredo (token, senha do banco) só em variável de ambiente ou secret do
 orquestrador — nunca em `tenants/`, nunca em log. Modelo: `.env.example`.

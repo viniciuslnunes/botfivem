@@ -27,6 +27,10 @@ const REGRAS = {
     descricao: 'Emoji de estado verde (🟢 ✅ 💚 🟩) fora do tema',
     regex: /🟢|✅|💚|🟩/gu,
   },
+  emojiCor: {
+    descricao: 'Emoji de cor (🔴 🟡 ⚫ ⚪ 🔵 🖤 ❤️ …) fora do tema: cor de estado é da torcida, que pode proibi-la',
+    regex: /[⚫⚪⬛⬜❤♥]|[🔴🔵🟡🟣🟠🟤🟥🟦🟨🟧🟪🟫🖤🤍💙💛🧡💜🔶🔷]/gu,
+  },
   marca: {
     descricao: 'Marca de torcida/servidor de jogo cravada no código',
     regex: /gavi[õo]es|\bGDF\b|R\.S\.J|\bRSJ\b|hoolibras|narnia|corinthians|\bfiel\b|linktr\.ee|discord\.gg/gi,

@@ -36,7 +36,7 @@ const REGRA_NAO_VENDIDO_CHOICES = [
 
 const STATUS_RIFA = {
   ABERTA: { rotulo: 'Vendendo', emoji: tema.emoji.ativo },
-  ENCERRADA: { rotulo: 'Vendas encerradas', emoji: '🟡' },
+  ENCERRADA: { rotulo: 'Vendas encerradas', emoji: tema.emoji.alerta },
   SORTEADA: { rotulo: 'Sorteada', emoji: '🏆' },
   CANCELADA: { rotulo: 'Cancelada', emoji: '❌' },
 };

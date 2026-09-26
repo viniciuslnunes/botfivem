@@ -7,6 +7,10 @@ module.exports = {
   exige: { canais: ['historicoAdv', 'advPendentes'], cargos: ['adv'] },
   carregar() {
     require('../utils/advertencia/interacoes');
+    require('../utils/advertencia/pendencias'); // registra o lembrete de prazo
+  },
+  aoIniciar(client) {
+    require('../utils/advertencia/pendencias').iniciarPainel(client); // ⏳・pagamentos-pendentes
   },
   // Impedimento/advertência do painel do jogo e depósito no baú viram advertência (pipeline de logs)
   painelLog: {

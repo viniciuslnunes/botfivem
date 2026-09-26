@@ -10,6 +10,7 @@ const R = require('./automaticaRegras');
 const repo = require('./repositorio');
 const { mencoesDoSocio } = require('./mencoes');
 const { enviarNoCanal } = require('./envio');
+const pendencias = require('./pendencias');
 const { camposDeContexto, alertarRestricaoComPendencia } = require('./contexto');
 
 const ROTULO_ORIGEM = { impedimento: 'IMPEDIMENTO', advertido: 'ADVERTÊNCIA' };
@@ -61,6 +62,9 @@ async function abrir(client, registro, g) {
     prazoEm, status: nivel === 3 ? 'CARGO_REMOVIDO' : 'ATIVA',
   });
   if (!linha) return null; // mesmo log reprocessado
+  require('../barramento').emitir('adv.registrada', {
+    client, membro, nivel, origem: 'jogo', motivo, registradoPor: registro.atorNome ?? null, advId: linha.id,
+  });
 
   const base = campoMembro(membro, registro, g.origem);
   const quando = { name: 'DATA', value: `<t:${agoraSeg()}:F>`, inline: false };
@@ -94,10 +98,12 @@ async function abrir(client, registro, g) {
         variante: 'socio', advId: linha.id, membroId: membro.id, cargoAdv: cargosAdv[1], numAdv: 2,
         motivo, punicao: `Pagar ${exigido}`, prazoLabel: '2 DIAS', expiraEm,
       });
+      await pendencias.agendarLembrete(linha, prazoEm).catch(err => console.error('[adv-auto] Erro ao agendar lembrete:', err));
     } catch (err) {
       console.error('[adv-auto] Erro ao agendar vencimento:', err);
       await enviar(guild, config.canais.advPendentes, { color: tema.cor.perigo, title: '⚠️ VENCIMENTO NÃO AGENDADO', description: `Acompanhe manualmente o prazo de <@${membro.id}>.` }, mencoes);
     }
+    pendencias.pendenciaMudou(client);
   } else {
     await enviar(guild, config.canais.historicoAdv, {
       color: tema.cor.perigo,
@@ -125,6 +131,7 @@ async function fechar(client, registro, g) {
   await baixarCargo(membro, linha.nivel);
   const fechada = await repo.encerrar(linha.id, 'REMOVIDA', `${ROTULO_ORIGEM[g.origem]} retirado no painel${registro.atorNome ? ` por ${registro.atorNome}` : ''}`);
   if (!fechada) return null;
+  if (linha.prazo_em) pendencias.pendenciaMudou(client, { advId: linha.id, encerrada: true });
   await enviar(guild, config.canais.historicoAdv, {
     color: tema.cor.primaria,
     title: `🦅 ${linha.nivel}ª ADVERTÊNCIA REMOVIDA`,
@@ -146,12 +153,13 @@ async function pagar(client, registro, item) {
     if (new Date(registro.ocorridoEm) > new Date(linha.prazo_em)) continue;  // fora do prazo
     const { pago, falta, quitado } = R.aplicarPagamento(linha.pago ?? {}, item, registro.valor);
     await repo.gravarPagamento(linha.id, pago);
-    if (!quitado) continue;
+    if (!quitado) { pendencias.pendenciaMudou(client); continue; }
 
     const { guild, membro } = await sociosPorIdFivem(client, idFivem);
     await baixarCargo(membro, 2);
     const fechada = await repo.encerrar(linha.id, 'PAGA', `Pago no baú: ${Object.entries(pago).map(([i, q]) => `${q} ${i}`).join(', ')}`);
     if (!fechada) continue;
+    pendencias.pendenciaMudou(client, { advId: linha.id, encerrada: true });
     await enviar(guild, config.canais.advPendentes, {
       color: tema.cor.primaria,
       title: '🦅 2ª ADVERTÊNCIA PAGA E REMOVIDA',

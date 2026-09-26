@@ -9,6 +9,13 @@ const SINAIS_CONFIANCA = {
   APROVACAO: { peso: 20, rotulo: 'Admissão aprovada' },
   REPROVACAO: { peso: -40, rotulo: 'Solicitação reprovada' },
   RIFA_ACERTO: { peso: 20, teto: 20, janelaDias: 30, rotulo: 'Acerto de rifa em dia' },
+  // Conduta (alimentados pela varredura de inteligência; teto negativo = piso da queda)
+  ADV_SOCIO: { peso: -15, teto: -45, janelaDias: 90, rotulo: 'Advertência de sócio' },
+  ADV_PAGA_EM_DIA: { peso: 10, teto: 20, janelaDias: 90, rotulo: 'Advertência paga no prazo' },
+  ADV_VENCIDA: { peso: -30, rotulo: 'Advertência vencida sem pagar' },
+  RESTRICAO_JOGO: { peso: -20, teto: -40, janelaDias: 90, rotulo: 'Restrição no jogo' },
+  NOVATO_ATIVO: { peso: 10, rotulo: 'Ativo na primeira semana' },
+  TEMPO_DE_CASA: { peso: 10, rotulo: 'Tempo de casa (a cada 60 dias, até 3×)' },
 };
 
 const NIVEIS_CONFIANCA = [
@@ -20,6 +27,9 @@ const NIVEIS_CONFIANCA = [
 
 // Liderança opera desde o dia 1: piso de nível, sem inflar o score
 const PISO_NIVEL_LIDERANCA = 2;
+
+// Teto positivo limita a subida; teto negativo limita a queda (a soma nunca passa dele)
+const limitar = (soma, teto) => (teto >= 0 ? Math.min(soma, teto) : Math.max(soma, teto));
 
 // eventos: [{ sinal, peso, criado_em }]
 function calcularScore(eventos, agora = new Date()) {
@@ -40,7 +50,7 @@ function calcularScore(eventos, agora = new Date()) {
     const limite = agora.getTime() - def.janelaDias * DIA_MS;
     const recentes = lista.filter(e => new Date(e.criado_em).getTime() >= limite);
     const antigos = lista.filter(e => new Date(e.criado_em).getTime() < limite);
-    total += Math.min(soma(recentes), def.teto) + Math.min(soma(antigos) * 0.5, def.teto);
+    total += limitar(soma(recentes), def.teto) + limitar(soma(antigos) * 0.5, def.teto);
   }
   return Math.max(0, Math.min(100, Math.round(total)));
 }

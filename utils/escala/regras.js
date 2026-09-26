@@ -39,7 +39,7 @@ function pendenciasEscala({ escala, inicioEm, agora = new Date() }) {
 }
 
 function textoPendencias(pendencias) {
-  return pendencias.map(p => `${p.gravidade === 'alta' ? '🔴' : '🟡'} ${p.texto}`).join('\n');
+  return pendencias.map(p => `${p.gravidade === 'alta' ? tema.emoji.perigo : tema.emoji.alerta} ${p.texto}`).join('\n');
 }
 
 module.exports = { FUNCOES_ESCALA, FUNCAO_CHOICES, ICONE_STATUS, rotuloFuncao, pendenciasEscala, textoPendencias };

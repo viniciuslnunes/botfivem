@@ -4,6 +4,7 @@ const {
 const config = require('../../config/index.js');
 const { lerConfig, gravarConfig } = require('../botConfig');
 const { buscarBloqueio } = require('../naoRecrutar');
+const { jaAlertadoRecentemente } = require('../alertaPersistente');
 const { garantirMembrosCarregados } = require('../membrosGuild');
 const { buscarDepartamento } = require('../departamentos/repositorio');
 const repo = require('./repositorio');
@@ -44,8 +45,6 @@ async function garantirCanalAlertaBau(client) {
 // Alerta avisa quem decide; não pune nem concede nada sozinho.
 
 const JANELA_REPETICAO_MS = 6 * 60 * 60 * 1000;
-const ultimosAlertasBloqueio = new Map(); // idFivem -> timestamp
-const ultimosAlertasAtencao = new Map(); // 'tipo:idFivem' -> timestamp
 
 function mencoes() {
   return config.logsJogo.mencionarAlertas.map(id => `<@&${id}>`).join(' ');
@@ -91,14 +90,10 @@ function autorizadoParaTirarFarm(membro, area) {
 // advertido no Discord (REGRAS abaixo), ou o Discord acabou de advertir um
 // sócio que já está com restrição ativa no jogo (verificarRestricaoAoAdvertir,
 // chamada por utils/advertencia/interacoes.js). Um debounce só
-// (`ultimosAlertasAtencao`, por tipo+ID) cobre as duas: se uma direção já
+// (alertas_enviados, por tipo+ID, sobrevive a reinício) cobre as duas: se uma direção já
 // alertou por essa restrição há pouco, a outra não repete o aviso.
-function alertaAtencaoJaEnviado(tipo, idFivem) {
-  const chave = `${tipo}:${idFivem}`;
-  const ultimo = ultimosAlertasAtencao.get(chave);
-  if (ultimo && Date.now() - ultimo < JANELA_REPETICAO_MS) return true;
-  ultimosAlertasAtencao.set(chave, Date.now());
-  return false;
+async function alertaAtencaoJaEnviado(tipo, idFivem) {
+  return jaAlertadoRecentemente('atencao_socio', `${tipo}:${idFivem}`, JANELA_REPETICAO_MS);
 }
 
 function embedAtencaoSocio({ titulo, descricao, membro, idFivem, tipo, nivelAdv, bloqueadoNoDiscord }) {
@@ -137,7 +132,7 @@ async function verificarRestricaoAoAdvertir(client, membro) {
     if (!canal) return;
 
     for (const { tipo } of ativas) {
-      if (alertaAtencaoJaEnviado(tipo, idFivem)) continue;
+      if (await alertaAtencaoJaEnviado(tipo, idFivem)) continue;
       let bloqueadoNoDiscord = null;
       if (tipo === 'blacklist') {
         try { bloqueadoNoDiscord = Boolean(await buscarBloqueio(client, idFivem)); } catch { /* segue sem a marca */ }
@@ -201,11 +196,9 @@ const REGRAS = [
     canal: () => config.canais.historicoNaoRecrutar,
     async montar(registro, client) {
       for (const idFivem of [registro.atorIdFivem, registro.alvoIdFivem].filter(Boolean)) {
-        const ultimo = ultimosAlertasBloqueio.get(idFivem);
-        if (ultimo && Date.now() - ultimo < JANELA_REPETICAO_MS) continue;
         const bloqueio = await buscarBloqueio(client, idFivem);
         if (!bloqueio) continue;
-        ultimosAlertasBloqueio.set(idFivem, Date.now());
+        if (await jaAlertadoRecentemente('id_bloqueado', idFivem, JANELA_REPETICAO_MS)) continue;
         const alerta = new EmbedBuilder()
           .setColor(tema.cor.perigo)
           .setTitle('🚫 ID DA LISTA "NÃO RECRUTAR" ATIVO NO JOGO')
@@ -244,7 +237,7 @@ const REGRAS = [
       const membro = guild.members.cache.find(m => E.idFivemDoNick(m.nickname ?? m.displayName) === idFivem);
       if (!membro || !membro.roles.cache.has(config.cargos.socio)) return null;
 
-      if (alertaAtencaoJaEnviado(tipo, idFivem)) return null;
+      if (await alertaAtencaoJaEnviado(tipo, idFivem)) return null;
 
       const nivelAdv = advertenciaAtivaDoMembro(membro);
       let bloqueadoNoDiscord = null;

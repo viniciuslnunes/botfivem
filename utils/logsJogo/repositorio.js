@@ -246,10 +246,12 @@ async function recrutamentosDetalhados(idsFivem, periodo) {
 // cair fora do período escolhido no select e ainda assim contar.
 async function primeiraSaidaPorAlvo(idsAlvo, acoes) {
   if (!idsAlvo.length) return [];
+  // Em saiu_torcida quem saiu é o ATOR ("#2127 Fulano saiu da torcida", sem alvo); nas outras é o alvo
   const res = await db.query(
-    `SELECT alvo_id_fivem AS id, MIN(ocorrido_em) AS saida_em
-       FROM logs_jogo WHERE acao = ANY($1) AND alvo_id_fivem = ANY($2)
-      GROUP BY alvo_id_fivem`,
+    `SELECT id, MIN(em) AS saida_em FROM (
+       SELECT CASE WHEN acao = 'saiu_torcida' THEN ator_id_fivem ELSE alvo_id_fivem END AS id, ocorrido_em AS em
+         FROM logs_jogo WHERE acao = ANY($1)
+     ) s WHERE id = ANY($2) GROUP BY id`,
     [acoes, idsAlvo]
   );
   return res.rows;

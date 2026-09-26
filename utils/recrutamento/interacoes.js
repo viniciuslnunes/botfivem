@@ -84,6 +84,7 @@ registrarModulo('modal_recrutamento', async interaction => {
     await registrarFicha({
       messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador,
     }).catch(err => console.error('[recrutamento] Erro ao registrar ficha:', err));
+    require('./ganchos').emitirFichaEnviada({ mensagem: mensagemFicha, nome, idFivem: id_fivem, discordId: user.id, client: interaction.client });
   } else {
     console.error('Canal de validação de setagem não encontrado!');
   }
@@ -186,6 +187,9 @@ registrarModulo('aprovar_recrutamento', async interaction => {
         .catch(err => console.error('[aprovar] Erro ao registrar decisão da ficha:', err));
       await registrarSinal(client, { discordId: candidatoId, sinal: 'APROVACAO', origemTipo: 'ficha', origemId: fichaId })
         .catch(err => console.error('[aprovar] Erro ao registrar sinal de confiança:', err));
+      require('../barramento').emitir('ficha.decidida', {
+        client, fichaId, status: 'APROVADO', decididaPorId: interaction.user.id, discordId: candidatoId, idFivem: id_fivem,
+      });
       // Divulgar telefone do novo sócio no canal telefone-narnia
       const canalTelefoneSocio = interaction.guild.channels.cache.get(config.canais.telefoneSocio);
       if (canalTelefoneSocio) {

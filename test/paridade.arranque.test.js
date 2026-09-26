@@ -47,6 +47,10 @@ stub('utils/recrutamento/painelConviteWhatsapp.js', { iniciarPainelConviteWhatsa
 stub('utils/recrutamento/painelManto.js', { iniciarPainelManto: () => {}, aoMensagem: async () => false });
 stub('utils/advertenciaRecrutadorAuto/varredura.js', { iniciar: () => {} });
 stub('utils/advertenciaRecrutadorAuto/paineis.js', { iniciarPaineis: () => {}, atualizarAdvertidos: () => {} });
+stub('utils/merito/paineis.js', { iniciarPaineis: () => {} });
+stub('utils/merito/servico.js', { iniciar: () => {} });
+stub('utils/advertencia/pendencias.js', { iniciarPainel: () => {}, pendenciaMudou: () => {}, agendarLembrete: async () => null });
+stub('utils/atualizacoes/publicador.js', { publicarPendentes: async () => ({ postadas: 0, silenciadas: 0 }) });
 stub('utils/sugestoes/painel.js', { garantirPainelNoFim: async () => {} });
 stub('utils/recrutamento/mensagemFixa.js', { garantirMensagemRecrutamento: rotina('garantirMensagemRecrutamento', undefined) });
 const ticketReal = require('../utils/ticket');

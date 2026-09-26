@@ -36,8 +36,8 @@ async function listarSituacao(interaction) {
       description: linhas.join('\n') || '*Nenhuma carteirinha nesta situação.*',
       fields: [
         { name: `${tema.emoji.ativo} VIGENTES`, value: String(contagem.VIGENTE), inline: true },
-        { name: '🟡 VENCENDO', value: String(contagem.VENCENDO), inline: true },
-        { name: '🔴 VENCIDAS', value: String(contagem.VENCIDA), inline: true },
+        { name: `${tema.emoji.alerta} VENCENDO`, value: String(contagem.VENCENDO), inline: true },
+        { name: `${tema.emoji.perigo} VENCIDAS`, value: String(contagem.VENCIDA), inline: true },
       ],
       footer: { text: `"Vencendo" = até ${config.carteirinha.vencendoDias} dias para vencer` },
     }],

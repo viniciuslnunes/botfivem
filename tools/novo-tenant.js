@@ -1,5 +1,5 @@
 // Cria a pasta de uma torcida nova em modo instalação:
-//   npm run novo-tenant -- --slug mancha-verde --guild 123456789012345678 --nome "Mancha Verde" [--fonte hoolibras] [--dir /caminho/dos/tenants]
+//   npm run novo-tenant -- --slug mancha-verde --guild 123456789012345678 --nome "Mancha Verde" [--fonte hoolibras] [--proibir verde,preto] [--dir /caminho/dos/tenants]
 // Gera <dir>/<slug>/{tenant.js, tema.js, assets/} e diz os próximos passos. Sem --dir
 // usa TENANTS_DIR, ou tenants/ do repositório. Para vender: mantenha os tenants dos
 // clientes fora do repositório (TENANTS_DIR).
@@ -32,8 +32,8 @@ function gerarAssetsDeExemplo(pasta) {
   }
 }
 
-function criar({ slug, guild, nome, fonte = 'hoolibras' }, raiz = path.join(__dirname, '..', 'tenants')) {
-  const arquivos = gerarTenantEsqueleto({ slug, guildId: guild, nome, fonte });
+function criar({ slug, guild, nome, fonte = 'hoolibras', proibir }, raiz = path.join(__dirname, '..', 'tenants')) {
+  const arquivos = gerarTenantEsqueleto({ slug, guildId: guild, nome, fonte, proibir });
   const pasta = path.join(raiz, slug);
   if (fs.existsSync(pasta)) throw new Error(`tenants/${slug} já existe — nada foi alterado`);
   fs.mkdirSync(path.join(pasta, 'assets'), { recursive: true });

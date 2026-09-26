@@ -90,7 +90,7 @@ async function ver(interaction) {
     item.emprestimo_evento_id ? eventosRepo.buscarEvento(item.emprestimo_evento_id) : null,
   ]);
   const situacao = item.status === 'BAIXADO'
-    ? `🔴 Baixado <t:${unix(item.baixado_em)}:d> — ${item.baixado_motivo}`
+    ? `${tema.emoji.perigo} Baixado <t:${unix(item.baixado_em)}:d> — ${item.baixado_motivo}`
     : item.emprestimo_id
       ? `📤 Com <@${item.emprestimo_discord_id}> desde <t:${unix(item.emprestimo_saiu_em)}:f>${evento ? ` · para **${evento.titulo}**` : ' · saída avulsa'}`
       : `${tema.emoji.ativo} Guardado`;
@@ -200,12 +200,12 @@ async function baixar(interaction) {
   if (!baixado) return interaction.reply({ content: '⚠️ ESTE ITEM JÁ ESTAVA BAIXADO.', flags: 64 });
   // Baixa preserva o histórico: o item continua no banco, só sai do acervo ativo
   await registrarLogGestao(interaction.client, {
-    titulo: '🔴 BAIXA NO ACERVO',
+    titulo: `${tema.emoji.perigo} BAIXA NO ACERVO`,
     ator: interaction.user.id,
     cor: tema.cor.perigo,
     campos: [{ name: 'ITEM', value: regras.rotuloItem(item), inline: true }, { name: 'MOTIVO', value: motivo, inline: true }],
   });
-  return interaction.reply({ content: `🔴 BAIXA REGISTRADA: ${regras.rotuloItem(item)}.`, flags: 64 });
+  return interaction.reply({ content: `${tema.emoji.perigo} BAIXA REGISTRADA: ${regras.rotuloItem(item)}.`, flags: 64 });
 }
 
 async function pendencias(interaction) {
@@ -217,7 +217,7 @@ async function pendencias(interaction) {
   const agora = new Date();
   const comPendencia = abertos.map(e => ({ e, motivo: regras.pendenciaDoEmprestimo(e, agora) })).filter(x => x.motivo);
   const linhas = comPendencia.map(({ e, motivo }) =>
-    `🔴 ${regras.rotuloItem({ id: e.item_id, nome: e.item_nome, categoria: e.categoria, subtipo: e.subtipo, quantidade: e.quantidade })} · com <@${e.discord_id}> · **${motivo}**${e.evento_titulo ? ` (${e.evento_titulo})` : ''}`);
+    `${tema.emoji.perigo} ${regras.rotuloItem({ id: e.item_id, nome: e.item_nome, categoria: e.categoria, subtipo: e.subtipo, quantidade: e.quantidade })} · com <@${e.discord_id}> · **${motivo}**${e.evento_titulo ? ` (${e.evento_titulo})` : ''}`);
   return interaction.editReply({
     embeds: [{
       color: comPendencia.length ? tema.cor.perigo : tema.cor.primaria,

@@ -13,6 +13,8 @@ module.exports = {
     require('../utils/recrutamento/painelReenvio'); // prefixo "reenvio"
     require('../utils/recrutamento/painelConviteWhatsapp'); // prefixo "convitewa"
     require('../utils/recrutamento/painelManto'); // prefixo "mantoaval" (avaliar foto do manto)
+    // Aprovou com manto errado/sem avaliação/sem foto: avisa o recrutador na ficha
+    require('../utils/barramento').assinar('ficha.decidida', require('../utils/recrutamento/mantoAvisos').aoFichaDecidida);
   },
 
   // Foto no provar-manto ganha botões de correto/errado (não consome a mensagem)

@@ -52,8 +52,31 @@ async function pendentes(discordId = null) {
   return res.rows;
 }
 
+// Últimas 2ªs ADV que saíram da fila de pagamento (paga, vencida, removida)
+async function pagamentosEncerrados(limite = 8) {
+  const res = await db.query(
+    `SELECT * FROM advertencias_socio
+      WHERE nivel = 2 AND prazo_em IS NOT NULL AND status <> 'ATIVA'
+      ORDER BY resolvida_em DESC NULLS LAST LIMIT ${Number(limite)}`
+  );
+  return res.rows;
+}
+
 async function gravarPagamento(id, pago) {
   await db.query('UPDATE advertencias_socio SET pago = $2 WHERE id = $1', [id, pago]);
+}
+
+// ADV manual (cargo dado pela liderança) também vira linha: sem prazo de pagamento (o fluxo de pagamento
+// é o automático), só para histórico, reincidência e métricas. Remover a ADV pelo botão encerra a mais recente.
+async function encerrarManualMaisRecente(discordId, status, resolucao) {
+  const res = await db.query(
+    `UPDATE advertencias_socio SET status = $2, resolucao = $3, resolvida_em = now()
+      WHERE id = (SELECT id FROM advertencias_socio WHERE discord_id = $1 AND origem = 'manual' AND status = 'ATIVA'
+                   ORDER BY criada_em DESC LIMIT 1)
+      RETURNING *`,
+    [discordId, status, resolucao ?? null]
+  );
+  return res.rows[0] ?? null;
 }
 
 // Só sai de ATIVA uma vez: a segunda chamada devolve null (nada a fazer)
@@ -74,4 +97,4 @@ async function historicoDoMembro(discordId) {
   return res.rows;
 }
 
-module.exports = { inserir, recentePorMembro, ativaPorIdFivem, pendentesDePagamento, pendentes, gravarPagamento, encerrar, historicoDoMembro };
+module.exports = { inserir, recentePorMembro, ativaPorIdFivem, pendentesDePagamento, pendentes, pagamentosEncerrados, gravarPagamento, encerrar, historicoDoMembro, encerrarManualMaisRecente };

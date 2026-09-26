@@ -19,12 +19,28 @@ function congelar(obj) {
   return Object.freeze(obj);
 }
 
+// Caminhos ('cor.primaria') que o tenant declarou; o resto veio da base.
+function declarados(obj, prefixo = '', saida = new Set()) {
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) declarados(v, `${prefixo}${k}.`, saida);
+    else saida.add(`${prefixo}${k}`);
+  }
+  return saida;
+}
+
+// Tokens do tema mesclado que o tenant não declarou (herdados da base).
+function herdadosDe(especifico) {
+  const dele = declarados(especifico);
+  const todos = declarados(base);
+  return new Set([...todos].filter(c => !dele.has(c)));
+}
+
 // Constrói o tema a partir do que o tenant sobrescreve e da pasta de assets
 // dele. Falha na hora (com TODOS os problemas) se o tema for inválido — a
 // alternativa seria descobrir cor proibida em produção, num embed.
 function criarTema(especifico, { pastaAssets } = {}) {
   const t = mesclar(base, especifico);
-  const erros = validarTema(t);
+  const erros = validarTema(t, { herdados: herdadosDe(especifico) });
   if (erros.length) {
     throw new Error(`Tema inválido:\n - ${erros.join('\n - ')}`);
   }

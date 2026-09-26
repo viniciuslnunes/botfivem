@@ -1,3 +1,4 @@
+const { MATIZES, TONS } = require('../../tema/validacao');
 // Gera os arquivos de um tenant novo em modo instalação (tenant.js e tema.js).
 // Puro (só devolve texto): quem grava em disco é tools/novo-tenant.js.
 const { SNOWFLAKE } = require('../../config/schema');
@@ -23,13 +24,19 @@ function validarEntrada({ slug, guildId, nome, fonte }) {
   return erros;
 }
 
-function gerarTenantEsqueleto({ slug, guildId, nome, fonte }) {
+// `proibir`: lista de cores que a torcida recusa (matizes: verde, azul…; tons: preto, branco, cinza).
+function gerarTenantEsqueleto({ slug, guildId, nome, fonte, proibir = [] }) {
   const erros = validarEntrada({ slug, guildId, nome, fonte });
   if (erros.length) throw new Error(erros.join('\n'));
 
   const NOME = nome.trim().toUpperCase();
   const Normal = paraTitulo(nome.trim());
   const sigla = siglaDe(nome.trim());
+  const lista = (Array.isArray(proibir) ? proibir : String(proibir).split(',')).map(s => s.trim().toLowerCase()).filter(Boolean);
+  const tons = lista.filter(x => TONS.includes(x));
+  const matizes = lista.filter(x => MATIZES[x]);
+  const desconhecidos = lista.filter(x => !TONS.includes(x) && !MATIZES[x]);
+  if (desconhecidos.length) throw new Error(`cor desconhecida em --proibir: ${desconhecidos.join(', ')}`);
 
   const tenantJs = `// Tenant ${Normal} — MODO INSTALAÇÃO.
 //
@@ -81,7 +88,9 @@ module.exports = {
 
   // Matizes que a torcida NÃO usa (o bot recusa subir se algum token cair neles).
   // Ex.: { matizes: ['verde'] } para uma torcida que não usa verde nunca.
-  proibido: { matizes: [] },
+  // Tons sem matiz (preto, branco, cinza) também podem ser proibidos: { tons: ['preto'] }. A base do
+  // tema é preta e branca: quem proíbe preto precisa declarar imagem/cartao/transcricao próprios.
+  proibido: { matizes: ${JSON.stringify(matizes)}, tons: ${JSON.stringify(tons)} },
 };
 `;
   return { 'tenant.js': tenantJs, 'tema.js': temaJs };

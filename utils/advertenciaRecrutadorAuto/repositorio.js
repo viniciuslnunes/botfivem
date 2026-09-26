@@ -53,22 +53,10 @@ async function historicoDoMembro(discordId) {
   return res.rows;
 }
 
-// Mantos avaliados ERRADO desde `desde`, por quem decidiu a ficha do candidato
-// (mesma resolução do placar: a ficha mais recente até o envio da foto).
+// Mantos ERRADO (não recuperados) das fichas que o recrutador APROVOU. A regra mora em
+// recrutamento/mantoRepositorio: o placar do manto e esta advertência contam igual.
 async function errosDeMantoPorRecrutador(desde) {
-  const res = await db.query(
-    `SELECT f.decidido_por_id AS discord_id, count(*)::int AS total
-       FROM mantos_avaliados m
-       JOIN LATERAL (
-         SELECT decidido_por_id FROM fichas_recrutamento
-          WHERE discord_id = m.candidato_id AND criado_em <= m.enviado_em
-          ORDER BY criado_em DESC LIMIT 1
-       ) f ON true
-      WHERE m.resultado = 'ERRADO' AND m.avaliado_em >= $1 AND f.decidido_por_id IS NOT NULL
-      GROUP BY f.decidido_por_id`,
-    [desde]
-  );
-  return new Map(res.rows.map(r => [r.discord_id, r.total]));
+  return require('../recrutamento/mantoRepositorio').errosEfetivosPorRecrutador(desde);
 }
 
 // Fichas APROVADAS com dado obrigatório faltando, por quem aprovou

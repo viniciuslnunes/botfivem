@@ -141,6 +141,23 @@ registrarModulo('modal_registrar_advertencia', async interaction => {
       const numAdv = proximaAdv + 1;
       const expiraEm = Math.floor(Date.now() / 1000) + prazoNum * 86400;
 
+      // Registro da ADV manual (histórico, reincidência, métricas). Melhor esforço: o cargo já foi dado
+      // e o fluxo da liderança não pode falhar por causa do banco.
+      let linhaManual = null;
+      try {
+        const { idFivemDoNick } = require('../logsJogo/estatisticas');
+        linhaManual = await require('./repositorio').inserir({
+          discordId: membro.id, idFivem: idFivemDoNick(membro.nickname ?? membro.displayName) ?? 'sem-id',
+          nivel: numAdv, origem: 'manual', motivo, registradoPor: interaction.user.id,
+          logMessageId: `manual:${membro.id}:${Date.now()}`, status: 'ATIVA',
+        });
+      } catch (err) {
+        console.error('[adv] Erro ao registrar a advertência manual:', err.message);
+      }
+      require('../barramento').emitir('adv.registrada', {
+        client: interaction.client, membro, nivel: numAdv, origem: 'manual', motivo, registradoPor: interaction.user.id, advId: linhaManual?.id ?? null,
+      });
+
       const embed = {
         color: tema.cor.perigo,
         title: `❌ ADVERTÊNCIA ${numAdv}ª REGISTRADA`,
@@ -166,7 +183,7 @@ registrarModulo('modal_registrar_advertencia', async interaction => {
       // Vencimento pelo agendador persistente: sobrevive a reinício do bot
       try {
         await agendar('adv_vencimento', new Date(Date.now() + prazoMs), {
-          variante: 'socio', membroId, cargoAdv: CARGOS_ADV[proximaAdv], numAdv, motivo, punicao, prazoLabel, expiraEm,
+          variante: 'socio', membroId, cargoAdv: CARGOS_ADV[proximaAdv], numAdv, motivo, punicao, prazoLabel, expiraEm, advId: linhaManual?.id ?? undefined,
         });
       } catch (err) {
         console.error('[adv] Erro ao agendar vencimento:', err);
@@ -225,5 +242,8 @@ registrarModulo('modal_remover_advertencia', async interaction => {
   if (canalHistoricoAdv) await canalHistoricoAdv.send({ content: await mencoesDoSocio(membro.id), embeds: [embed] });
 
   await interaction.reply({ content: `🦅 **${numAdv}ª ADVERTÊNCIA** REMOVIDA DE ${membro}.`, flags: 64 });
+  require('./repositorio').encerrarManualMaisRecente(membro.id, 'REMOVIDA', motivo)
+    .catch(err => console.error('[adv] Erro ao encerrar o registro da advertência manual:', err.message));
+  require('../barramento').emitir('adv.removida', { client: interaction.client, membro, nivel: numAdv });
   return;
 });

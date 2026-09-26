@@ -38,7 +38,10 @@ registrarTipo('adv_vencimento', async (client, p) => {
 
   await membro.roles.remove(variante.cargoPerdido()).catch(() => {});
   // Advertência automática (tabela advertencias_socio): registra o vencimento
-  if (p.advId) await require('./advertencia/repositorio').encerrar(p.advId, 'VENCIDA', 'Prazo de pagamento vencido: cargo de sócio removido').catch(() => {});
+  if (p.advId) {
+    const vencida = await require('./advertencia/repositorio').encerrar(p.advId, 'VENCIDA', 'Prazo de pagamento vencido: cargo de sócio removido').catch(() => null);
+    if (vencida) require('./advertencia/pendencias').pendenciaMudou(client, { advId: p.advId, encerrada: true });
+  }
 
   const canal = await guild.channels.fetch(variante.canal()).catch(() => null);
   if (!canal) return;

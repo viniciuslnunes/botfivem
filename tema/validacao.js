@@ -25,6 +25,18 @@ const EMOJIS_POR_MATIZ = {
   laranja: ['🟠', '🧡', '🟧'],
 };
 
+// Tons sem matiz que uma torcida também pode recusar (mancha que não usa preto,
+// por exemplo). "preto" é escuro e pouco saturado; "branco", muito claro;
+// "cinza" é o resto sem saturação.
+const TONS = ['preto', 'branco', 'cinza'];
+const EMOJIS_POR_TOM = {
+  preto: ['⚫', '⬛', '🖤', '🏴'],
+  branco: ['⚪', '⬜', '🤍', '🏳'],
+  cinza: [],
+};
+const PRETO_LUMINOSIDADE_MAX = 0.13;
+const PRETO_SATURACAO_MAX = 0.35;
+
 const SATURACAO_MINIMA = 0.2;
 const LUMINOSIDADE_MIN = 0.08;
 const LUMINOSIDADE_MAX = 0.92;
@@ -64,6 +76,40 @@ function matizDe(cor) {
   return null;
 }
 
+// Tom sem matiz da cor ('preto' | 'branco' | 'cinza'), ou null se tem matiz.
+function tomDe(cor) {
+  const rgb = paraRgb(cor);
+  if (!rgb) return null;
+  const { s, l } = paraHsl(rgb);
+  if (l <= PRETO_LUMINOSIDADE_MAX && s < PRETO_SATURACAO_MAX) return 'preto';
+  if (l >= LUMINOSIDADE_MAX) return 'branco';
+  if (s < SATURACAO_MINIMA) return 'cinza';
+  return null;
+}
+
+// Contraste WCAG entre duas cores (1 a 21).
+function contraste(a, b) {
+  const lum = cor => {
+    const [r, g, bl] = paraRgb(cor).map(v => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
+}
+
+// Pares texto/fundo que precisam ser legíveis em qualquer paleta.
+const PARES_CONTRASTE = [
+  ['imagem.texto', 'imagem.fundo', 4.5],
+  ['imagem.textoFraco', 'imagem.fundo', 3],
+  ['cartao.tinta', 'cartao.fundo', 4.5],
+  ['cartao.sobreTinta', 'cartao.tinta', 4.5],
+  ['transcricao.texto', 'transcricao.fundoPagina', 4.5],
+  ['transcricao.textoFraco', 'transcricao.fundoPagina', 3],
+];
+
 function ehCorInteira(v) {
   return Number.isInteger(v) && v >= 0 && v <= 0xFFFFFF;
 }
@@ -73,19 +119,28 @@ function ehCorHex(v) {
 }
 
 const BLOCOS_HEX = ['imagem', 'cartao', 'transcricao'];
-const EMOJIS_OBRIGATORIOS = ['ok', 'ativo', 'inativo', 'perigo', 'aviso', 'pendente', 'recusado', 'marca'];
+const EMOJIS_OBRIGATORIOS = ['ok', 'ativo', 'inativo', 'perigo', 'aviso', 'alerta', 'pendente', 'recusado', 'marca'];
 const MARCA_OBRIGATORIA = [
   'nome', 'nomeSegmentado', 'nomeCurto', 'nomeNormal', 'nomeNormalFivem', 'nomeTorcida',
   'de', 'sigla', 'nickPrefixo', 'logo',
 ];
 
 // Devolve a lista de problemas (vazia = tema válido).
-function validarTema(tema) {
+// `herdados`: caminhos de token que o tenant NÃO declarou (vieram da base);
+// só serve para a mensagem de erro dizer onde corrigir.
+function validarTema(tema, { herdados = new Set() } = {}) {
   const erros = [];
+  const origem = caminho => (herdados.has(caminho) ? ' — herdado da base, declare em tenants/<slug>/tema.js' : '');
   const proibidos = tema.proibido?.matizes;
   if (!Array.isArray(proibidos)) erros.push('proibido.matizes deve ser uma lista');
   for (const m of proibidos || []) {
     if (!MATIZES[m]) erros.push(`proibido.matizes: matiz desconhecido "${m}" (use: ${Object.keys(MATIZES).join(', ')})`);
+  }
+
+  const tons = tema.proibido?.tons ?? [];
+  if (!Array.isArray(tons)) erros.push('proibido.tons deve ser uma lista');
+  for (const m of Array.isArray(tons) ? tons : []) {
+    if (!TONS.includes(m)) erros.push(`proibido.tons: tom desconhecido "${m}" (use: ${TONS.join(', ')})`);
   }
 
   const tokens = []; // { caminho, valor }
@@ -113,12 +168,34 @@ function validarTema(tema) {
   // Matiz proibido: vale para toda cor e todo emoji de estado.
   for (const matiz of Array.isArray(proibidos) ? proibidos : []) {
     for (const t of tokens) {
-      if (matizDe(t.valor) === matiz) erros.push(`${t.caminho} (${formatar(t.valor)}) é ${matiz}, matiz proibido neste tema`);
+      if (matizDe(t.valor) === matiz) erros.push(`${t.caminho} (${formatar(t.valor)}) é ${matiz}, matiz proibido neste tema${origem(t.caminho)}`);
     }
     const lista = EMOJIS_POR_MATIZ[matiz] || [];
     for (const [nome, v] of Object.entries(tema.emoji || {})) {
-      if (typeof v === 'string' && lista.some(e => v.includes(e))) erros.push(`emoji.${nome} (${v}) é ${matiz}, matiz proibido neste tema`);
+      if (typeof v === 'string' && lista.some(e => v.includes(e))) erros.push(`emoji.${nome} (${v}) é ${matiz}, matiz proibido neste tema${origem(`emoji.${nome}`)}`);
     }
+  }
+
+  // Tom proibido (preto/branco/cinza): mesma regra, medida por luminosidade.
+  for (const tom of Array.isArray(tons) ? tons.filter(x => TONS.includes(x)) : []) {
+    for (const t of tokens) {
+      if (tomDe(t.valor) === tom) erros.push(`${t.caminho} (${formatar(t.valor)}) é ${tom}, tom proibido neste tema${origem(t.caminho)}`);
+    }
+    const lista = EMOJIS_POR_TOM[tom] || [];
+    for (const [nome, v] of Object.entries(tema.emoji || {})) {
+      if (typeof v === 'string' && lista.some(e => v.includes(e))) erros.push(`emoji.${nome} (${v}) é ${tom}, tom proibido neste tema${origem(`emoji.${nome}`)}`);
+    }
+  }
+
+  // Legibilidade: texto precisa contrastar com o fundo, seja qual for a paleta.
+  for (const [texto, fundo, minimo] of PARES_CONTRASTE) {
+    const [bt, nt] = texto.split('.');
+    const [bf, nf] = fundo.split('.');
+    const vt = tema[bt]?.[nt];
+    const vf = tema[bf]?.[nf];
+    if (!ehCorHex(vt) || !ehCorHex(vf)) continue;
+    const c = contraste(vt, vf);
+    if (c < minimo) erros.push(`contraste ${texto} (${vt}) sobre ${fundo} (${vf}) é ${c.toFixed(1)}:1, mínimo ${minimo}:1${origem(texto)}${origem(fundo)}`);
   }
   return erros;
 }
@@ -127,4 +204,4 @@ function formatar(v) {
   return typeof v === 'number' ? `0x${v.toString(16).padStart(6, '0').toUpperCase()}` : v;
 }
 
-module.exports = { validarTema, matizDe, MATIZES, EMOJIS_POR_MATIZ };
+module.exports = { validarTema, matizDe, tomDe, contraste, MATIZES, TONS, EMOJIS_POR_MATIZ, EMOJIS_POR_TOM };

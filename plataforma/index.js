@@ -6,6 +6,7 @@ const manifestos = require('../modulos');
 const { criarPlataforma } = require('./criar');
 const { registrarEventos } = require('./eventos');
 const { montarEstadoDeSaude, criarServidorDeSaude } = require('./saude');
+const { iniciarHeartbeat } = require('./heartbeat');
 
 const plataforma = criarPlataforma({ manifestos, tenant: config, tema });
 
@@ -33,6 +34,7 @@ function subir(client) {
   registrarEventos(client, plataforma, { executarMigracoes, iniciarAgendador });
 
   iniciarSaude(client);
+  if (process.env.CONTROLE_URL) iniciarHeartbeat({ client, plataforma, tenant: config, banco: require('../utils/db') });
 
   const ligados = plataforma.ativos.map(m => m.id).join(', ');
   const desligados = plataforma.desligados.map(m => m.id).join(', ') || '—';

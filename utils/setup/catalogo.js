@@ -47,6 +47,7 @@ const CANAIS = {
   antiSpam: { nome: 'anti-spam', apelidos: ['anti spam', 'antispam'] },
   associadoEmAtencao: { nome: 'associado-em-atencao', apelidos: ['associado em atencao', 'associados em atencao'] },
   logsLideranca: { nome: 'logs-lideranca', apelidos: ['logs lideranca'] },
+  atualizacoes: { nome: 'atualizacoes', apelidos: ['atualizacoes', 'novidades', 'changelog'] },
 };
 
 const CATEGORIAS = {

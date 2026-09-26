@@ -30,7 +30,7 @@ Helpers: `tema.titulo(x)`, `tema.tituloSegmentado(x)`, `tema.logo()`,
 
 **`emoji`** (estado): `ok` (confirmação: botões CONFIRMAR/ACEITAR, "presença
 confirmada"), `ativo` (vigente, online, vendendo, embarcado), `inativo`,
-`perigo`, `aviso`, `pendente`, `recusado`, `marca` (assinatura da torcida).
+`perigo`, `aviso`, `alerta` (atenção suave: vencendo, encerrada, gravidade média), `pendente`, `recusado`, `marca` (assinatura da torcida).
 
 **`imagem`** (`#rrggbb`, gráficos e canvas): `fundo`, `grade`, `gradeForte`,
 `texto`, `textoFraco`, `barra`, `barraZero`, `media`, `destaque`, `disputa`.
@@ -56,6 +56,24 @@ se qualquer token de cor ou emoji de estado cair nesse matiz. Matizes:
 `vermelho laranja amarelo verde ciano azul roxo rosa`. Cinza, preto e branco
 não têm matiz. Os Gaviões proíbem verde (regra da torcida); uma torcida de
 mancha verde deixa `proibido: { matizes: [] }` e troca o resto.
+
+## Tons proibidos (preto, branco, cinza) e contraste
+
+`proibido: { matizes: [...], tons: ['preto'] }`: `tons` aceita `preto`, `branco`,
+`cinza`. Preto = luminosidade ≤ 13% e pouca saturação; branco = ≥ 92%; cinza = sem
+saturação no meio. Vale para toda cor e para os emojis (⚫⬛🖤 / ⚪⬜🤍). Uma torcida
+que não usa preto (Mancha, Máfia Azul) declara `tons: ['preto']`; uma que não usa
+azul (Galocura) declara `matizes: ['azul']`. **A base (`tema/base.js`) é preta e
+branca**: token que o tenant não declarar e que violar a proibição derruba a subida
+com a mensagem "herdado da base, declare em tenants/<slug>/tema.js".
+
+Contraste mínimo (WCAG) conferido na subida: `imagem.texto`/`fundo` 4.5:1,
+`imagem.textoFraco`/`fundo` 3:1, `cartao.tinta`/`fundo` 4.5:1,
+`cartao.sobreTinta`/`tinta` 4.5:1, `transcricao.texto`/`fundoPagina` 4.5:1. Paleta
+ilegível não sobe.
+
+Emoji de cor (🔴🟡⚫⚪🔵🖤❤️…) literal em código é violação (`emojiCor` do guardião):
+use `tema.emoji.*`.
 
 ## Acrescentar um token
 

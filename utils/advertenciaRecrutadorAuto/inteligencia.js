@@ -9,7 +9,22 @@ const { riscosDaUltimaVarredura } = require('./varredura');
 
 const dias = (agora, data) => Math.floor((agora - new Date(data)) / R.DIA_MS);
 
+// Qualidade de quem o recrutador aprovou: aprovados que tomaram ADV ou restrição em 30 dias (janela de 60).
+// Vem da inteligência cruzada; sem o módulo (ou sem dado), a linha some e o resto do painel segue igual.
+async function qualidadeDeAprovacao() {
+  try {
+    const I = require('../inteligencia/regras');
+    const { aprovadoresComProblema } = require('../inteligencia/repositorio');
+    const linhas = I.qualidadeDosAprovadores((await aprovadoresComProblema(I.LIMITES.aprovadorJanelaDias))
+      .map(l => ({ aprovadorId: l.aprovador_id, aprovados: l.aprovados, comProblema: l.com_problema })));
+    return new Map(linhas.map(l => [l.aprovadorId, l]));
+  } catch {
+    return new Map();
+  }
+}
+
 async function enriquecer(linhas, periodo, agora = new Date()) {
+  const qualidade = await qualidadeDeAprovacao();
   const desde = new Date(agora.getTime() - R.LIMITES.diasOcorrencias * R.DIA_MS);
   const [ativas, erros, incompletas, cargoDesde] = await Promise.all([
     repo.ativas(), repo.errosDeMantoPorRecrutador(desde), repo.fichasIncompletasPorRecrutador(desde), repo.cargoDesdeComPromocao(linhas),
@@ -35,6 +50,12 @@ async function enriquecer(linhas, periodo, agora = new Date()) {
       : 'sem advertência ativa');
     if (l.erros7) partes.push(`${l.erros7} manto(s) errado(s) em ${R.LIMITES.diasOcorrencias} dias`);
     if (l.incompletas7) partes.push(`${l.incompletas7} ficha(s) incompleta(s) em ${R.LIMITES.diasOcorrencias} dias`);
+    const q = qualidade.get(l.discordId);
+    if (q?.alerta) {
+      const texto = `${q.comProblema} de ${q.aprovados} aprovados tiveram ADV ou restrição em 30 dias`;
+      partes.push(texto);
+      l.atencao.push(texto);
+    }
     if (desdeCargo) partes.push(`recrutador há ${dias(agora, desdeCargo)} dia(s)${l.emCarencia ? ' (em carência)' : ''}`);
     l.disciplinaTexto = partes.join(' · ');
 
@@ -46,4 +67,4 @@ function registrar() {
   inteligencia.registrarEnriquecedor(enriquecer);
 }
 
-module.exports = { enriquecer, registrar };
+module.exports = { enriquecer, registrar, qualidadeDeAprovacao };
