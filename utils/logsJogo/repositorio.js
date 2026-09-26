@@ -735,6 +735,22 @@ async function ultimaPromocaoParaRecrutador(idsFivem) {
   return res.rows;
 }
 
+// Último movimento de cada ID no cargo de Recrutador: promoção (Sócio > Recrutador) ou
+// rebaixamento (Recrutador > Sócio), com quem fez (o gestor). Quem foi promovido e
+// depois rebaixado aparece só como rebaixado. Alimenta o quadro de gestores.
+async function movimentosDeRecrutador() {
+  const res = await db.query(
+    `SELECT DISTINCT ON (alvo_id_fivem)
+            acao, alvo_id_fivem, alvo_nome, ator_id_fivem, ator_nome, ocorrido_em
+       FROM logs_jogo
+      WHERE alvo_id_fivem IS NOT NULL
+        AND ((acao = 'promoveu_cargo' AND descricao ~* '>\\s*recrutador\\s*\\)\\.?\\s*$')
+          OR (acao = 'rebaixou_cargo' AND descricao ~* 'recrutador\\s*>\\s*s[oó]cio\\s*\\)'))
+      ORDER BY alvo_id_fivem, ocorrido_em DESC`
+  );
+  return res.rows;
+}
+
 // IDs do jogo com pelo menos `minimo` aparições em todo o histórico (como
 // ator OU alvo), pra achar quem interage de verdade com a torcida — usado
 // pelo canal "IDs sem Discord" pra saber quem orientar a entrar no
@@ -913,5 +929,5 @@ module.exports = {
   farmPorDia,
   farmRetiradoHojePorItem,
   historicoCargo,
-  ultimaPromocaoParaRecrutador,
+  ultimaPromocaoParaRecrutador, movimentosDeRecrutador,
 };

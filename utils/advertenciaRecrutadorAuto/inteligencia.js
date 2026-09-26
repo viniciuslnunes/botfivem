@@ -12,7 +12,7 @@ const dias = (agora, data) => Math.floor((agora - new Date(data)) / R.DIA_MS);
 async function enriquecer(linhas, periodo, agora = new Date()) {
   const desde = new Date(agora.getTime() - R.LIMITES.diasOcorrencias * R.DIA_MS);
   const [ativas, erros, incompletas, cargoDesde] = await Promise.all([
-    repo.ativas(), repo.errosDeMantoPorRecrutador(desde), repo.fichasIncompletasPorRecrutador(desde), repo.cargoDesde(),
+    repo.ativas(), repo.errosDeMantoPorRecrutador(desde), repo.fichasIncompletasPorRecrutador(desde), repo.cargoDesdeComPromocao(linhas),
   ]);
   const ativaPorId = new Map();
   for (const a of ativas) {

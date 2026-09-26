@@ -84,7 +84,7 @@ function blocosRegras() {
       '',
       '**Escada:** 1ª = aviso · 2ª = aviso (em "jogou e não recrutou" você tem **2 dias** para voltar a recrutar) · 3ª = perde o cargo de recrutador.',
       `**Perdão:** a de "jogou e não recrutou" sai sozinha depois de **${L.perdaoRecrutamentos} recrutamentos**. Qualquer advertência expira em ${L.validadeDias} dias sem reincidência.`,
-      `**Carência:** quem acabou de receber o cargo só é medido depois de ${L.diasSemRecrutarJogando} a ${L.diasInativo} dias.`,
+      `**Carência:** quem acabou de receber o cargo só é medido depois de ${L.diasSemRecrutarJogando} a ${L.diasInativo} dias, contados **a partir da promoção a recrutador** registrada nos logs do jogo.`,
       '',
       'Acompanhe quem está advertido no canal 🚨・recrutadores-advertidos.',
     ].join('\n'),

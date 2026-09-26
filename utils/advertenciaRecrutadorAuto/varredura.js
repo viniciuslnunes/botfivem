@@ -33,7 +33,7 @@ async function coletarDados(client, agora = new Date()) {
   const [l5, l7, l14, erros, incompletas, cargoDesde, ultimas] = await Promise.all([
     recrutadoresDoPeriodo(guild, p5, agora), recrutadoresDoPeriodo(guild, p7, agora), recrutadoresDoPeriodo(guild, p14, agora),
     repo.errosDeMantoPorRecrutador(desdeOcorrencias), repo.fichasIncompletasPorRecrutador(desdeOcorrencias),
-    repo.cargoDesde(), repo.ultimasPorRegra(),
+    repo.cargoDesdeComPromocao(l5), repo.ultimasPorRegra(),
   ]);
   const por7 = new Map(l7.map(l => [l.discordId, l]));
   const por14 = new Map(l14.map(l => [l.discordId, l]));
@@ -262,6 +262,9 @@ async function executarVarredura(client, { agora = new Date(), coletar = coletar
     console.error('[adv-rec-auto] Erro nos avisos preventivos:', err);
   }
   require('./paineis').atualizarAdvertidos(client);
+  // O quadro de recrutadores (datas e gestores) acompanha as promoções novas dos logs
+  require('../quadroRecrutadores').atualizarQuadroRecrutadores(client)
+    .catch(err => console.error('[adv-rec-auto] Erro ao atualizar o quadro de recrutadores:', err));
   return resultado;
 }
 

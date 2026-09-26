@@ -90,7 +90,22 @@ async function cargoDesde() {
   return new Map(res.rows.map(r => [r.discord_id, r.desde]));
 }
 
+// Início da carência: a promoção a Recrutador logada pelo jogo (por ID do jogo) vale mais
+// que o registro de quando o Discord deu o cargo. `pares` = [{ discordId, idFivem }].
+async function cargoDesdeComPromocao(pares) {
+  const desde = await cargoDesde();
+  const ids = [...new Set(pares.map(p => p.idFivem).filter(Boolean))];
+  if (!ids.length) return desde;
+  const promocoes = await require('../logsJogo/repositorio').ultimaPromocaoParaRecrutador(ids);
+  const porIdFivem = new Map(promocoes.map(p => [p.id, p.desde]));
+  for (const { discordId, idFivem } of pares) {
+    if (idFivem && porIdFivem.has(idFivem)) desde.set(discordId, porIdFivem.get(idFivem));
+  }
+  return desde;
+}
+
 module.exports = {
+  cargoDesdeComPromocao,
   inserir, contarAtivas, ultimasPorRegra, ativas, encerrar, encerradasRecentes, historicoDoMembro,
   errosDeMantoPorRecrutador, fichasIncompletasPorRecrutador, cargoDesde,
 };

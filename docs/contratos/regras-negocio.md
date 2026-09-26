@@ -168,6 +168,13 @@
 - Perdão: advertência da regra 1 sai sozinha após 3 recrutamentos desde que foi aplicada
   (status PERDOADA). Qualquer advertência ativa expira em 30 dias (EXPIRADA). 2ª da regra 1
   sem regularizar em 2 dias: perde o cargo (VENCIDA).
+- **Carência** conta a partir da **promoção a Recrutador nos logs do jogo** (`promoveu_cargo`,
+  "Sócio > Recrutador", casada pelo ID do apelido); sem log, cai na data do cargo no Discord
+  (`recrutadores_cargo`). Ver `cargoDesdeComPromocao`.
+- **Gestor** = quem promoveu (ou rebaixou) a pessoa no jogo. `📋・quadro-de-recrutadores` traz,
+  abaixo do quadro, "Promovidos a recrutador, por gestor" e "Rebaixados de recrutador para sócio,
+  por gestor" (último movimento de cada ID; promovido e depois rebaixado aparece só como rebaixado).
+  Gestor/pessoa viram menção quando o ID do jogo bate com o apelido no Discord.
 - Os cargos ADV de recrutador (`cargos.advRec`) só são ajustados se o tenant os configurou;
   sem eles, a fonte da verdade é a tabela. Remoção manual pelo botão da liderança mexe no
   cargo, não na tabela (a advertência da tabela expira sozinha). Coberto por

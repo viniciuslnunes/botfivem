@@ -207,3 +207,26 @@ test('aviso preventivo: canal e DM, uma vez por intervalo, sem virar advertênci
   assert.equal(linhas[0].atencao.length, 1);
   assert.match(linhas[0].atencao[0], /Último recrutamento há/);
 });
+
+test('carência conta a partir da promoção a recrutador nos logs; gestor agrupa promovidos e rebaixados', async () => {
+  const ins = (msg, acao, ator, atorId, alvo, alvoId, desc, quando) => banco.q(
+    `INSERT INTO logs_jogo (message_id, canal_id, acao, ator_nome, ator_id_fivem, alvo_nome, alvo_id_fivem, descricao, ocorrido_em, bruto)
+     VALUES ($1, 'C', $2, $3, $4, $5, $6, $7, now() - $8::interval, '{}')`,
+    [msg, acao, ator, atorId, alvo, alvoId, desc, quando]);
+  await ins('P1', 'promoveu_cargo', 'Akemi GDF', '1716', 'Rec', '55', '#1716 Akemi GDF promoveu #55 Rec (Sócio > Recrutador).', '2 days');
+  await ins('P2', 'promoveu_cargo', 'Akemi GDF', '1716', 'Bentley', '20673', '#1716 Akemi GDF promoveu #20673 Bentley (Sócio > Recrutador).', '1 day');
+  await ins('P3', 'promoveu_cargo', 'Outro GDF', '99', 'Foi', '88', '#99 Outro GDF promoveu #88 Foi (Sócio > Recrutador).', '10 days');
+  await ins('P4', 'rebaixou_cargo', 'Outro GDF', '99', 'Foi', '88', '#99 Outro GDF rebaixou #88 Foi (Recrutador > Sócio).', '1 day');
+
+  const desde = await repo.cargoDesdeComPromocao([{ discordId: 'REC1', idFivem: '55' }]);
+  const dias = (Date.now() - new Date(desde.get('REC1'))) / DIA;
+  assert.ok(dias > 1.9 && dias < 2.1, `carência parte da promoção (2 dias), veio ${dias}`);
+
+  const Q = require('../utils/quadroRecrutadores');
+  const movimentos = await require('../utils/logsJogo/repositorio').movimentosDeRecrutador();
+  const membros = new Map([['1716', { id: 'GESTOR1' }], ['20673', { id: 'BENT' }]]);
+  const t = JSON.stringify(Q.embedsDeGestores(movimentos, membros));
+  assert.match(t, /PROMOVIDOS A RECRUTADOR[\s\S]*Gestor:\*\* <@GESTOR1> · 2[\s\S]*<@BENT>/);
+  assert.match(t, /REBAIXADOS DE RECRUTADOR[\s\S]*Gestor:\*\* \*\*Outro GDF\*\* `99` · 1[\s\S]*\*\*Foi\*\* `88`/);
+  assert.doesNotMatch(t.split('REBAIXADOS')[0], /Foi/, 'promovido e depois rebaixado aparece só como rebaixado');
+});
