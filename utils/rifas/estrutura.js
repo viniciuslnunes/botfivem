@@ -4,15 +4,19 @@ const { lerConfig, gravarConfig } = require('../botConfig');
 const { CHAVE_CANAL_LOGS_GESTAO } = require('../logGestao');
 const { buscarDepartamento } = require('../departamentos/repositorio');
 const { garantirMensagemFixa } = require('../mensagemFixa');
+const { montarPainelRifas } = require('./mensagem');
 const tema = require('../../tema');
 
-// Canal privado onde a equipe confere os pagamentos avisados pelos compradores.
-// Sem ele, a conferência cai no canal de logs de gestão.
+// Dois canais: o público (só o bot escreve; as rifas e o botão de nova rifa por
+// último) e o privado onde a equipe confere os pagamentos avisados pelos
+// compradores. Sem o privado, a conferência cai no canal de logs de gestão.
+const CHAVE_CANAL_RIFAS = 'canal_rifas';
 const CHAVE_CANAL_PAGAMENTOS = 'canal_pagamentos_rifa';
+const ID_BOTAO_NOVA = 'rifa:novo';
 const LER = [P.ViewChannel, P.ReadMessageHistory];
 
-async function canalDePagamentos(client) {
-  for (const chave of [CHAVE_CANAL_PAGAMENTOS, CHAVE_CANAL_LOGS_GESTAO]) {
+async function canalPorChaves(client, chaves) {
+  for (const chave of chaves) {
     const id = await lerConfig(chave);
     const canal = id ? await client.channels.fetch(id).catch(() => null) : null;
     if (canal?.isTextBased()) return canal;
@@ -20,10 +24,32 @@ async function canalDePagamentos(client) {
   return null;
 }
 
-async function montarEstruturaRifas(guild) {
-  await guild.channels.fetch();
+const canalDeRifas = client => canalPorChaves(client, [CHAVE_CANAL_RIFAS]);
+const canalDePagamentos = client => canalPorChaves(client, [CHAVE_CANAL_PAGAMENTOS, CHAVE_CANAL_LOGS_GESTAO]);
+
+async function montarCanalRifas(guild, resumo) {
+  const existenteId = await lerConfig(CHAVE_CANAL_RIFAS);
+  const existente = existenteId ? guild.channels.cache.get(existenteId) : null;
+  if (existente) {
+    resumo.push(`🎟️ Canal de rifas já existia: <#${existente.id}>`);
+    return;
+  }
+  const canal = await guild.channels.create({
+    name: '🎟️・rifas',
+    type: ChannelType.GuildText,
+    topic: 'Rifas da torcida: prêmio, números livres e prazo. Compra só para sócios, pago no jogo',
+    permissionOverwrites: [
+      { id: guild.roles.everyone.id, allow: LER, deny: [P.SendMessages] },
+      { id: guild.members.me.id, allow: [...LER, P.SendMessages, P.EmbedLinks, P.AttachFiles, P.ManageMessages] },
+    ],
+    reason: 'Rifas da torcida',
+  });
+  await gravarConfig(CHAVE_CANAL_RIFAS, canal.id);
+  resumo.push(`🎟️ Canal de rifas criado: ${canal}`);
+}
+
+async function montarCanalPagamentos(guild, resumo) {
   const existenteId = await lerConfig(CHAVE_CANAL_PAGAMENTOS);
-  const resumo = [];
   let canal = existenteId ? guild.channels.cache.get(existenteId) : null;
 
   if (canal) {
@@ -57,7 +83,36 @@ async function montarEstruturaRifas(guild) {
     }],
   }));
   if (intro.criada) resumo.push('📌 Mensagem de apresentação publicada');
+}
+
+async function montarEstruturaRifas(guild) {
+  await guild.channels.fetch();
+  const resumo = [];
+  await montarCanalRifas(guild, resumo);
+  await montarCanalPagamentos(guild, resumo);
+  await garantirPainelNoFim(guild.client);
   return resumo;
 }
 
-module.exports = { canalDePagamentos, montarEstruturaRifas };
+function ehPainel(mensagem, botId) {
+  if (mensagem.author?.id !== botId) return false;
+  return (mensagem.components ?? []).some(l => (l.components ?? []).some(c => (c.customId ?? c.data?.custom_id) === ID_BOTAO_NOVA));
+}
+
+// O painel fica SEMPRE por último: cada rifa publicada apaga o painel antigo e o
+// reposta no fim (senão os botões ficam enterrados atrás das rifas).
+async function garantirPainelNoFim(client) {
+  try {
+    const canal = await canalDeRifas(client);
+    if (!canal) return;
+    const recentes = await canal.messages.fetch({ limit: 50 });
+    const ultima = [...recentes.values()][0];
+    if (ultima && ehPainel(ultima, client.user.id)) return;
+    for (const m of recentes.values()) if (ehPainel(m, client.user.id)) await m.delete().catch(() => {});
+    await canal.send(montarPainelRifas());
+  } catch (err) {
+    console.error('[rifas] erro ao garantir o painel:', err.message);
+  }
+}
+
+module.exports = { canalDeRifas, canalDePagamentos, montarEstruturaRifas, garantirPainelNoFim, ID_BOTAO_NOVA };

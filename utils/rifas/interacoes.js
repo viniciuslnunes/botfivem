@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const config = require('../../config/index.js');
 const { registrarModulo } = require('../modulos');
 const { agendar } = require('../agendador');
@@ -9,12 +9,14 @@ const repo = require('./repositorio');
 const R = require('./regras');
 const { atualizarMensagemRifa, montarMensagemPagamento, listarNumeros } = require('./mensagem');
 const { canalDePagamentos } = require('./estrutura');
-const { podeConfirmarPagamentos } = require('./permissoes');
+const { podeConfirmarPagamentos, podeGerirRifas, podeVerRifas } = require('./permissoes');
+const G = require('./gestao');
 const tema = require('../../tema');
 require('./tarefas'); // registra expiração de reserva e encerramento no prazo
 
 // rifa:comprar:<rifa> · rifa:escolher:<rifa> · rifa:aleatorio:<rifa> · rifa:meus:<rifa>
 // rifa:numeros:<rifa> e rifa:quantidade:<rifa> (modais)
+// painel do canal: rifa:novo · rifa:lista · rifa:gerir · rifa:g_sel (select) · rifa:g_<acao>:<rifa> · modais rifa:m_novo e rifa:m_cancelar:<rifa>
 // rifa:paguei:<compra> · rifa:desistir:<compra> · rifa:confirmar:<compra> · rifa:recusar:<compra>
 
 const unix = d => Math.floor(new Date(d).getTime() / 1000);
@@ -315,14 +317,105 @@ async function mostrarMeus(interaction, rifaId) {
   });
 }
 
+// ── Painel do canal de rifas: nova rifa e gestão sem decorar slash command ──
+const campoModal = (id, rotulo, { obrigatorio = true, max, estilo = TextInputStyle.Short } = {}) => {
+  const c = new TextInputBuilder().setCustomId(id).setLabel(rotulo).setStyle(estilo).setRequired(obrigatorio);
+  if (max) c.setMaxLength(max);
+  return new ActionRowBuilder().addComponents(c);
+};
+
+async function abrirNova(interaction) {
+  if (!(await podeGerirRifas(interaction.member))) return interaction.reply({ content: G.MSG_SEM_GESTAO, flags: 64 });
+  return interaction.showModal(new ModalBuilder().setCustomId('rifa:m_novo').setTitle('NOVA RIFA').addComponents(
+    campoModal('titulo', 'TÍTULO', { max: 80 }),
+    campoModal('premio', 'PRÊMIO (O QUE O VENCEDOR LEVA)', { max: 300 }),
+    campoModal('preco', 'PREÇO POR NÚMERO (EX.: 500)', { max: 15 }),
+    campoModal('numeros', `QUANTIDADE DE NÚMEROS (${R.MIN_NUMEROS} A ${R.MAX_NUMEROS})`, { max: 5 }),
+    campoModal('encerra', 'FIM DAS VENDAS: DD/MM HH:MM (VAZIO = À MÃO)', { obrigatorio: false, max: 20 })
+  ));
+}
+
+function criarDoModal(interaction) {
+  const campo = k => interaction.fields.getTextInputValue(k).trim();
+  return G.criar(interaction, {
+    titulo: campo('titulo'), premio: campo('premio'), preco: campo('preco'),
+    numeros: Number(campo('numeros')), encerra: campo('encerra') || null,
+  });
+}
+
+async function abrirGestao(interaction) {
+  if (!(await podeVerRifas(interaction.member))) {
+    return interaction.reply({ content: '❌ SÓ A LIDERANÇA E A EQUIPE DAS RIFAS USAM A GESTÃO.', flags: 64 });
+  }
+  const rifas = await repo.listarRifas({ status: ['ABERTA', 'ENCERRADA'], limite: 25 });
+  if (!rifas.length) return interaction.reply({ content: '🎟️ NENHUMA RIFA ABERTA OU AGUARDANDO SORTEIO. USE **NOVA RIFA**.', flags: 64 });
+  return interaction.reply({
+    content: '🛠️ **GESTÃO DAS RIFAS** · ESCOLHA A RIFA:',
+    components: [new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('rifa:g_sel').setPlaceholder('Escolha a rifa').addOptions(rifas.map(r => ({
+        label: `#${r.id} ${r.titulo}`.slice(0, 100),
+        description: `${R.STATUS_RIFA[r.status].rotulo} · ${r.vendidos}/${r.total_numeros} vendidos`.slice(0, 100),
+        value: String(r.id),
+      })))
+    )],
+    flags: 64,
+  });
+}
+
+async function acoesDaRifa(interaction, rifaId) {
+  const rifa = await repo.buscarRifa(rifaId);
+  if (!rifa) return interaction.update({ content: '❌ RIFA NÃO ENCONTRADA.', components: [] });
+  const botao = (acao, rotulo, emoji, estilo = ButtonStyle.Secondary) => new ButtonBuilder()
+    .setCustomId(`rifa:g_${acao}:${rifa.id}`).setLabel(rotulo).setEmoji(emoji).setStyle(estilo);
+  const aberta = rifa.status === 'ABERTA';
+  const encerrada = rifa.status === 'ENCERRADA';
+  return interaction.update({
+    content: `🛠️ **#${rifa.id} ${rifa.titulo}** · ${R.STATUS_RIFA[rifa.status].emoji} ${R.STATUS_RIFA[rifa.status].rotulo} · ${rifa.vendidos}/${rifa.total_numeros} vendidos`,
+    components: [new ActionRowBuilder().addComponents(
+      botao('relatorio', 'RELATÓRIO', '📋'),
+      botao('encerrar', 'ENCERRAR VENDAS', '⏹️').setDisabled(!aberta),
+      botao('sortear', 'SORTEAR', '🏆').setDisabled(!encerrada),
+      botao('cancelar', 'CANCELAR', tema.emoji.recusado, ButtonStyle.Danger)
+    )],
+  });
+}
+
+async function sortearDoPainel(interaction, rifaId) {
+  const rifa = await repo.buscarRifa(rifaId);
+  if (rifa?.metodo_sorteio === 'MANUAL') {
+    return interaction.reply({ content: `🎥 A RIFA #${rifa.id} É SORTEADA AO VIVO: USE \`/rifa sortear\` INFORMANDO O NÚMERO E A EVIDÊNCIA.`, flags: 64 });
+  }
+  return G.sortear(interaction, rifaId);
+}
+
+async function abrirCancelamento(interaction, rifaId) {
+  if (!(await podeGerirRifas(interaction.member))) return interaction.reply({ content: G.MSG_SEM_GESTAO, flags: 64 });
+  return interaction.showModal(new ModalBuilder().setCustomId(`rifa:m_cancelar:${rifaId}`).setTitle('CANCELAR RIFA').addComponents(
+    campoModal('motivo', 'MOTIVO (VAI PARA OS COMPRADORES)', { max: 300, estilo: TextInputStyle.Paragraph })
+  ));
+}
+
 registrarModulo('rifa', async interaction => {
   const [, acao, id] = interaction.customId.split(':');
   if (interaction.isModalSubmit()) {
     if (acao === 'numeros') return reservar(interaction, id, 'numeros');
     if (acao === 'quantidade') return reservar(interaction, id, 'quantidade');
+    if (acao === 'm_novo') return criarDoModal(interaction);
+    if (acao === 'm_cancelar') return G.cancelar(interaction, Number(id), interaction.fields.getTextInputValue('motivo').trim());
+    return;
+  }
+  if (interaction.isStringSelectMenu()) {
+    if (acao === 'g_sel') return acoesDaRifa(interaction, interaction.values[0]);
     return;
   }
   if (!interaction.isButton()) return;
+  if (acao === 'novo') return abrirNova(interaction);
+  if (acao === 'lista') return G.lista(interaction);
+  if (acao === 'gerir') return abrirGestao(interaction);
+  if (acao === 'g_relatorio') return G.relatorio(interaction, Number(id));
+  if (acao === 'g_encerrar') return G.encerrar(interaction, Number(id));
+  if (acao === 'g_sortear') return sortearDoPainel(interaction, Number(id));
+  if (acao === 'g_cancelar') return abrirCancelamento(interaction, id);
   if (acao === 'comprar') return abrirCompra(interaction, id);
   if (acao === 'escolher' || acao === 'aleatorio') {
     if (!soSocio(interaction)) return interaction.reply({ content: MSG_SO_SOCIO, flags: 64 });

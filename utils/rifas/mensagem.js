@@ -177,10 +177,36 @@ async function fecharMensagemPagamento(client, ref, { texto, cor }) {
   await mensagem.edit({ embeds: [embed], components: [], allowedMentions: { parse: [] } });
 }
 
+// Painel fixo do canal de rifas (sempre por último): explica a mecânica e abre a gestão
+function montarPainelRifas() {
+  return {
+    embeds: [{
+      color: tema.cor.primaria,
+      title: tema.tituloSegmentado('🎟️ RIFAS DA TORCIDA'),
+      description: [
+        'Rifas pagas **em dinheiro do jogo**, só para sócios.',
+        '',
+        '• Cada rifa aparece aqui com prêmio, preço, números livres e prazo. Clique em **COMPRAR** na rifa.',
+        '• O número fica **reservado** por alguns minutos: pague no jogo e avise em **JÁ PAGUEI**. A equipe confere e confirma.',
+        '• No sorteio pelo bot, o **compromisso (hash)** é publicado antes da primeira venda e o **arquivo de auditoria** sai junto do resultado: qualquer um confere.',
+        '• Rifa cancelada? Quem pagou recebe a devolução no jogo.',
+        '',
+        '_Só a presidência e o gestor de Social e Eventos criam e conduzem._',
+      ].join('\n'),
+    }],
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('rifa:lista').setLabel('RIFAS EM ANDAMENTO').setEmoji('🎟️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('rifa:novo').setLabel('NOVA RIFA').setEmoji('➕').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('rifa:gerir').setLabel('GERIR').setEmoji('🛠️').setStyle(ButtonStyle.Secondary)
+    )],
+  };
+}
+
 module.exports = {
   montarMensagemRifa,
   publicarRifa,
   atualizarMensagemRifa,
+  montarPainelRifas,
   montarMensagemPagamento,
   fecharMensagemPagamento,
   linkDaMensagem,
