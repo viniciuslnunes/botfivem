@@ -358,3 +358,11 @@ Docs mais longas já existentes (não duplicar conteúdo, só linkar):
 `docs/inteligencia-logs-jogo.md` (padrão de UI dos canais de log, mais
 fundo), `docs/plano-modulos-torcida.md` (histórico de decisão módulo a
 módulo, auditoria de fonte).
+
+## Erros de build/deploy já vividos
+
+| Sintoma | Causa | Como evitar |
+|---|---|---|
+| Bot não sobe no Docker: "tenant não encontrado" | `.dockerignore` excluía `tenants/` (c2e6abb) | Todo arquivo que o `require` carrega em runtime (`tenants/<slug>/`, `tema/`, `config/`) precisa estar fora do `.dockerignore`. Ao criar pasta nova de runtime, confira o `.dockerignore`. |
+| Teste subiu o bot real / escreveu no Postgres real | script usou `.env` real | Testes usam PGlite e nunca spawnam `index.js` com o cwd do repo (ver regras de `CLAUDE.md`). |
+| Deploy de comandos falha ou some comando | módulo desligado ainda com `require` no topo do manifesto | `require` preguiçoso nos manifestos; `npm test` cobre o deploy por tenant. |

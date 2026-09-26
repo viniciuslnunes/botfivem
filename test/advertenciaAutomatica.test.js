@@ -86,6 +86,23 @@ test('2ª: cobra 50 maconha + 50 cocaína em 2 dias e agenda o vencimento', asyn
   assert.equal(t.payload.advId, seg.id);
 });
 
+test('notificações de advertência mencionam a liderança inteira (no content, não no embed)', () => {
+  const conteudo = historico.enviadas.map(m => m.content).join(' ') + pendentes.enviadas.map(m => m.content).join(' ');
+  for (const id of config.lideranca) assert.ok(conteudo.includes(`<@&${id}>`), `falta a menção do cargo ${id}`);
+});
+
+test('blacklist no jogo com pagamento pendente alerta em adv-pendentes com o cruzamento', async () => {
+  const antes = pendentes.enviadas.length;
+  await auto.aoRegistros([registro({ acao: 'blacklist_adicionou', alvoIdFivem: '1234', descricao: 'Fulano na blacklist' })], guild.client);
+  const novas = pendentes.enviadas.slice(antes);
+  assert.equal(novas.length, 1);
+  assert.match(JSON.stringify(novas[0].embeds), /BLACKLIST NO JOGO DURANTE PAGAMENTO PENDENTE/);
+  assert.ok(novas[0].content.includes(`<@&${config.lideranca[0]}>`));
+  // sem pendência (outro ID) não alerta
+  await auto.aoRegistros([registro({ acao: 'blacklist_adicionou', alvoIdFivem: '7777' })], guild.client);
+  assert.equal(pendentes.enviadas.length, antes + 1);
+});
+
 test('pagamento parcial não baixa; completo baixa, remove o cargo e registra', async () => {
   await auto.aoRegistros([bau('Maconha', 50), bau('tecido', 999), bau('Cocaína', 20)], guild.client);
   let [seg] = await banco.q('SELECT * FROM advertencias_socio WHERE nivel = 2');

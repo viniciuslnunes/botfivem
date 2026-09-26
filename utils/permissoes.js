@@ -49,4 +49,15 @@ function ehRecrutadorOuAcima(member) {
   ]);
 }
 
-module.exports = { temAlgumCargo, ehLideranca, ehPresidencia, ehSocioOuAcima, ehRecrutadorOuAcima, MSG_SO_LIDERANCA };
+// Quem é chamado a cada registro novo nos canais de decisão de recrutamento
+// (validar-setagem, não-recrutar): liderança inteira + cargo Recrutador.
+// A menção vai no `content`; em embed ela não notifica ninguém.
+function cargosDaEquipe() {
+  return [...config.lideranca, config.cargos.recrutador].filter(Boolean);
+}
+const mencoesDaEquipe = () => cargosDaEquipe().map(id => `<@&${id}>`).join(' ');
+
+module.exports = {
+  temAlgumCargo, ehLideranca, ehPresidencia, ehSocioOuAcima, ehRecrutadorOuAcima, MSG_SO_LIDERANCA,
+  cargosDaEquipe, mencoesDaEquipe,
+};

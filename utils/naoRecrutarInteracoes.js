@@ -5,6 +5,7 @@ const config = require('../config/index.js');
 const { buscarBloqueio, mensagensDoBloqueio, invalidarCacheBloqueios } = require('./naoRecrutar');
 const { mapearSociosPorIdFivem } = require('./recrutamento/funil');
 const { garantirMembrosCarregados } = require('./membrosGuild');
+const { mencoesDaEquipe, cargosDaEquipe } = require('./permissoes');
 const tema = require('../tema');
 const { registrarModulo } = require('./modulos');
 
@@ -145,7 +146,7 @@ registrarModulo('modal_bloquearid', async interaction => {
       { name: 'Data', value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: false }
     ]
   };
-  await canalHistorico.send({ embeds: [embed] });
+  await canalHistorico.send({ content: mencoesDaEquipe(), embeds: [embed], allowedMentions: { roles: cargosDaEquipe() } });
   invalidarCacheBloqueios();
   await interaction.editReply({ content: `ID ${id} bloqueado com sucesso!` });
   return;
@@ -187,6 +188,12 @@ registrarModulo('modal_desbloquearid', async interaction => {
     await msg.edit({ embeds: [embed] });
   }
   invalidarCacheBloqueios();
+  // Editar a mensagem antiga não notifica ninguém: aviso novo, sem embed (não conta como bloqueio)
+  const canalHistorico = interaction.guild.channels.cache.get(config.canais.historicoNaoRecrutar);
+  await canalHistorico?.send({
+    content: `${mencoesDaEquipe()}\n🦅 ID **${id}** desbloqueado por <@${interaction.user.id}>: ${motivo}`,
+    allowedMentions: { roles: cargosDaEquipe(), users: [interaction.user.id] },
+  }).catch(err => console.error('[nao-recrutar] Erro ao avisar desbloqueio:', err));
   await interaction.editReply({ content: `🦅 ID ${id} removido da lista de não recrutar!` });
   return;
 });

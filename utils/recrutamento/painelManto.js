@@ -23,6 +23,7 @@ const MSG_SEM_PERMISSAO = '❌ APENAS A LIDERANÇA (PRESIDÊNCIA, VELHA GUARDA, 
 const PRAZO_BOTOES_ERRADO_MS = 10 * 60 * 1000;
 
 let clientAtual = null;
+const emProcessamento = new Set();
 
 async function podeAvaliar(member) {
   return ehLideranca(member) || (await papelNaArea(member, 'recrutamento')) === 'gestor';
@@ -43,16 +44,28 @@ function botoesAvaliacao(messageId) {
 async function aoMensagem(message) {
   if (message.author?.bot || message.channelId !== config.canais.provarManto) return false;
   if (![...message.attachments.values()].some(ehImagem)) return false;
+  // Trava em memória contra o mesmo evento chegando duas vezes; o banco
+  // (registrarFoto) cobre reedição e outra instância.
+  if (emProcessamento.has(message.id)) return false;
+  emProcessamento.add(message.id);
   try {
-    await repo.registrarFoto({ messageId: message.id, candidatoId: message.author.id, enviadoEm: message.createdAt });
-    await message.reply({
-      content: '🧥 **Avaliação do manto** — liderança ou responsável pelo recrutamento: a foto está correta?',
-      components: botoesAvaliacao(message.id),
-      allowedMentions: { parse: [] },
-    });
+    const novo = await repo.registrarFoto({ messageId: message.id, candidatoId: message.author.id, enviadoEm: message.createdAt });
+    if (!novo) return false;
+    try {
+      await message.reply({
+        content: '🧥 **Avaliação do manto** — liderança ou responsável pelo recrutamento: a foto está correta?',
+        components: botoesAvaliacao(message.id),
+        allowedMentions: { parse: [] },
+      });
+    } catch (err) {
+      await repo.desfazerRegistro(message.id).catch(() => {});
+      throw err;
+    }
     painel.agendarAtualizacaoReativa(clientAtual ?? message.client);
   } catch (err) {
     console.error('[manto] Erro ao registrar foto do manto:', err);
+  } finally {
+    emProcessamento.delete(message.id);
   }
   return false;
 }

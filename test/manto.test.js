@@ -80,6 +80,19 @@ test('manto: foto ganha botões; só liderança/gestor avalia; placar conta para
   assert.deepEqual(placar, [{ recrutador_id: recrutador.id, acertos: 1, erros: 0 }]);
 });
 
+test('manto: a mesma foto entregue duas vezes (simultânea ou depois) gera um só aviso', async () => {
+  const provar = criarCanal(config.canais.provarManto, 'provar-manto');
+  const guild = criarServidor({ canais: [provar], membros: [] });
+  const foto = criarMensagem(provar, {}, { id: '910000000000000009', bot: false });
+  foto.attachments = new Colecao([['a', { contentType: 'image/png' }]]);
+  foto.createdAt = new Date();
+  foto.client = guild.client;
+  const antes = provar.enviadas.length;
+  await Promise.all([painelManto.aoMensagem(foto), painelManto.aoMensagem(foto)]);
+  await painelManto.aoMensagem(foto);
+  assert.equal(provar.enviadas.length - antes, 1);
+});
+
 test('manto: mensagem sem imagem ou fora do provar-manto é ignorada', async () => {
   const outro = criarCanal('123', 'geral');
   const msg = criarMensagem(outro, {}, { id: 'U', bot: false });

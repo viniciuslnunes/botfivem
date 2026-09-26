@@ -9,6 +9,8 @@ const { idFivemDoNick } = require('../logsJogo/estatisticas');
 const R = require('./automaticaRegras');
 const repo = require('./repositorio');
 const { mencoesDoSocio } = require('./mencoes');
+const { enviarNoCanal } = require('./envio');
+const { camposDeContexto, alertarRestricaoComPendencia } = require('./contexto');
 
 const ROTULO_ORIGEM = { impedimento: 'IMPEDIMENTO', advertido: 'ADVERTÊNCIA' };
 const agoraSeg = () => Math.floor(Date.now() / 1000);
@@ -20,12 +22,7 @@ async function sociosPorIdFivem(client, idFivem) {
   return { guild, membro };
 }
 
-async function enviar(guild, canalId, embed, content) {
-  const canal = await guild.channels.fetch(canalId).catch(() => null);
-  if (!canal) return false;
-  await canal.send({ ...(content ? { content } : {}), embeds: [embed] });
-  return true;
-}
+const enviar = enviarNoCanal;
 
 function campoMembro(membro, registro, origem) {
   return [
@@ -88,6 +85,7 @@ async function abrir(client, registro, g) {
         { name: 'PAGAMENTO', value: `${exigido} no baú da torcida`, inline: true },
         { name: 'PRAZO', value: `<t:${expiraEm}:F> (<t:${expiraEm}:R>)`, inline: true },
         quando,
+        ...(await camposDeContexto(client, membro, g.idFivem)),
       ],
       footer: { text: 'O depósito no baú é reconhecido pelo log do jogo. Sem pagamento no prazo, o cargo de sócio é removido.' },
     }, mencoes);
@@ -175,6 +173,10 @@ async function aoRegistros(novos, client) {
       const g = R.gatilho(registro);
       if (g?.tipo === 'abrir') await abrir(client, registro, g);
       else if (g?.tipo === 'fechar') await fechar(client, registro, g);
+      if (registro.alvoIdFivem && ['blacklist_adicionou', 'suspensao_adicionou'].includes(registro.acao)) {
+        const { guild, membro } = await sociosPorIdFivem(client, registro.alvoIdFivem);
+        await alertarRestricaoComPendencia(client, registro, guild, membro);
+      }
       const item = R.itemDePagamento(registro);
       if (item) await pagar(client, registro, item);
     } catch (err) {

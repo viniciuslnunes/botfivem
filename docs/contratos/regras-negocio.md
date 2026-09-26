@@ -201,3 +201,17 @@ Decisões tomadas sem resposta do usuário (padrões — mudar aqui e em `inteli
 - Colunas ADV/MANTO/FICHAS só existem com `advertenciaRecrutadorAuto` ligado (ele se registra em
   `inteligenciaRecrutadores.registrarEnriquecedor`); desligado, o painel omite as colunas.
 - Coberto por `test/inteligenciaRecrutadores.test.js` e `test/advertenciaRecrutadorAuto.test.js`.
+
+## Menções nos canais de advertência e decisão de recrutamento (2026-09-26)
+
+- **Toda notificação nova** em `historicoAdv`, `advPendentes`, `historicoAdvRec` chama a liderança
+  (`config.lideranca`: presidente, vice, velha guarda, diretoria) no `content` (menção em embed não
+  notifica). Sócio: + recrutador que aprovou a ficha (`utils/advertencia/mencoes.js`). Recrutador: + o
+  próprio advertido.
+- **`validarSetagem` e `historicoNaoRecrutar`**: a cada registro novo (ficha, "pronto para validação",
+  bloqueio, aviso de desbloqueio) chama liderança + cargo Recrutador (`mencoesDaEquipe()` em
+  `utils/permissoes.js`). Editar mensagem antiga não notifica: por isso o desbloqueio posta aviso novo.
+- **`advPendentes` cruza o contexto** (`utils/advertencia/contexto.js`): a 2ª ADV mostra restrições
+  ativas no jogo, ID em não-recrutar, ADV de recrutador, histórico e outros pagamentos pendentes.
+  Blacklist/suspensão nova para quem tem pagamento pendente gera alerta reativo no mesmo canal
+  (impedimento já abre a ADV seguinte sozinho). Log com mais de 6 h não realerta.

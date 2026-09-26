@@ -41,6 +41,17 @@ async function pendentesDePagamento(idFivem) {
   return res.rows;
 }
 
+// Pagamentos pendentes de um sócio (por Discord) ou de todos (sem argumento)
+async function pendentes(discordId = null) {
+  const res = await db.query(
+    `SELECT * FROM advertencias_socio
+      WHERE nivel = 2 AND status = 'ATIVA' AND prazo_em IS NOT NULL AND ($1::text IS NULL OR discord_id = $1)
+      ORDER BY prazo_em`,
+    [discordId]
+  );
+  return res.rows;
+}
+
 async function gravarPagamento(id, pago) {
   await db.query('UPDATE advertencias_socio SET pago = $2 WHERE id = $1', [id, pago]);
 }
@@ -63,4 +74,4 @@ async function historicoDoMembro(discordId) {
   return res.rows;
 }
 
-module.exports = { inserir, recentePorMembro, ativaPorIdFivem, pendentesDePagamento, gravarPagamento, encerrar, historicoDoMembro };
+module.exports = { inserir, recentePorMembro, ativaPorIdFivem, pendentesDePagamento, pendentes, gravarPagamento, encerrar, historicoDoMembro };

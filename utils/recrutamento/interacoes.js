@@ -3,6 +3,7 @@
 // continua o mesmo, agora roteado por utils/modulos.js.
 const { botoesRecrutamento } = require('../recrutamentoButtons');
 const config = require('../../config/index.js');
+const { mencoesDaEquipe, cargosDaEquipe } = require('../permissoes');
 const { atualizarTopRecrutadores } = require('../topRecrutadores');
 const { agendar } = require('../agendador');
 const { buscarBloqueio } = require('../naoRecrutar');
@@ -74,12 +75,11 @@ registrarModulo('modal_recrutamento', async interaction => {
   const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
   if (canalValidarSetagem) {
     // Chama quem decide: liderança + recrutadores. Some da mensagem quando a decisão troca o texto.
-    const cargosAvisados = [config.cargos.presidente, config.cargos.vicePresidente, config.cargos.velhaGuarda, config.cargos.diretoria, config.cargos.recrutador].filter(Boolean);
     const mensagemFicha = await canalValidarSetagem.send({
-      content: cargosAvisados.map(id => `<@&${id}>`).join(' '),
+      content: mencoesDaEquipe(),
       embeds: [embed],
       components: botoesRecrutamento(),
-      allowedMentions: { roles: cargosAvisados },
+      allowedMentions: { roles: cargosDaEquipe() },
     });
     await registrarFicha({
       messageId: mensagemFicha.id, discordId: user.id, nome, idade, idFivem: id_fivem, telefone, recrutador,
@@ -241,7 +241,8 @@ registrarModulo('aprovar_recrutamento', async interaction => {
         const canalValidarSetagem = interaction.guild.channels.cache.get(config.canais.validarSetagem);
         if (canalValidarSetagem) {
           await canalValidarSetagem.send({
-            content: `🦅 <@${candidatoId}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`
+            content: `${mencoesDaEquipe()}\n🦅 <@${candidatoId}> finalizou o tempo de PROVAR MANTO. Pronto para validação de setagem!`,
+            allowedMentions: { roles: cargosDaEquipe(), users: [candidatoId] },
           });
         } else {
           console.error('Canal de validação de setagem não encontrado!');
