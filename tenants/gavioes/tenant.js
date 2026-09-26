@@ -64,6 +64,8 @@ module.exports = {
     associadoEmAtencao: '1547740103097589811', // 🚨・associado-em-atencao: hoje sem fluxo automático do bot (canal manual da liderança)
     ocorrencias: '1553474295387127950', // ❌・ocorrências: alerta de sócio reincidente (2+ ocorrências em 90 dias). null = cai no canal de inteligência
     setagensPendentes: '1553481286298112040', // 🚨・setagens-pendentes: só alertas de ficha parada na análise (menciona liderança + recrutador a cada registro). null = cai no canal de inteligência
+    saidasNoJogo: '1553483715974271076', // alertas "saiu no jogo, continua sócio no Discord" (botão de remover cargo). null = cai no canal de inteligência
+    cargoDivergente: '1553493669816832131', // alertas "cargo de recrutador diferente entre jogo e Discord" (botão de ajustar cargo). null = cai no canal de inteligência
     sugestoes: null, // 💡・sugestões: preencher com o ID do canal (recrutador+ envia, sócio+ vota). null = painel não é postado
     divulgacaoRecrutamento: null, // canal onde os recrutadores postam a divulgação (flyer). null = sem sequência/rodízio; preencher com o ID do canal
     atualizacoes: '1442278983847641250', // 🤖・atualizações: novidades do bot e mudanças de regra, postadas sozinhas (null = sem canal)

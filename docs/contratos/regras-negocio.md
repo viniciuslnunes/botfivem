@@ -242,6 +242,10 @@ Decisões tomadas sem resposta do usuário (padrões; mudar aqui e no código):
 - **Ficha parada na análise** (pendente > 12 h) vai só para `setagensPendentes` (🚨・setagens-pendentes, decisão
   do usuário 2026-09-26; canal exclusivo deste alerta). **Cada** registro novo menciona liderança + Recrutador
   (`mencoesDaEquipe()`), não só o primeiro do lote.
+- **Saiu no jogo e continua sócio** vai para `saidasNoJogo` (decisão do usuário 2026-09-26), com menção + nome + ID do
+  jogador (a menção sozinha nem sempre resolve). `node tools/migrar-reincidencia.js --tipo saiu_segue_socio` move os antigos.
+- **Cargo de recrutador divergente (jogo × Discord)** vai para `cargoDivergente` (decisão do usuário 2026-09-26).
+  `node tools/migrar-reincidencia.js --tipo cargo_divergente` move os antigos e apaga do canal de inteligência.
 - **Nome parecido na ficha só avisa** (resposta na própria ficha, sem notificar): ≥ 80% de semelhança
   (`utils/nomes.js`, a mesma correlação de `idsSemSocio`) contra blacklist/suspensão/impedimento ativos,
   IDs em não recrutar e reprovados definitivos. Aprovar continua com o recrutador.

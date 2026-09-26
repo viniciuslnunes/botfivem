@@ -250,7 +250,7 @@ async function alertarEmprestimosAtrasados(canal, atrasados) {
 
 // Saiu, foi expulso ou removido no JOGO e o Discord ainda o trata como sócio: cargo, carteirinha e
 // permissões seguem de pé para quem já não é da torcida. Só avisa (a liderança decide o que remover).
-async function alertarSaiuMasSegueSocio(canal, saidas, porIdFivem) {
+async function alertarSaiuMasSegueSocio(canal, saidas, porIdFivem, nomes = new Map()) {
   const rotulo = { saiu_torcida: 'saiu da torcida por conta própria', expulso_torcida: 'foi expulso da torcida', removido_torcida_automatico: 'foi removido por inatividade' };
   let enviados = 0;
   for (const s of saidas) {
@@ -264,7 +264,7 @@ async function alertarSaiuMasSegueSocio(canal, saidas, porIdFivem) {
       embeds: [{
         color: tema.cor.aviso,
         title: '🚪 SAIU NO JOGO, CONTINUA SÓCIO NO DISCORD',
-        description: `<@${socio.discordId}> (ID ${s.id}) ${rotulo[s.acao] ?? s.acao} <t:${segundos(s.em)}:R>, e o Discord ainda o trata como sócio. Pode ser troca de conta; confirme antes de remover.`,
+        description: `<@${socio.discordId}> **${F.nomeSeguro(nomes.get(s.id) ?? '?')}** (ID ${s.id}) ${rotulo[s.acao] ?? s.acao} <t:${segundos(s.em)}:R>, e o Discord ainda o trata como sócio. Pode ser troca de conta; confirme antes de remover.`,
         footer: { text: F.rodape('logs-registros') + ' · o caso fecha sozinho quando o cargo sair' },
         timestamp: new Date().toISOString(),
       }],
@@ -440,6 +440,8 @@ async function executarVarredura(client, { agora = new Date(), canais = null } =
 
   const canalInteligencia = canais?.inteligencia ?? await garantirCanalInteligencia(client);
   const canalOcorrencias = canais?.ocorrencias ?? canais?.atencao ?? await client.channels.fetch(config.canais.ocorrencias).catch(() => null) ?? canalInteligencia;
+  const canalSaidas = canais?.saidas ?? await client.channels.fetch(config.canais.saidasNoJogo).catch(() => null) ?? canalInteligencia;
+  const canalCargos = canais?.cargos ?? await client.channels.fetch(config.canais.cargoDivergente).catch(() => null) ?? canalInteligencia;
   const canalNaoRecrutar = canais?.naoRecrutar ?? await client.channels.fetch(config.canais.historicoNaoRecrutar).catch(() => null) ?? canalInteligencia;
 
   saida.reincidencia = await etapa('reincidência', () => alertarReincidencia(canalOcorrencias, resumos, agora));
@@ -492,10 +494,13 @@ async function executarVarredura(client, { agora = new Date(), canais = null } =
   }
 
   if (await fonteViva(agora)) {
-    saida.saiuSegue = await etapa('saiu e segue sócio', async () =>
-      alertarSaiuMasSegueSocio(canalInteligencia, await repo.saidasRecentesSemRetorno(3), pessoas.porIdFivem));
+    saida.saiuSegue = await etapa('saiu e segue sócio', async () => {
+      const saidas = await repo.saidasRecentesSemRetorno(3);
+      const nomes = await logs.nomesPorIds([...new Set(saidas.map(s => s.id))]);
+      return alertarSaiuMasSegueSocio(canalSaidas, saidas, pessoas.porIdFivem, nomes);
+    });
     saida.cargos = await etapa('cargo divergente', async () =>
-      alertarCargoDivergente(canalInteligencia, await logs.movimentosDeRecrutador(), pessoas.porIdFivem, agora));
+      alertarCargoDivergente(canalCargos, await logs.movimentosDeRecrutador(), pessoas.porIdFivem, agora));
   }
 
   saida.responsaveis = await etapa('responsável em risco', async () => {

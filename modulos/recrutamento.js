@@ -17,6 +17,14 @@ module.exports = {
     require('../utils/barramento').assinar('ficha.decidida', require('../utils/recrutamento/mantoAvisos').aoFichaDecidida);
   },
 
+  // Promoção/rebaixamento de recrutador e recrutamento novo no webhook atualizam equipes e rebaixados
+  painelLog: {
+    iniciar() {},
+    aoRegistros(novos, client) {
+      return require('../utils/quadroRecrutadores').aoRegistros(novos, client);
+    },
+  },
+
   // Foto no provar-manto ganha botões de correto/errado (não consome a mensagem)
   // Post no canal de divulgação entra na sequência de recrutamento (também não consome)
   async aoMensagem(message) {

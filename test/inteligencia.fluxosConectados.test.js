@@ -234,7 +234,8 @@ test('saiu no jogo e continua sócio no Discord (e quem voltou não conta)', asy
   const porIdFivem = new Map([['100', { discordId: 'S1', membro: guild.members.cache.get('S1') }]]);
   assert.equal(await V.alertarSaiuMasSegueSocio(canal, saidas, porIdFivem), 1);
   assert.match(textoDe(canal), /SAIU NO JOGO, CONTINUA SÓCIO NO DISCORD/);
-  assert.equal(await V.alertarSaiuMasSegueSocio(canal, saidas, porIdFivem), 0, 'mesma saída não repete');
+  assert.match(textoDe(canal), /<@S1> \*\*\?\*\* \(ID 100\)/, 'sem nome nos logs: mostra ? mas mantém o ID');
+  assert.equal(await V.alertarSaiuMasSegueSocio(canal, saidas, porIdFivem, new Map([['100', 'Zeca']])), 0, 'mesma saída não repete');
   assert.equal(await V.alertarSaiuMasSegueSocio(canal, saidas, new Map()), 0, 'sem sócio com esse ID: nada divergente');
 });
 

@@ -126,7 +126,7 @@ async function limparLegado(canalQuadro) {
 }
 
 async function atualizarGestores(client, canalQuadro, guild) {
-  await limparLegado(canalQuadro);
+  if (canalQuadro) await limparLegado(canalQuadro);
   const Q = require('./recrutamento/quadroGestores');
   const destinos = [
     { canalId: config.canais.equipes, chave: 'equipes_message_ids', montar: Q.montarEmbedsEquipes },
@@ -189,6 +189,25 @@ async function atualizarQuadroRecrutadores(client) {
   }
 }
 
+// Reativo ao webhook: promoção/rebaixamento de recrutador ou recrutamento novo nos logs
+// reeditam equipes e rebaixados na hora (várias linhas de um mesmo lote viram uma edição).
+const DEBOUNCE_MS = 30 * 1000;
+let timerGestores = null;
+const ehMovimentoDeRecrutador = r => (r.acao === 'promoveu_cargo' || r.acao === 'rebaixou_cargo')
+  && /recrutador/i.test(r.descricao ?? '');
+
+function aoRegistros(novos, client) {
+  if (timerGestores || !novos.some(r => r.acao === 'jogador_recrutou' || ehMovimentoDeRecrutador(r))) return;
+  timerGestores = setTimeout(() => {
+    timerGestores = null;
+    const guild = client.guilds.cache.first();
+    if (!guild) return;
+    atualizarGestores(client, null, guild)
+      .catch(err => console.error('[quadroRecrutadores] Erro ao atualizar (reativo):', err.message));
+  }, DEBOUNCE_MS);
+  timerGestores.unref?.();
+}
+
 module.exports = {
-  atualizarQuadroRecrutadores, registrarEntradaNoCargo, removerEntradaNoCargo, CARGO_RECRUTADOR,
+  aoRegistros, ehMovimentoDeRecrutador, atualizarQuadroRecrutadores, registrarEntradaNoCargo, removerEntradaNoCargo, CARGO_RECRUTADOR,
 };
