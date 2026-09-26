@@ -120,7 +120,7 @@ async function aoAdvRegistrada({ client, membro, advId }) {
   }
   const r = await atualizarMembro(client, membro);
   if (!r) return;
-  const canal = await client.channels.fetch(config.canais.associadoEmAtencao).catch(() => null) ?? await garantirCanalInteligencia(client);
+  const canal = await client.channels.fetch(config.canais.ocorrencias).catch(() => null) ?? await garantirCanalInteligencia(client);
   await require('./varredura').alertarReincidencia(canal, [r], new Date());
 }
 

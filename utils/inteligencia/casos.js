@@ -3,6 +3,7 @@
 // se resolve sozinho, sem ninguém limpar; (3) dá para medir a utilidade dos alertas (quantos foram
 // ignorados, quanto demoram a resolver) e ajustar limites com dado, não com palpite.
 // Regra de sempre: "resolvido" só depois da ação ter funcionado; permissão conferida no handler.
+const tema = require('../../tema');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../db');
 
@@ -44,7 +45,7 @@ function botoes(casoId, acoes = []) {
   }
   linha.addComponents(
     new ButtonBuilder().setCustomId(`intel:res:${casoId}`).setLabel('RESOLVIDO').setEmoji('✔️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`intel:ign:${casoId}`).setLabel('IGNORAR').setEmoji('🙈').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId(`intel:ign:${casoId}`).setLabel('IGNORAR').setEmoji(tema.emoji.recusado).setStyle(ButtonStyle.Secondary)
   );
   return linha;
 }

@@ -121,7 +121,7 @@ async function alertarFichasParadas(canal, fichas, agora) {
     if (enviados >= 8) break;
     if (await jaAlertadoRecentemente('ficha_parada', f.message_id, 24 * R.HORA_MS)) continue;
     await enviar(canal, { tipo: 'ficha_parada', chave: f.message_id, alvoDiscordId: f.discord_id, dados: { fichaId: f.message_id } }, {
-      content: enviados === 0 ? mencoesDaEquipe() : undefined,
+      content: mencoesDaEquipe(), // canal dedicado: todo registro novo chama a equipe
       allowedMentions: permitir(cargosDaEquipe()),
       embeds: [{
         color: tema.cor.aviso,
@@ -439,13 +439,14 @@ async function executarVarredura(client, { agora = new Date(), canais = null } =
   const saida = { resumos: resumos.length, reincidencia: 0, blacklist: 0, semFicha: 0, paradas: 0, sede: 0, atipica: 0, nomeRestrito: 0, emprestimos: 0, saiuSegue: 0, cargos: 0, responsaveis: 0, renovacoes: 0, casosAuto: 0, confianca: 0 };
 
   const canalInteligencia = canais?.inteligencia ?? await garantirCanalInteligencia(client);
-  const canalAtencao = canais?.atencao ?? await client.channels.fetch(config.canais.associadoEmAtencao).catch(() => null) ?? canalInteligencia;
+  const canalOcorrencias = canais?.ocorrencias ?? canais?.atencao ?? await client.channels.fetch(config.canais.ocorrencias).catch(() => null) ?? canalInteligencia;
   const canalNaoRecrutar = canais?.naoRecrutar ?? await client.channels.fetch(config.canais.historicoNaoRecrutar).catch(() => null) ?? canalInteligencia;
 
-  saida.reincidencia = await etapa('reincidência', () => alertarReincidencia(canalAtencao, resumos, agora));
+  saida.reincidencia = await etapa('reincidência', () => alertarReincidencia(canalOcorrencias, resumos, agora));
 
+  const canalSetagens = canais?.setagens ?? await client.channels.fetch(config.canais.setagensPendentes).catch(() => null) ?? canalInteligencia;
   saida.paradas = await etapa('fichas paradas', async () =>
-    alertarFichasParadas(canalInteligencia, await repo.fichasDoPeriodo(7), agora));
+    alertarFichasParadas(canalSetagens, await repo.fichasDoPeriodo(7), agora));
 
   if (await fonteViva(agora)) {
     saida.blacklist = await etapa('blacklist × não recrutar', async () => {

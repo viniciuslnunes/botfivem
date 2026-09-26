@@ -34,7 +34,7 @@ module.exports = {
     advPendentes: id(109), advRecrutadores: id(110), historicoAdvRec: id(111), carteirinha: id(112),
     mural: id(113), ticket: id(114), logsTicket: id(115), hierarquia: id(116), elenco: null,
     quadroRecrutadores: id(117), topRecrutadores: id(118), logsLideranca: null, alertaNovatos: id(119),
-    antiSpam: null, associadoEmAtencao: null, atualizacoes: null, telefoneSocio: id(120),
+    antiSpam: null, associadoEmAtencao: null, ocorrencias: null, setagensPendentes: null, atualizacoes: null, telefoneSocio: id(120),
   },
 
   categorias: { tickets: id(200) },

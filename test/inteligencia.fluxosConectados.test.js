@@ -154,7 +154,7 @@ test('ADV registrada: resumo, confiança e reincidência atualizam na hora', asy
     logMessageId: 'manual:S1:2', status: 'ATIVA',
   });
   membro.roles.cache.set(config.cargos.adv[0], { id: config.cargos.adv[0] });
-  const atencao = criarCanal(config.canais.associadoEmAtencao, 'atencao');
+  const atencao = criarCanal(config.canais.ocorrencias, 'ocorrencias');
   guild.channels.cache.set(atencao.id, atencao);
 
   await F.aoAdvRegistrada({ client: guild.client, membro, nivel: 1, origem: 'manual', advId: linha.id });

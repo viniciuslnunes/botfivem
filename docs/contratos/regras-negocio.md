@@ -237,8 +237,11 @@ alerta vai para quem decide (decisão do usuário: "alerta avisa quem decide"). 
 Decisões tomadas sem resposta do usuário (padrões; mudar aqui e no código):
 
 - **Reincidência só avisa** (não abre ADV automática). Reincidente = 2+ ocorrências (ADV de sócio,
-  blacklist, suspensão, impedimento) em 90 dias. Vai para `associadoEmAtencao`; a chave do debounce
+  blacklist, suspensão, impedimento) em 90 dias. Vai para `ocorrencias` (❌・ocorrências; `associadoEmAtencao` fica só com os registros de impedimento/restrição); a chave do debounce
   leva a contagem, então só avisa de novo se piorar.
+- **Ficha parada na análise** (pendente > 12 h) vai só para `setagensPendentes` (🚨・setagens-pendentes, decisão
+  do usuário 2026-09-26; canal exclusivo deste alerta). **Cada** registro novo menciona liderança + Recrutador
+  (`mencoesDaEquipe()`), não só o primeiro do lote.
 - **Nome parecido na ficha só avisa** (resposta na própria ficha, sem notificar): ≥ 80% de semelhança
   (`utils/nomes.js`, a mesma correlação de `idsSemSocio`) contra blacklist/suspensão/impedimento ativos,
   IDs em não recrutar e reprovados definitivos. Aprovar continua com o recrutador.

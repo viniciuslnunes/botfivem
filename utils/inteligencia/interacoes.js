@@ -5,6 +5,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBui
 const config = require('../../config/index.js');
 const { registrarModulo } = require('../modulos');
 const { ehLideranca, MSG_SO_LIDERANCA } = require('../permissoes');
+const tema = require('../../tema');
 const casos = require('./casos');
 
 const responder = (interaction, conteudo) => interaction.reply({ content: conteudo, flags: 64, allowedMentions: { parse: [] } });
@@ -18,7 +19,7 @@ async function membroDoCaso(interaction, caso) {
 async function concluir(interaction, caso, status, resolucao) {
   const fechado = await casos.fechar(caso.id, status, { porId: interaction.user.id, resolucao });
   if (!fechado) return false;
-  const rotulo = { RESOLVIDO: '✔️ resolvido', IGNORADO: '🙈 ignorado' }[status] ?? status.toLowerCase();
+  const rotulo = { RESOLVIDO: '✔️ resolvido', IGNORADO: `${tema.emoji.recusado} ignorado` }[status] ?? status.toLowerCase();
   await casos.encerrarMensagem(interaction.client, fechado, `${rotulo} por ${interaction.member?.displayName ?? interaction.user.username}${resolucao ? ` — ${resolucao}` : ''}`);
   return true;
 }
@@ -72,7 +73,7 @@ async function tratar(interaction) {
 
   if (acao === 'res' || acao === 'ign') {
     const ok = await concluir(interaction, caso, acao === 'res' ? 'RESOLVIDO' : 'IGNORADO', null);
-    return responder(interaction, ok ? (acao === 'res' ? '✔️ Caso resolvido.' : '🙈 Caso ignorado.') : '⚠️ OUTRA PESSOA JÁ FECHOU ESTE CASO.');
+    return responder(interaction, ok ? (acao === 'res' ? '✔️ Caso resolvido.' : `${tema.emoji.recusado} Caso ignorado.`) : '⚠️ OUTRA PESSOA JÁ FECHOU ESTE CASO.');
   }
 
   if (acao === 'blq') return abrirModalBloqueio(interaction, caso);
